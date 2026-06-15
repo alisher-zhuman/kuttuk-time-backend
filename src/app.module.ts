@@ -16,7 +16,11 @@ import { AuthModule } from "./auth/auth.module";
         password: config.get("DATABASE_PASSWORD"),
         database: config.get("DATABASE_NAME"),
         entities: [__dirname + "/**/*.entity{.ts,.js}"],
-        synchronize: config.get("NODE_ENV") !== "production",
+        synchronize: config.get("DB_SYNC") === "true",
+        ssl:
+          config.get("DATABASE_SSL") === "true"
+            ? { rejectUnauthorized: false }
+            : false,
       }),
       inject: [ConfigService],
     }),
