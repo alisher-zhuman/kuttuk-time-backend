@@ -21,7 +21,7 @@ export class AuthService {
     let user = await this.userRepository.findOne({ where: { telegramId } });
 
     const merchant = await this.merchantRepository.findOne({
-      where: { ownerTelegramId: telegramId, isActive: true },
+      where: { merchantTelegramId: telegramId, isActive: true },
     });
 
     if (!user) {

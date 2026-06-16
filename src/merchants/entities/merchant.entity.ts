@@ -23,7 +23,7 @@ export class Merchant {
   phone!: string | null;
 
   @Column({ unique: true })
-  ownerTelegramId!: number;
+  merchantTelegramId!: number;
 
   @Column({ default: true })
   isActive!: boolean;

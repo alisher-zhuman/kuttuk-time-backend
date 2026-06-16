@@ -52,9 +52,9 @@ export class MerchantsService {
     user: CurrentUser,
   ): Promise<Merchant> {
     const merchant = await this.findOne(id);
-    const isOwner = merchant.ownerTelegramId === user.telegramId;
+    const isMerchant = merchant.merchantTelegramId === user.telegramId;
 
-    if (!isOwner && user.role !== "admin") {
+    if (!isMerchant && user.role !== "admin") {
       throw new ForbiddenException();
     }
 
@@ -73,9 +73,9 @@ export class MerchantsService {
     user: CurrentUser,
   ): Promise<Certificate> {
     const merchant = await this.findOne(merchantId);
-    const isOwner = merchant.ownerTelegramId === user.telegramId;
+    const isMerchant = merchant.merchantTelegramId === user.telegramId;
 
-    if (!isOwner && user.role !== "admin") {
+    if (!isMerchant && user.role !== "admin") {
       throw new ForbiddenException();
     }
 
@@ -90,9 +90,9 @@ export class MerchantsService {
     user: CurrentUser,
   ): Promise<Certificate> {
     const merchant = await this.findOne(merchantId);
-    const isOwner = merchant.ownerTelegramId === user.telegramId;
+    const isMerchant = merchant.merchantTelegramId === user.telegramId;
 
-    if (!isOwner && user.role !== "admin") {
+    if (!isMerchant && user.role !== "admin") {
       throw new ForbiddenException();
     }
 
