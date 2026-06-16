@@ -13,7 +13,6 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "baseUrl": "./",
-    "skipLibCheck": true,
-    "incremental": true
+    "skipLibCheck": true
   }
 }
