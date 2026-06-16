@@ -8,6 +8,7 @@ import {
   ParseIntPipe,
   UseGuards,
 } from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 
 import { MerchantsService } from "./merchants.service";
 import { CreateMerchantDto } from "./dto/create-merchant.dto";
@@ -20,16 +21,19 @@ import { Roles } from "@/auth/roles.decorator";
 import { GetUser } from "@/auth/get-user.decorator";
 import { CurrentUser } from "@/auth/interfaces/current-user.interface";
 
+@ApiTags("Merchants")
 @Controller("merchants")
 export class MerchantsController {
   constructor(private readonly merchantsService: MerchantsService) {}
 
   @Get()
+  @ApiOperation({ summary: "List all active merchants" })
   findAll() {
     return this.merchantsService.findAll();
   }
 
   @Get(":id")
+  @ApiOperation({ summary: "Get merchant with certificates" })
   findOne(@Param("id", ParseIntPipe) id: number) {
     return this.merchantsService.findOne(id);
   }
@@ -37,6 +41,8 @@ export class MerchantsController {
   @Post()
   @UseGuards(JwtGuard, RolesGuard)
   @Roles("admin")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Create merchant (admin only)" })
   create(@Body() dto: CreateMerchantDto) {
     return this.merchantsService.create(dto);
   }
@@ -44,6 +50,8 @@ export class MerchantsController {
   @Patch(":id")
   @UseGuards(JwtGuard, RolesGuard)
   @Roles("admin", "merchant")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Update merchant (admin or owner)" })
   update(
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: UpdateMerchantDto,
@@ -53,6 +61,7 @@ export class MerchantsController {
   }
 
   @Get(":id/certificates")
+  @ApiOperation({ summary: "List active certificates for a merchant" })
   findCertificates(@Param("id", ParseIntPipe) id: number) {
     return this.merchantsService.findCertificates(id);
   }
@@ -60,6 +69,8 @@ export class MerchantsController {
   @Post(":id/certificates")
   @UseGuards(JwtGuard, RolesGuard)
   @Roles("admin", "merchant")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Create certificate (admin or owner)" })
   createCertificate(
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: CreateCertificateDto,
@@ -71,6 +82,8 @@ export class MerchantsController {
   @Patch(":id/certificates/:certId")
   @UseGuards(JwtGuard, RolesGuard)
   @Roles("admin", "merchant")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Update certificate (admin or owner)" })
   updateCertificate(
     @Param("id", ParseIntPipe) id: number,
     @Param("certId", ParseIntPipe) certId: number,
