@@ -14,6 +14,6 @@ export class AuthController {
   logIn(
     @Body() logInDto: LogInDto,
   ): Promise<{ accessToken: string; role: string }> {
-    return this.authService.logIn(logInDto.telegramId);
+    return this.authService.logIn(logInDto.initData);
   }
 }
