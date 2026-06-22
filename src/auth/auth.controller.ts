@@ -9,11 +9,11 @@ import { LogInDto } from "./dtos/log-in.dto";
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post("logIn")
+  @Post("log-in")
   @ApiOperation({ summary: "Log in by Telegram ID, returns JWT" })
   logIn(
     @Body() logInDto: LogInDto,
   ): Promise<{ accessToken: string; role: string }> {
-    return this.authService.logIn(logInDto.telegramId);
+    return this.authService.logIn(logInDto.initData);
   }
 }
