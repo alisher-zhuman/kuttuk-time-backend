@@ -15,7 +15,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async login(
+  async logIn(
     telegramId: number,
   ): Promise<{ accessToken: string; role: string }> {
     let user = await this.userRepository.findOne({ where: { telegramId } });

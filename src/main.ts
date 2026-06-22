@@ -9,6 +9,7 @@ import { GlobalExceptionFilter } from "./common/filters/http-exception.filter";
 const bootstrap = async () => {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  app.setGlobalPrefix("api");
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
   app.useGlobalFilters(new GlobalExceptionFilter());
 
