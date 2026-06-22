@@ -15,13 +15,13 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async login(
+  async logIn(
     telegramId: number,
   ): Promise<{ accessToken: string; role: string }> {
     let user = await this.userRepository.findOne({ where: { telegramId } });
 
     const merchant = await this.merchantRepository.findOne({
-      where: { ownerTelegramId: telegramId, isActive: true },
+      where: { merchantTelegramId: telegramId, isActive: true },
     });
 
     if (!user) {

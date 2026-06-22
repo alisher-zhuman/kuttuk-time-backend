@@ -23,8 +23,8 @@ export class CreateMerchantDto {
   @IsString()
   phone?: string;
 
-  @ApiProperty({ example: 123456789, description: "Owner Telegram ID" })
+  @ApiProperty({ example: 123456789, description: "Merchant Telegram ID" })
   @IsNumber()
   @IsPositive()
-  ownerTelegramId!: number;
+  merchantTelegramId!: number;
 }

@@ -69,15 +69,15 @@ npm run lint        # ESLint check
 | GET | `/merchants` | Public | List all active merchants |
 | GET | `/merchants/:id` | Public | Get merchant with certificates |
 | POST | `/merchants` | Admin | Create merchant |
-| PATCH | `/merchants/:id` | Admin / Owner | Update merchant |
+| PATCH | `/merchants/:id` | Admin / Merchant | Update merchant |
 
 ### Certificates
 
 | Method | URL | Access | Description |
 |--------|-----|--------|-------------|
 | GET | `/merchants/:id/certificates` | Public | List active certificates |
-| POST | `/merchants/:id/certificates` | Admin / Owner | Create certificate |
-| PATCH | `/merchants/:id/certificates/:certId` | Admin / Owner | Update certificate |
+| POST | `/merchants/:id/certificates` | Admin / Merchant | Create certificate |
+| PATCH | `/merchants/:id/certificates/:certId` | Admin / Merchant | Update certificate |
 
 ## Roles
 

@@ -51,7 +51,7 @@ export class MerchantsController {
   @UseGuards(JwtGuard, RolesGuard)
   @Roles("admin", "merchant")
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Update merchant (admin or owner)" })
+  @ApiOperation({ summary: "Update merchant (admin or merchant)" })
   update(
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: UpdateMerchantDto,
@@ -70,7 +70,7 @@ export class MerchantsController {
   @UseGuards(JwtGuard, RolesGuard)
   @Roles("admin", "merchant")
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Create certificate (admin or owner)" })
+  @ApiOperation({ summary: "Create certificate (admin or merchant)" })
   createCertificate(
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: CreateCertificateDto,
@@ -83,7 +83,7 @@ export class MerchantsController {
   @UseGuards(JwtGuard, RolesGuard)
   @Roles("admin", "merchant")
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Update certificate (admin or owner)" })
+  @ApiOperation({ summary: "Update certificate (admin or merchant)" })
   updateCertificate(
     @Param("id", ParseIntPipe) id: number,
     @Param("certId", ParseIntPipe) certId: number,
