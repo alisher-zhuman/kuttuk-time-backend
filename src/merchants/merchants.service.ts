@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, ILike } from "typeorm";
+import { Repository } from "typeorm";
 
 import { Merchant } from "./entities/merchant.entity";
 import { CreateMerchantDto } from "./dto/create-merchant.dto";
