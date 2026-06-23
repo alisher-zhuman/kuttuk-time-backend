@@ -19,6 +19,7 @@ export class MerchantsService {
   ) {}
 
   async findAll(
+    lang: string,
     search?: string,
     category?: string,
   ): Promise<{ id: number; name: string; description: string | null; category: string; minNominal: number }[]> {
@@ -37,7 +38,7 @@ export class MerchantsService {
     return merchants.map(({ id, name, description, category: cat, nominals }) => ({
       id,
       name,
-      description,
+      description: this.resolveDescription(description, lang),
       category: cat,
       minNominal: Math.min(...nominals),
     }));
@@ -54,7 +55,10 @@ export class MerchantsService {
     return rows.map((r) => r.category);
   }
 
-  async findOne(id: number): Promise<{
+  async findOne(
+    id: number,
+    lang: string,
+  ): Promise<{
     id: number;
     name: string;
     description: string | null;
@@ -71,7 +75,7 @@ export class MerchantsService {
     return {
       id: merchant.id,
       name: merchant.name,
-      description: merchant.description,
+      description: this.resolveDescription(merchant.description, lang),
       category: merchant.category,
       nominals: merchant.nominals,
       validityMonths: merchant.validityMonths,
@@ -107,5 +111,16 @@ export class MerchantsService {
     }
 
     return merchant;
+  }
+
+  private resolveDescription(
+    description: Record<string, string> | null,
+    lang: string,
+  ): string | null {
+    if (!description) {
+      return null;
+    }
+
+    return description[lang] ?? description["ru"] ?? null;
   }
 }

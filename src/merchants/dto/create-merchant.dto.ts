@@ -6,6 +6,7 @@ import {
   IsPositive,
   IsArray,
   ArrayMinSize,
+  IsObject,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
@@ -15,10 +16,13 @@ export class CreateMerchantDto {
   @IsNotEmpty()
   name!: string;
 
-  @ApiProperty({ example: "Best coffee in the city", required: false })
+  @ApiProperty({
+    example: { ru: "Лучший кофе в городе", kg: "Шаардагы эң жакшы кофе", en: "Best coffee in the city" },
+    required: false,
+  })
   @IsOptional()
-  @IsString()
-  description?: string;
+  @IsObject()
+  description?: Record<string, string>;
 
   @ApiProperty({ example: "coffee", description: "coffee | restaurant | spa | fitness" })
   @IsString()

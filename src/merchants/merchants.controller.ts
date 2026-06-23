@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   Query,
+  Headers,
   ParseIntPipe,
   UseGuards,
 } from "@nestjs/common";
@@ -59,10 +60,12 @@ export class MerchantsController {
   @ApiOkResponse({ description: "Array of merchants" })
   @ApiUnauthorizedResponse({ description: "No token provided" })
   findAll(
+    @Headers("accept-language") acceptLanguage: string = "ru",
     @Query("search") search?: string,
     @Query("category") category?: string,
   ) {
-    return this.merchantsService.findAll(search, category);
+    const lang = (acceptLanguage ?? "ru").slice(0, 2);
+    return this.merchantsService.findAll(lang, search, category);
   }
 
   @Get(":id")
@@ -73,8 +76,12 @@ export class MerchantsController {
   @ApiOkResponse({ description: "Merchant object" })
   @ApiUnauthorizedResponse({ description: "No token provided" })
   @ApiNotFoundResponse({ description: "Merchant not found" })
-  findOne(@Param("id", ParseIntPipe) id: number) {
-    return this.merchantsService.findOne(id);
+  findOne(
+    @Param("id", ParseIntPipe) id: number,
+    @Headers("accept-language") acceptLanguage: string = "ru",
+  ) {
+    const lang = (acceptLanguage ?? "ru").slice(0, 2);
+    return this.merchantsService.findOne(id, lang);
   }
 
   @Post()
