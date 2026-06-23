@@ -18,9 +18,8 @@ export class AuthController {
   @ApiOperation({
     summary: "Log in via Telegram Mini App",
     description:
-      "Pass the raw `initData` string from `window.Telegram.WebApp.initData`. " +
-      "The server verifies the Telegram signature and returns a JWT token.\n\n" +
-      "**Roles:** public (no token required)",
+      "Send Telegram `initData`. The server verifies the signature and returns a JWT.\n\n" +
+      "**Roles:** all",
   })
   @ApiOkResponse({
     description: "JWT token and user role",

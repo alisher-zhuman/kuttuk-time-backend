@@ -38,7 +38,7 @@ export class MerchantsController {
   @Get()
   @ApiOperation({
     summary: "List all active merchants",
-    description: "**Roles:** public (no token required)",
+    description: "**Roles:** all",
   })
   @ApiOkResponse({ description: "Array of merchants" })
   findAll() {
@@ -48,7 +48,7 @@ export class MerchantsController {
   @Get(":id")
   @ApiOperation({
     summary: "Get one merchant with their certificates",
-    description: "**Roles:** public (no token required)",
+    description: "**Roles:** all",
   })
   @ApiOkResponse({ description: "Merchant object with certificates" })
   @ApiNotFoundResponse({ description: "Merchant not found" })
@@ -95,7 +95,7 @@ export class MerchantsController {
   @Get(":id/certificates")
   @ApiOperation({
     summary: "List active certificates for a merchant",
-    description: "**Roles:** public (no token required)",
+    description: "**Roles:** all",
   })
   @ApiOkResponse({ description: "Array of certificates" })
   @ApiNotFoundResponse({ description: "Merchant not found" })
