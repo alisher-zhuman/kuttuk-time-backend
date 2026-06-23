@@ -4,9 +4,7 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany,
 } from "typeorm";
-import { Certificate } from "./certificate.entity";
 
 @Entity("merchants")
 export class Merchant {
@@ -19,17 +17,20 @@ export class Merchant {
   @Column({ type: "varchar", nullable: true })
   description!: string | null;
 
-  @Column({ type: "varchar", nullable: true })
-  phone!: string | null;
+  @Column({ type: "varchar" })
+  category!: string;
+
+  @Column("int", { array: true })
+  nominals!: number[];
+
+  @Column({ default: 12 })
+  validityMonths!: number;
 
   @Column({ unique: true })
   merchantTelegramId!: number;
 
   @Column({ default: true })
   isActive!: boolean;
-
-  @OneToMany(() => Certificate, (cert) => cert.merchant, { cascade: true })
-  certificates!: Certificate[];
 
   @CreateDateColumn()
   createdAt!: Date;

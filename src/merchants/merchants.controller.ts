@@ -5,6 +5,7 @@ import {
   Patch,
   Body,
   Param,
+  Query,
   ParseIntPipe,
   UseGuards,
 } from "@nestjs/common";
@@ -17,13 +18,12 @@ import {
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
+  ApiQuery,
 } from "@nestjs/swagger";
 
 import { MerchantsService } from "./merchants.service";
 import { CreateMerchantDto } from "./dto/create-merchant.dto";
 import { UpdateMerchantDto } from "./dto/update-merchant.dto";
-import { CreateCertificateDto } from "./dto/create-certificate.dto";
-import { UpdateCertificateDto } from "./dto/update-certificate.dto";
 import { JwtGuard } from "@/auth/jwt.guard";
 import { RolesGuard } from "@/auth/roles.guard";
 import { Roles } from "@/auth/roles.decorator";
@@ -35,22 +35,40 @@ import { CurrentUser } from "@/auth/interfaces/current-user.interface";
 export class MerchantsController {
   constructor(private readonly merchantsService: MerchantsService) {}
 
-  @Get()
+  @Get("categories")
   @ApiOperation({
-    summary: "List all active merchants",
+    summary: "List all available categories",
     description: "**Roles:** all",
   })
+  @ApiOkResponse({
+    description: "Array of category strings",
+    schema: { example: ["coffee", "restaurant", "spa", "fitness"] },
+  })
+  getCategories() {
+    return this.merchantsService.getCategories();
+  }
+
+  @Get()
+  @ApiOperation({
+    summary: "List active merchants",
+    description: "**Roles:** all",
+  })
+  @ApiQuery({ name: "search", required: false, example: "sierra" })
+  @ApiQuery({ name: "category", required: false, example: "coffee" })
   @ApiOkResponse({ description: "Array of merchants" })
-  findAll() {
-    return this.merchantsService.findAll();
+  findAll(
+    @Query("search") search?: string,
+    @Query("category") category?: string,
+  ) {
+    return this.merchantsService.findAll(search, category);
   }
 
   @Get(":id")
   @ApiOperation({
-    summary: "Get one merchant with their certificates",
+    summary: "Get one merchant",
     description: "**Roles:** all",
   })
-  @ApiOkResponse({ description: "Merchant object with certificates" })
+  @ApiOkResponse({ description: "Merchant object" })
   @ApiNotFoundResponse({ description: "Merchant not found" })
   findOne(@Param("id", ParseIntPipe) id: number) {
     return this.merchantsService.findOne(id);
@@ -77,12 +95,11 @@ export class MerchantsController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: "Update a merchant",
-    description:
-      "**Roles:** `admin` (any merchant) · `merchant` (own profile only)",
+    description: "**Roles:** `admin` (any) · `merchant` (own only)",
   })
   @ApiOkResponse({ description: "Merchant updated" })
   @ApiUnauthorizedResponse({ description: "No token provided" })
-  @ApiForbiddenResponse({ description: "Requires admin or merchant role, or not your profile" })
+  @ApiForbiddenResponse({ description: "Requires admin or merchant role" })
   @ApiNotFoundResponse({ description: "Merchant not found" })
   update(
     @Param("id", ParseIntPipe) id: number,
@@ -90,59 +107,5 @@ export class MerchantsController {
     @GetUser() user: CurrentUser,
   ) {
     return this.merchantsService.update(id, dto, user);
-  }
-
-  @Get(":id/certificates")
-  @ApiOperation({
-    summary: "List active certificates for a merchant",
-    description: "**Roles:** all",
-  })
-  @ApiOkResponse({ description: "Array of certificates" })
-  @ApiNotFoundResponse({ description: "Merchant not found" })
-  findCertificates(@Param("id", ParseIntPipe) id: number) {
-    return this.merchantsService.findCertificates(id);
-  }
-
-  @Post(":id/certificates")
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles("admin", "merchant")
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: "Create a certificate for a merchant",
-    description:
-      "**Roles:** `admin` (any merchant) · `merchant` (own profile only)",
-  })
-  @ApiCreatedResponse({ description: "Certificate created" })
-  @ApiUnauthorizedResponse({ description: "No token provided" })
-  @ApiForbiddenResponse({ description: "Requires admin or merchant role, or not your profile" })
-  @ApiNotFoundResponse({ description: "Merchant not found" })
-  createCertificate(
-    @Param("id", ParseIntPipe) id: number,
-    @Body() dto: CreateCertificateDto,
-    @GetUser() user: CurrentUser,
-  ) {
-    return this.merchantsService.createCertificate(id, dto, user);
-  }
-
-  @Patch(":id/certificates/:certId")
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles("admin", "merchant")
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: "Update a certificate",
-    description:
-      "**Roles:** `admin` (any merchant) · `merchant` (own profile only)",
-  })
-  @ApiOkResponse({ description: "Certificate updated" })
-  @ApiUnauthorizedResponse({ description: "No token provided" })
-  @ApiForbiddenResponse({ description: "Requires admin or merchant role, or not your profile" })
-  @ApiNotFoundResponse({ description: "Certificate not found" })
-  updateCertificate(
-    @Param("id", ParseIntPipe) id: number,
-    @Param("certId", ParseIntPipe) certId: number,
-    @Body() dto: UpdateCertificateDto,
-    @GetUser() user: CurrentUser,
-  ) {
-    return this.merchantsService.updateCertificate(id, certId, dto, user);
   }
 }
