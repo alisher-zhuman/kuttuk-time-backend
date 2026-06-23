@@ -24,10 +24,11 @@ export class CreateMerchantDto {
   @IsObject()
   description?: Record<string, string>;
 
-  @ApiProperty({ example: "coffee", description: "coffee | restaurant | spa | fitness" })
-  @IsString()
-  @IsNotEmpty()
-  category!: string;
+  @ApiProperty({ example: ["coffee", "restaurant"], description: "coffee | restaurant | spa | fitness" })
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  categories!: string[];
 
   @ApiProperty({ example: [500, 1000, 2000, 3000, 5000], description: "Available nominals in KGS" })
   @IsArray()

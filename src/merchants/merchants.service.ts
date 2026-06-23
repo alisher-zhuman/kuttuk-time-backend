@@ -22,24 +22,25 @@ export class MerchantsService {
     lang: string,
     search?: string,
     category?: string,
-  ): Promise<{ id: number; name: string; description: string | null; category: string; minNominal: number }[]> {
-    const where: Record<string, unknown> = { isActive: true };
+  ): Promise<{ id: number; name: string; description: string | null; minNominal: number }[]> {
+    const qb = this.merchantRepo
+      .createQueryBuilder("merchant")
+      .where("merchant.isActive = true");
 
     if (category) {
-      where.category = category;
+      qb.andWhere(":category = ANY(merchant.categories)", { category });
     }
 
     if (search) {
-      where.name = ILike(`%${search}%`);
+      qb.andWhere("merchant.name ILIKE :search", { search: `%${search}%` });
     }
 
-    const merchants = await this.merchantRepo.find({ where });
+    const merchants = await qb.getMany();
 
-    return merchants.map(({ id, name, description, category: cat, nominals }) => ({
+    return merchants.map(({ id, name, description, nominals }) => ({
       id,
       name,
       description: this.resolveDescription(description, lang),
-      category: cat,
       minNominal: Math.min(...nominals),
     }));
   }
@@ -47,9 +48,8 @@ export class MerchantsService {
   async getCategories(): Promise<string[]> {
     const rows = await this.merchantRepo
       .createQueryBuilder("merchant")
-      .select("DISTINCT merchant.category", "category")
+      .select("DISTINCT UNNEST(merchant.categories)", "category")
       .where("merchant.isActive = true")
-      .andWhere("merchant.category IS NOT NULL")
       .getRawMany<{ category: string }>();
 
     return rows.map((r) => r.category);
@@ -62,7 +62,6 @@ export class MerchantsService {
     id: number;
     name: string;
     description: string | null;
-    category: string;
     nominals: number[];
     validityMonths: number;
   }> {
@@ -76,7 +75,6 @@ export class MerchantsService {
       id: merchant.id,
       name: merchant.name,
       description: this.resolveDescription(merchant.description, lang),
-      category: merchant.category,
       nominals: merchant.nominals,
       validityMonths: merchant.validityMonths,
     };

@@ -17,8 +17,8 @@ export class Merchant {
   @Column({ type: "jsonb", nullable: true })
   description!: Record<string, string> | null;
 
-  @Column({ type: "varchar" })
-  category!: string;
+  @Column("text", { array: true })
+  categories!: string[];
 
   @Column("int", { array: true })
   nominals!: number[];

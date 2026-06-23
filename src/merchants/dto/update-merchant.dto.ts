@@ -15,10 +15,11 @@ export class UpdateMerchantDto {
   @IsObject()
   description?: Record<string, string>;
 
-  @ApiProperty({ example: "coffee", required: false })
+  @ApiProperty({ example: ["coffee", "restaurant"], required: false })
   @IsOptional()
-  @IsString()
-  category?: string;
+  @IsArray()
+  @IsString({ each: true })
+  categories?: string[];
 
   @ApiProperty({ example: [500, 1000, 2000], required: false })
   @IsOptional()
