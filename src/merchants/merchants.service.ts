@@ -121,6 +121,6 @@ export class MerchantsService {
       return null;
     }
 
-    return description[lang] ?? description["ru"] ?? null;
+    return description[lang] ?? description["kg"] ?? description["ru"] ?? description["en"] ?? null;
   }
 }

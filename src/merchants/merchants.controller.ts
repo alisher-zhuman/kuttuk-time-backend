@@ -60,11 +60,11 @@ export class MerchantsController {
   @ApiOkResponse({ description: "Array of merchants" })
   @ApiUnauthorizedResponse({ description: "No token provided" })
   findAll(
-    @Headers("accept-language") acceptLanguage: string = "ru",
+    @Headers("accept-language") acceptLanguage: string = "kg",
     @Query("search") search?: string,
     @Query("category") category?: string,
   ) {
-    const lang = (acceptLanguage ?? "ru").slice(0, 2);
+    const lang = (acceptLanguage ?? "kg").slice(0, 2);
     return this.merchantsService.findAll(lang, search, category);
   }
 
@@ -78,9 +78,9 @@ export class MerchantsController {
   @ApiNotFoundResponse({ description: "Merchant not found" })
   findOne(
     @Param("id", ParseIntPipe) id: number,
-    @Headers("accept-language") acceptLanguage: string = "ru",
+    @Headers("accept-language") acceptLanguage: string = "kg",
   ) {
-    const lang = (acceptLanguage ?? "ru").slice(0, 2);
+    const lang = (acceptLanguage ?? "kg").slice(0, 2);
     return this.merchantsService.findOne(id, lang);
   }
 
