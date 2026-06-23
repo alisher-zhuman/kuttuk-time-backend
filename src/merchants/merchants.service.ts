@@ -18,7 +18,10 @@ export class MerchantsService {
     private readonly merchantRepo: Repository<Merchant>,
   ) {}
 
-  findAll(search?: string, category?: string): Promise<Merchant[]> {
+  async findAll(
+    search?: string,
+    category?: string,
+  ): Promise<{ id: number; name: string; description: string | null; category: string; minNominal: number }[]> {
     const where: Record<string, unknown> = { isActive: true };
 
     if (category) {
@@ -29,7 +32,15 @@ export class MerchantsService {
       where.name = ILike(`%${search}%`);
     }
 
-    return this.merchantRepo.find({ where });
+    const merchants = await this.merchantRepo.find({ where });
+
+    return merchants.map(({ id, name, description, category: cat, nominals }) => ({
+      id,
+      name,
+      description,
+      category: cat,
+      minNominal: Math.min(...nominals),
+    }));
   }
 
   async getCategories(): Promise<string[]> {
@@ -43,14 +54,28 @@ export class MerchantsService {
     return rows.map((r) => r.category);
   }
 
-  async findOne(id: number): Promise<Merchant> {
+  async findOne(id: number): Promise<{
+    id: number;
+    name: string;
+    description: string | null;
+    category: string;
+    nominals: number[];
+    validityMonths: number;
+  }> {
     const merchant = await this.merchantRepo.findOne({ where: { id } });
 
     if (!merchant) {
       throw new NotFoundException("Merchant not found");
     }
 
-    return merchant;
+    return {
+      id: merchant.id,
+      name: merchant.name,
+      description: merchant.description,
+      category: merchant.category,
+      nominals: merchant.nominals,
+      validityMonths: merchant.validityMonths,
+    };
   }
 
   create(dto: CreateMerchantDto): Promise<Merchant> {
@@ -63,7 +88,7 @@ export class MerchantsService {
     dto: UpdateMerchantDto,
     user: CurrentUser,
   ): Promise<Merchant> {
-    const merchant = await this.findOne(id);
+    const merchant = await this.findEntity(id);
     const isMerchant = merchant.merchantTelegramId === user.telegramId;
 
     if (!isMerchant && user.role !== "admin") {
@@ -72,5 +97,15 @@ export class MerchantsService {
 
     Object.assign(merchant, dto);
     return this.merchantRepo.save(merchant);
+  }
+
+  private async findEntity(id: number): Promise<Merchant> {
+    const merchant = await this.merchantRepo.findOne({ where: { id } });
+
+    if (!merchant) {
+      throw new NotFoundException("Merchant not found");
+    }
+
+    return merchant;
   }
 }
