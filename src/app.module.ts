@@ -1,8 +1,10 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { APP_GUARD } from "@nestjs/core";
 import { AuthModule } from "./auth/auth.module";
 import { MerchantsModule } from "./merchants/merchants.module";
+import { JwtGuard } from "./auth/jwt.guard";
 
 @Module({
   imports: [
@@ -28,5 +30,6 @@ import { MerchantsModule } from "./merchants/merchants.module";
     AuthModule,
     MerchantsModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: JwtGuard }],
 })
 export class AppModule {}

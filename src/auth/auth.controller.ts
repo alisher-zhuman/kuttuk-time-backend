@@ -8,12 +8,14 @@ import {
 
 import { AuthService } from "./auth.service";
 import { LogInDto } from "./dtos/log-in.dto";
+import { Public } from "./public.decorator";
 
 @ApiTags("Auth")
 @Controller("auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post("log-in")
   @ApiOperation({
     summary: "Log in via Telegram Mini App",
