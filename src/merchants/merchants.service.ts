@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, ILike } from "typeorm";
+import { Repository } from "typeorm";
 
 import { Merchant } from "./entities/merchant.entity";
 import { CreateMerchantDto } from "./dto/create-merchant.dto";
@@ -19,26 +19,28 @@ export class MerchantsService {
   ) {}
 
   async findAll(
+    lang: string,
     search?: string,
     category?: string,
-  ): Promise<{ id: number; name: string; description: string | null; category: string; minNominal: number }[]> {
-    const where: Record<string, unknown> = { isActive: true };
+  ): Promise<{ id: number; name: string; description: string | null; minNominal: number }[]> {
+    const qb = this.merchantRepo
+      .createQueryBuilder("merchant")
+      .where("merchant.isActive = true");
 
     if (category) {
-      where.category = category;
+      qb.andWhere(":category = ANY(merchant.categories)", { category });
     }
 
     if (search) {
-      where.name = ILike(`%${search}%`);
+      qb.andWhere("merchant.name ILIKE :search", { search: `%${search}%` });
     }
 
-    const merchants = await this.merchantRepo.find({ where });
+    const merchants = await qb.getMany();
 
-    return merchants.map(({ id, name, description, category: cat, nominals }) => ({
+    return merchants.map(({ id, name, description, nominals }) => ({
       id,
       name,
-      description,
-      category: cat,
+      description: this.resolveDescription(description, lang),
       minNominal: Math.min(...nominals),
     }));
   }
@@ -46,19 +48,20 @@ export class MerchantsService {
   async getCategories(): Promise<string[]> {
     const rows = await this.merchantRepo
       .createQueryBuilder("merchant")
-      .select("DISTINCT merchant.category", "category")
+      .select("DISTINCT UNNEST(merchant.categories)", "category")
       .where("merchant.isActive = true")
-      .andWhere("merchant.category IS NOT NULL")
       .getRawMany<{ category: string }>();
 
     return rows.map((r) => r.category);
   }
 
-  async findOne(id: number): Promise<{
+  async findOne(
+    id: number,
+    lang: string,
+  ): Promise<{
     id: number;
     name: string;
     description: string | null;
-    category: string;
     nominals: number[];
     validityMonths: number;
   }> {
@@ -71,8 +74,7 @@ export class MerchantsService {
     return {
       id: merchant.id,
       name: merchant.name,
-      description: merchant.description,
-      category: merchant.category,
+      description: this.resolveDescription(merchant.description, lang),
       nominals: merchant.nominals,
       validityMonths: merchant.validityMonths,
     };
@@ -107,5 +109,16 @@ export class MerchantsService {
     }
 
     return merchant;
+  }
+
+  private resolveDescription(
+    description: Record<string, string> | null,
+    lang: string,
+  ): string | null {
+    if (!description) {
+      return null;
+    }
+
+    return description[lang] ?? description["kg"] ?? description["ru"] ?? description["en"] ?? null;
   }
 }
