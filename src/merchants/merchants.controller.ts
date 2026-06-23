@@ -24,13 +24,13 @@ import {
 import { MerchantsService } from "./merchants.service";
 import { CreateMerchantDto } from "./dto/create-merchant.dto";
 import { UpdateMerchantDto } from "./dto/update-merchant.dto";
-import { JwtGuard } from "@/auth/jwt.guard";
 import { RolesGuard } from "@/auth/roles.guard";
 import { Roles } from "@/auth/roles.decorator";
 import { GetUser } from "@/auth/get-user.decorator";
 import { CurrentUser } from "@/auth/interfaces/current-user.interface";
 
 @ApiTags("Merchants")
+@ApiBearerAuth()
 @Controller("merchants")
 export class MerchantsController {
   constructor(private readonly merchantsService: MerchantsService) {}
@@ -38,12 +38,13 @@ export class MerchantsController {
   @Get("categories")
   @ApiOperation({
     summary: "List all available categories",
-    description: "**Roles:** all",
+    description: "**Roles:** user · merchant · admin",
   })
   @ApiOkResponse({
     description: "Array of category strings",
     schema: { example: ["coffee", "restaurant", "spa", "fitness"] },
   })
+  @ApiUnauthorizedResponse({ description: "No token provided" })
   getCategories() {
     return this.merchantsService.getCategories();
   }
@@ -51,11 +52,12 @@ export class MerchantsController {
   @Get()
   @ApiOperation({
     summary: "List active merchants",
-    description: "**Roles:** all",
+    description: "**Roles:** user · merchant · admin",
   })
   @ApiQuery({ name: "search", required: false, example: "sierra" })
   @ApiQuery({ name: "category", required: false, example: "coffee" })
   @ApiOkResponse({ description: "Array of merchants" })
+  @ApiUnauthorizedResponse({ description: "No token provided" })
   findAll(
     @Query("search") search?: string,
     @Query("category") category?: string,
@@ -66,18 +68,18 @@ export class MerchantsController {
   @Get(":id")
   @ApiOperation({
     summary: "Get one merchant",
-    description: "**Roles:** all",
+    description: "**Roles:** user · merchant · admin",
   })
   @ApiOkResponse({ description: "Merchant object" })
+  @ApiUnauthorizedResponse({ description: "No token provided" })
   @ApiNotFoundResponse({ description: "Merchant not found" })
   findOne(@Param("id", ParseIntPipe) id: number) {
     return this.merchantsService.findOne(id);
   }
 
   @Post()
-  @UseGuards(JwtGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles("admin")
-  @ApiBearerAuth()
   @ApiOperation({
     summary: "Create a merchant",
     description: "**Roles:** `admin` only",
@@ -90,9 +92,8 @@ export class MerchantsController {
   }
 
   @Patch(":id")
-  @UseGuards(JwtGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles("admin", "merchant")
-  @ApiBearerAuth()
   @ApiOperation({
     summary: "Update a merchant",
     description: "**Roles:** `admin` (any) · `merchant` (own only)",
