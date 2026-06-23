@@ -7,7 +7,7 @@ export class UpdateMerchantDto {
   @IsString()
   name?: string;
 
-  @ApiProperty({ example: "Лучший кофе в городе", required: false })
+  @ApiProperty({ example: "Best coffee in the city", required: false })
   @IsOptional()
   @IsString()
   description?: string;

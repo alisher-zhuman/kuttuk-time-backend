@@ -15,7 +15,7 @@ export class CreateMerchantDto {
   @IsNotEmpty()
   name!: string;
 
-  @ApiProperty({ example: "Лучший кофе в городе", required: false })
+  @ApiProperty({ example: "Best coffee in the city", required: false })
   @IsOptional()
   @IsString()
   description?: string;
