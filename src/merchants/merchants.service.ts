@@ -10,19 +10,21 @@ import { Merchant } from "./entities/merchant.entity";
 import { CreateMerchantDto } from "./dto/create-merchant.dto";
 import { UpdateMerchantDto } from "./dto/update-merchant.dto";
 import { CurrentUser } from "@/auth/interfaces/current-user.interface";
+import { CloudinaryService } from "@/cloudinary/cloudinary.service";
 
 @Injectable()
 export class MerchantsService {
   constructor(
     @InjectRepository(Merchant)
     private readonly merchantRepo: Repository<Merchant>,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   async findAll(
     lang: string,
     search?: string,
     category?: string,
-  ): Promise<{ id: number; name: string; description: string | null; minNominal: number }[]> {
+  ): Promise<{ id: number; name: string; description: string | null; logo: string | null; minNominal: number }[]> {
     const qb = this.merchantRepo
       .createQueryBuilder("merchant")
       .where("merchant.isActive = true");
@@ -37,10 +39,11 @@ export class MerchantsService {
 
     const merchants = await qb.getMany();
 
-    return merchants.map(({ id, name, description, nominals }) => ({
+    return merchants.map(({ id, name, description, logo, nominals }) => ({
       id,
       name,
       description: this.resolveDescription(description, lang),
+      logo,
       minNominal: Math.min(...nominals),
     }));
   }
@@ -62,6 +65,7 @@ export class MerchantsService {
     id: number;
     name: string;
     description: string | null;
+    logo: string | null;
     nominals: number[];
     validityMonths: number;
   }> {
@@ -75,6 +79,7 @@ export class MerchantsService {
       id: merchant.id,
       name: merchant.name,
       description: this.resolveDescription(merchant.description, lang),
+      logo: merchant.logo,
       nominals: merchant.nominals,
       validityMonths: merchant.validityMonths,
     };
@@ -97,6 +102,14 @@ export class MerchantsService {
       throw new ForbiddenException();
     }
 
+    if (dto.logo && merchant.logo && merchant.logo !== dto.logo) {
+      const publicId = this.extractCloudinaryPublicId(merchant.logo);
+      
+      if (publicId) {
+        await this.cloudinaryService.deleteFile(publicId);
+      }
+    }
+
     Object.assign(merchant, dto);
     return this.merchantRepo.save(merchant);
   }
@@ -109,6 +122,11 @@ export class MerchantsService {
     }
 
     return merchant;
+  }
+
+  private extractCloudinaryPublicId(url: string): string | null {
+    const match = url.match(/\/upload\/v\d+\/(.+)\.[a-z]+$/);
+    return match ? match[1] : null;
   }
 
   private resolveDescription(
