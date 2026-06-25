@@ -29,6 +29,9 @@ export class Merchant {
   @Column({ unique: true })
   merchantTelegramId!: number;
 
+  @Column({ type: "text", nullable: true })
+  logo!: string | null;
+
   @Column({ default: true })
   isActive!: boolean;
 

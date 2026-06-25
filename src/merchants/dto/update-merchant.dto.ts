@@ -32,6 +32,11 @@ export class UpdateMerchantDto {
   @IsNumber()
   validityMonths?: number;
 
+  @ApiProperty({ example: "https://res.cloudinary.com/...", required: false })
+  @IsOptional()
+  @IsString()
+  logo?: string;
+
   @ApiProperty({ example: true, required: false })
   @IsOptional()
   @IsBoolean()

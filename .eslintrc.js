@@ -18,6 +18,7 @@ module.exports = {
           "error",
           { argsIgnorePattern: "^_" },
         ],
+        "curly": ["error", "all"],
       },
     },
   ],

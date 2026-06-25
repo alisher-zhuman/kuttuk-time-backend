@@ -4,6 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { APP_GUARD } from "@nestjs/core";
 import { AuthModule } from "./auth/auth.module";
 import { MerchantsModule } from "./merchants/merchants.module";
+import { UploadModule } from "./upload/upload.module";
 import { JwtGuard } from "./auth/jwt.guard";
 
 @Module({
@@ -29,6 +30,7 @@ import { JwtGuard } from "./auth/jwt.guard";
     }),
     AuthModule,
     MerchantsModule,
+    UploadModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: JwtGuard }],
 })
