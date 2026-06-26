@@ -8,6 +8,7 @@ REST API for KuttukTime — a gift certificate platform for local businesses in 
 - **TypeORM** — ORM
 - **PostgreSQL** — database
 - **JWT** — authentication
+- **Cloudinary** — image storage
 - **Koyeb** — deployment
 
 ## Local Setup
@@ -36,7 +37,15 @@ DATABASE_PASSWORD=your_password
 DATABASE_NAME=kuttuk_time
 DB_SYNC=true
 DATABASE_SSL=false
+
 JWT_SECRET=your_jwt_secret
+BOT_TOKEN=your_telegram_bot_token
+
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+ALLOWED_ORIGINS=http://localhost:5173
 ```
 
 ## Scripts
@@ -51,39 +60,52 @@ npm run lint        # ESLint check
 
 ## API Endpoints
 
+All endpoints require a Bearer JWT token except where noted.
+
 ### Auth
 
 | Method | URL | Access | Description |
 |--------|-----|--------|-------------|
-| POST | `/auth/login` | Public | Login by Telegram ID, returns JWT |
+| POST | `/api/auth/login` | Public | Login via Telegram initData, returns JWT |
 
 **Login body:**
 ```json
-{ "telegramId": 123456789 }
+{ "initData": "user=...&hash=..." }
 ```
 
 ### Merchants
 
 | Method | URL | Access | Description |
 |--------|-----|--------|-------------|
-| GET | `/merchants` | Public | List all active merchants |
-| GET | `/merchants/:id` | Public | Get merchant with certificates |
-| POST | `/merchants` | Admin | Create merchant |
-| PATCH | `/merchants/:id` | Admin / Merchant | Update merchant |
+| GET | `/api/merchants` | Any | List active merchants (supports `?search=` and `?category=`) |
+| GET | `/api/merchants/:id` | Any | Get one merchant |
+| POST | `/api/merchants` | Admin | Create merchant |
+| PATCH | `/api/merchants/:id` | Admin / Merchant | Update merchant |
 
-### Certificates
+### Categories
 
 | Method | URL | Access | Description |
 |--------|-----|--------|-------------|
-| GET | `/merchants/:id/certificates` | Public | List active certificates |
-| POST | `/merchants/:id/certificates` | Admin / Merchant | Create certificate |
-| PATCH | `/merchants/:id/certificates/:certId` | Admin / Merchant | Update certificate |
+| GET | `/api/categories` | Any | List all categories sorted by order |
+| POST | `/api/categories` | Admin | Create category |
+| PATCH | `/api/categories/:id` | Admin | Update category name or order |
+| DELETE | `/api/categories/:id` | Admin | Delete category |
+
+### Upload
+
+| Method | URL | Access | Description |
+|--------|-----|--------|-------------|
+| POST | `/api/upload` | Any | Upload image (JPEG/PNG/WebP, max 5MB), returns Cloudinary URL |
 
 ## Roles
 
-- `user` — default role, can browse and buy certificates
-- `merchant` — assigned automatically when telegramId matches a merchant record
+- `user` — default role, can browse merchants
+- `merchant` — auto-assigned when telegramId matches an active merchant record
 - `admin` — set manually in the database
+
+## Swagger
+
+API docs available at `/api` when running locally.
 
 ## Deployment
 
