@@ -36,20 +36,6 @@ import { CurrentUser } from "@/auth/interfaces/current-user.interface";
 export class MerchantsController {
   constructor(private readonly merchantsService: MerchantsService) {}
 
-  @Get("categories")
-  @ApiOperation({
-    summary: "List all available categories",
-    description: "**Roles:** user · merchant · admin",
-  })
-  @ApiOkResponse({
-    description: "Array of category strings",
-    schema: { example: ["coffee", "restaurant", "spa", "fitness"] },
-  })
-  @ApiUnauthorizedResponse({ description: "No token provided" })
-  getCategories() {
-    return this.merchantsService.getCategories();
-  }
-
   @Get()
   @ApiOperation({
     summary: "List active merchants",

@@ -6,6 +6,7 @@ import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { AuthModule } from "./auth/auth.module";
 import { MerchantsModule } from "./merchants/merchants.module";
 import { UploadModule } from "./upload/upload.module";
+import { CategoriesModule } from "./categories/categories.module";
 import { JwtGuard } from "./auth/jwt.guard";
 
 @Module({
@@ -33,6 +34,7 @@ import { JwtGuard } from "./auth/jwt.guard";
     AuthModule,
     MerchantsModule,
     UploadModule,
+    CategoriesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

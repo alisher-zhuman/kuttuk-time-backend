@@ -59,16 +59,6 @@ export class MerchantsService {
     }));
   }
 
-  async getCategories(): Promise<string[]> {
-    const rows = await this.merchantRepo
-      .createQueryBuilder("merchant")
-      .select("DISTINCT UNNEST(merchant.categories)", "category")
-      .where("merchant.isActive = true")
-      .getRawMany<{ category: string }>();
-
-    return rows.map((r) => r.category);
-  }
-
   async findOne(
     id: number,
     lang: string,
