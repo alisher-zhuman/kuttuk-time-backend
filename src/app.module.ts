@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { APP_GUARD } from "@nestjs/core";
+import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { AuthModule } from "./auth/auth.module";
 import { MerchantsModule } from "./merchants/merchants.module";
 import { UploadModule } from "./upload/upload.module";
@@ -10,6 +11,7 @@ import { JwtGuard } from "./auth/jwt.guard";
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
@@ -32,6 +34,9 @@ import { JwtGuard } from "./auth/jwt.guard";
     MerchantsModule,
     UploadModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: JwtGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtGuard },
+  ],
 })
 export class AppModule {}
