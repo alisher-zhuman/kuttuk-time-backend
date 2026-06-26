@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
 } from "@nestjs/common";
@@ -14,6 +15,8 @@ import { CloudinaryService } from "@/cloudinary/cloudinary.service";
 
 @Injectable()
 export class MerchantsService {
+  private readonly logger = new Logger(MerchantsService.name);
+
   constructor(
     @InjectRepository(Merchant)
     private readonly merchantRepo: Repository<Merchant>,
@@ -24,9 +27,18 @@ export class MerchantsService {
     lang: string,
     search?: string,
     category?: string,
-  ): Promise<{ id: number; name: string; description: string | null; logo: string | null; minNominal: number }[]> {
+  ): Promise<
+    {
+      id: number;
+      name: string;
+      description: string | null;
+      logo: string;
+      minNominal: number;
+    }[]
+  > {
     const qb = this.merchantRepo
       .createQueryBuilder("merchant")
+      .select(["merchant.id", "merchant.name", "merchant.description", "merchant.logo", "merchant.nominals"])
       .where("merchant.isActive = true");
 
     if (category) {
@@ -48,16 +60,6 @@ export class MerchantsService {
     }));
   }
 
-  async getCategories(): Promise<string[]> {
-    const rows = await this.merchantRepo
-      .createQueryBuilder("merchant")
-      .select("DISTINCT UNNEST(merchant.categories)", "category")
-      .where("merchant.isActive = true")
-      .getRawMany<{ category: string }>();
-
-    return rows.map((r) => r.category);
-  }
-
   async findOne(
     id: number,
     lang: string,
@@ -65,7 +67,7 @@ export class MerchantsService {
     id: number;
     name: string;
     description: string | null;
-    logo: string | null;
+    logo: string;
     nominals: number[];
     validityMonths: number;
   }> {
@@ -85,9 +87,13 @@ export class MerchantsService {
     };
   }
 
-  create(dto: CreateMerchantDto): Promise<Merchant> {
+  async create(dto: CreateMerchantDto): Promise<Merchant> {
     const merchant = this.merchantRepo.create(dto);
-    return this.merchantRepo.save(merchant);
+    const saved = await this.merchantRepo.save(merchant);
+
+    this.logger.log(`Merchant created: id=${saved.id} name="${saved.name}"`);
+
+    return saved;
   }
 
   async update(
@@ -104,14 +110,19 @@ export class MerchantsService {
 
     if (dto.logo && merchant.logo && merchant.logo !== dto.logo) {
       const publicId = this.extractCloudinaryPublicId(merchant.logo);
-      
+
       if (publicId) {
         await this.cloudinaryService.deleteFile(publicId);
       }
     }
 
     Object.assign(merchant, dto);
-    return this.merchantRepo.save(merchant);
+
+    const saved = await this.merchantRepo.save(merchant);
+
+    this.logger.log(`Merchant updated: id=${id}`);
+
+    return saved;
   }
 
   private async findEntity(id: number): Promise<Merchant> {
@@ -137,6 +148,12 @@ export class MerchantsService {
       return null;
     }
 
-    return description[lang] ?? description["kg"] ?? description["ru"] ?? description["en"] ?? null;
+    return (
+      description[lang] ??
+      description["kg"] ??
+      description["ru"] ??
+      description["en"] ??
+      null
+    );
   }
 }

@@ -9,14 +9,21 @@ import { GlobalExceptionFilter } from "./common/filters/http-exception.filter";
 const bootstrap = async () => {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  app.enableCors();
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") ?? [];
+
+  app.enableCors({
+    origin: allowedOrigins,
+    credentials: true,
+  });
   app.setGlobalPrefix("api");
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
   app.useGlobalFilters(new GlobalExceptionFilter());
 
   const config = new DocumentBuilder()
     .setTitle("KuttukTime API")
-    .setDescription("Gift certificate platform for local businesses in Kyrgyzstan")
+    .setDescription(
+      "Gift certificate platform for local businesses in Kyrgyzstan",
+    )
     .setVersion("1.0")
     .addBearerAuth()
     .build();

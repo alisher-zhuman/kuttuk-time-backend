@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
@@ -8,6 +8,8 @@ import { Merchant } from "../merchants/entities/merchant.entity";
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -43,6 +45,9 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload);
+
+    this.logger.log(`Login: telegramId=${telegramId} role=${user.role}`);
+
     return { accessToken, role: user.role };
   }
 
