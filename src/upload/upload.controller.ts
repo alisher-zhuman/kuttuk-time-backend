@@ -1,11 +1,11 @@
 import {
+  BadRequestException,
   Controller,
   Post,
   UploadedFile,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { memoryStorage } from "multer";
 import {
   ApiTags,
   ApiBearerAuth,
@@ -15,8 +15,27 @@ import {
   ApiOkResponse,
   ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
+import { memoryStorage } from "multer";
+import type { Request } from "express";
 
 import { CloudinaryService } from "@/cloudinary/cloudinary.service";
+
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+const imageFileFilter = (
+  _req: Request,
+  file: Express.Multer.File,
+  cb: (error: Error | null, acceptFile: boolean) => void,
+) => {
+  if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(
+      new BadRequestException("Only JPEG, PNG and WebP images are allowed"),
+      false,
+    );
+  }
+};
 
 @ApiTags("Upload")
 @ApiBearerAuth()
@@ -25,10 +44,17 @@ export class UploadController {
   constructor(private readonly cloudinaryService: CloudinaryService) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: imageFileFilter,
+    }),
+  )
   @ApiOperation({
     summary: "Upload an image",
-    description: "**Roles:** user · merchant · admin. Max 5MB. Returns Cloudinary URL.",
+    description:
+      "**Roles:** user · merchant · admin. Max 5MB. Returns Cloudinary URL.",
   })
   @ApiConsumes("multipart/form-data")
   @ApiBody({
@@ -37,10 +63,13 @@ export class UploadController {
       properties: { file: { type: "string", format: "binary" } },
     },
   })
-  @ApiOkResponse({ schema: { example: { url: "https://res.cloudinary.com/..." } } })
+  @ApiOkResponse({
+    schema: { example: { url: "https://res.cloudinary.com/..." } },
+  })
   @ApiUnauthorizedResponse({ description: "No token provided" })
   async upload(@UploadedFile() file: Express.Multer.File) {
     const result = await this.cloudinaryService.uploadFile(file);
+
     return { url: result.secure_url };
   }
 }
