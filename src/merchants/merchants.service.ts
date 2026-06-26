@@ -24,7 +24,7 @@ export class MerchantsService {
     lang: string,
     search?: string,
     category?: string,
-  ): Promise<{ id: number; name: string; description: string | null; logo: string | null; minNominal: number }[]> {
+  ): Promise<{ id: number; name: string; description: string | null; logo: string; minNominal: number }[]> {
     const qb = this.merchantRepo
       .createQueryBuilder("merchant")
       .where("merchant.isActive = true");
@@ -65,7 +65,7 @@ export class MerchantsService {
     id: number;
     name: string;
     description: string | null;
-    logo: string | null;
+    logo: string;
     nominals: number[];
     validityMonths: number;
   }> {

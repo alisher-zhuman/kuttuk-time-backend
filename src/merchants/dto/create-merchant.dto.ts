@@ -41,10 +41,9 @@ export class CreateMerchantDto {
   @IsNumber()
   validityMonths?: number;
 
-  @ApiProperty({ example: "https://res.cloudinary.com/...", required: false })
-  @IsOptional()
+  @ApiProperty({ example: "https://res.cloudinary.com/..." })
   @IsString()
-  logo?: string;
+  logo!: string;
 
   @ApiProperty({ example: 123456789 })
   @IsNumber()
