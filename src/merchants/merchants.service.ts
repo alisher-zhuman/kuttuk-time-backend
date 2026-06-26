@@ -38,6 +38,7 @@ export class MerchantsService {
   > {
     const qb = this.merchantRepo
       .createQueryBuilder("merchant")
+      .select(["merchant.id", "merchant.name", "merchant.description", "merchant.logo", "merchant.nominals"])
       .where("merchant.isActive = true");
 
     if (category) {
