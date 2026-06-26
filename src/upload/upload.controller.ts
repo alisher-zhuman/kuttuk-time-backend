@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  Logger,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -41,6 +42,8 @@ const imageFileFilter = (
 @ApiBearerAuth()
 @Controller("upload")
 export class UploadController {
+  private readonly logger = new Logger(UploadController.name);
+
   constructor(private readonly cloudinaryService: CloudinaryService) {}
 
   @Post()
@@ -68,8 +71,11 @@ export class UploadController {
   })
   @ApiUnauthorizedResponse({ description: "No token provided" })
   async upload(@UploadedFile() file: Express.Multer.File) {
-    const result = await this.cloudinaryService.uploadFile(file);
+    this.logger.log(
+      `Upload request: ${file.originalname} (${file.size} bytes)`,
+    );
 
+    const result = await this.cloudinaryService.uploadFile(file);
     return { url: result.secure_url };
   }
 }
