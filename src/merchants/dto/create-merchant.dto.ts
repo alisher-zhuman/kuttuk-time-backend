@@ -7,6 +7,7 @@ import {
   IsArray,
   ArrayMinSize,
   IsObject,
+  Matches,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
@@ -43,6 +44,7 @@ export class CreateMerchantDto {
 
   @ApiProperty({ example: "https://res.cloudinary.com/..." })
   @IsString()
+  @Matches(/^https:\/\/res\.cloudinary\.com\//, { message: "logo must be a Cloudinary URL" })
   logo!: string;
 
   @ApiProperty({ example: 123456789 })

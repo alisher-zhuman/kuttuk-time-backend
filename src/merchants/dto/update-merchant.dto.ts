@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsArray, IsNumber, IsObject } from "class-validator";
+import { IsString, IsOptional, IsBoolean, IsArray, IsNumber, IsObject, Matches } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 export class UpdateMerchantDto {
@@ -35,6 +35,7 @@ export class UpdateMerchantDto {
   @ApiProperty({ example: "https://res.cloudinary.com/...", required: false })
   @IsOptional()
   @IsString()
+  @Matches(/^https:\/\/res\.cloudinary\.com\//, { message: "logo must be a Cloudinary URL" })
   logo?: string;
 
   @ApiProperty({ example: true, required: false })
