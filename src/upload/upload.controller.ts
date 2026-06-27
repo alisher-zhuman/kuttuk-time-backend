@@ -21,20 +21,15 @@ import type { Request } from "express";
 
 import { CloudinaryService } from "@/cloudinary/cloudinary.service";
 
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
-
 const imageFileFilter = (
   _req: Request,
   file: Express.Multer.File,
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) => {
-  if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+  if (file.mimetype.startsWith("image/")) {
     cb(null, true);
   } else {
-    cb(
-      new BadRequestException("Only JPEG, PNG and WebP images are allowed"),
-      false,
-    );
+    cb(new BadRequestException("Only image files are allowed"), false);
   }
 };
 

@@ -95,7 +95,7 @@ All endpoints require a Bearer JWT token except where noted.
 
 | Method | URL | Access | Description |
 |--------|-----|--------|-------------|
-| POST | `/api/upload` | Any | Upload image (JPEG/PNG/WebP, max 5MB), returns Cloudinary URL |
+| POST | `/api/upload` | Any | Upload image (any format, max 5MB), converted to WebP by Cloudinary |
 
 ## Roles
 
