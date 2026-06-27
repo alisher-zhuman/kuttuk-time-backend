@@ -1,0 +1,7 @@
+pre-push:
+  piped: true
+  commands:
+    typecheck:
+      run: npm run typecheck
+    lint:
+      run: npm run lint
