@@ -17,7 +17,7 @@ export class CloudinaryService {
   uploadFile(file: Express.Multer.File): Promise<UploadApiResponse> {
     return new Promise((resolve, reject) => {
       cloudinary.uploader
-        .upload_stream({ folder: "merchants" }, (error, result) => {
+        .upload_stream({ folder: "merchants", format: "webp" }, (error, result) => {
           if (error || !result) {
             this.logger.error(
               `Upload failed: ${error?.message ?? "no result"}`,
