@@ -11,8 +11,10 @@ const bootstrap = async () => {
 
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") ?? [];
 
+  // TODO: switch to `origin: allowedOrigins` before prod launch
+  void allowedOrigins;
   app.enableCors({
-    origin: allowedOrigins,
+    origin: true,
     credentials: true,
   });
   app.setGlobalPrefix("api");
