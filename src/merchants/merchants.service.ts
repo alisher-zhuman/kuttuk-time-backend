@@ -108,6 +108,10 @@ export class MerchantsService {
       throw new ForbiddenException();
     }
 
+    if (dto.slug && user.role !== "admin") {
+      throw new ForbiddenException("Only admin can change slug");
+    }
+
     if (dto.logo && merchant.logo && merchant.logo !== dto.logo) {
       const publicId = this.extractCloudinaryPublicId(merchant.logo);
 
