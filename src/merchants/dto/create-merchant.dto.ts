@@ -51,4 +51,10 @@ export class CreateMerchantDto {
   @IsNumber()
   @IsPositive()
   merchantTelegramId!: number;
+
+  @ApiProperty({ example: "sierra-coffee", description: "URL slug for redirect link", required: false })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-z0-9-]+$/, { message: "slug must contain only lowercase letters, numbers and hyphens" })
+  slug?: string;
 }

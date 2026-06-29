@@ -32,6 +32,9 @@ export class Merchant {
   @Column({ type: "text" })
   logo!: string;
 
+  @Column({ unique: true, nullable: true })
+  slug!: string | null;
+
   @Column({ default: true })
   isActive!: boolean;
 

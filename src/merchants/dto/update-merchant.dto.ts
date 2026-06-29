@@ -42,4 +42,10 @@ export class UpdateMerchantDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiProperty({ example: "sierra-coffee", required: false })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-z0-9-]+$/, { message: "slug must contain only lowercase letters, numbers and hyphens" })
+  slug?: string;
 }
