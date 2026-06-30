@@ -1,7 +1,6 @@
 import { Controller, Get, NotFoundException, Param, Redirect } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { ConfigService } from "@nestjs/config";
 import { ApiExcludeController } from "@nestjs/swagger";
 
 import { Merchant } from "@/merchants/entities/merchant.entity";
@@ -13,7 +12,6 @@ export class RedirectController {
   constructor(
     @InjectRepository(Merchant)
     private readonly merchantRepo: Repository<Merchant>,
-    private readonly config: ConfigService,
   ) {}
 
   @Get(":slug")
@@ -28,11 +26,8 @@ export class RedirectController {
       throw new NotFoundException("Link not found");
     }
 
-    const botUsername = this.config.get("TG_BOT_USERNAME");
-    const appName = this.config.get("TG_APP_NAME");
-
     return {
-      url: `https://t.me/${botUsername}/${appName}?startapp=${slug}`,
+      url: `https://t.me/kuttuk_time_bot/app?startapp=${slug}`,
       statusCode: 302,
     };
   }
