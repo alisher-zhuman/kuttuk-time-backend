@@ -24,10 +24,13 @@ const bootstrap = async () => {
     if (req.method !== "GET" || req.path === "/" || req.path.startsWith("/api")) {
       return next();
     }
+
     const slug = req.path.slice(1);
+
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
       return next();
     }
+
     return res.redirect(302, `https://t.me/kuttuk_time_bot/app?startapp=${slug}`);
   });
 
@@ -45,6 +48,7 @@ const bootstrap = async () => {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
+  
   SwaggerModule.setup("api", app, document);
 
   await app.listen(process.env.PORT ?? 3000);
