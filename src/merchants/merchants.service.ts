@@ -61,7 +61,7 @@ export class MerchantsService {
   }
 
   async findOne(
-    id: number,
+    idOrSlug: string,
     lang: string,
   ): Promise<{
     id: number;
@@ -71,7 +71,12 @@ export class MerchantsService {
     nominals: number[];
     validityMonths: number;
   }> {
-    const merchant = await this.merchantRepo.findOne({ where: { id } });
+    const numericId = Number(idOrSlug);
+    const where = isNaN(numericId)
+      ? { slug: idOrSlug }
+      : { id: numericId };
+
+    const merchant = await this.merchantRepo.findOne({ where });
 
     if (!merchant) {
       throw new NotFoundException("Merchant not found");
