@@ -165,23 +165,53 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 ## ENV переменные
 
-```
-DATABASE_HOST, DATABASE_PORT, DATABASE_USER, DATABASE_PASSWORD, DATABASE_NAME
-DB_SYNC          # true только в dev, потом выключить
-DATABASE_SSL     # true для Koyeb
-JWT_SECRET
-BOT_TOKEN        # для верификации Telegram initData
-TG_BOT_USERNAME  # для редиректа
-TG_APP_NAME      # для редиректа
-CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
-PORT
-ALLOWED_ORIGINS  # TODO: подключить перед продом (сейчас origin: true)
-```
+### Dev (`.env`)
+
+| Переменная | Пример | Примечание |
+|---|---|---|
+| `DATABASE_HOST` | `localhost` | |
+| `DATABASE_PORT` | `5432` | |
+| `DATABASE_USER` | `postgres` | |
+| `DATABASE_PASSWORD` | `postgres` | |
+| `DATABASE_NAME` | `kuttuktime` | |
+| `DATABASE_SSL` | `false` | `true` на Koyeb |
+| `DB_SYNC` | `true` | **только dev**, на проде `false` |
+| `JWT_SECRET` | `...` | длинная случайная строка |
+| `JWT_EXPIRATION` | `24h` | |
+| `BOT_TOKEN` | `...` | от @BotFather, для верификации initData |
+| `CLOUDINARY_CLOUD_NAME` | `...` | |
+| `CLOUDINARY_API_KEY` | `...` | |
+| `CLOUDINARY_API_SECRET` | `...` | |
+| `PORT` | `3000` | на Koyeb `8000` |
+| `NODE_ENV` | `development` | `production` на проде |
+| `ALLOWED_ORIGINS` | `http://localhost:5173` | на проде добавить vercel URL |
+
+### Prod (Koyeb) — актуальный список
+
+| Переменная | Примечание |
+|---|---|
+| `DATABASE_HOST` | Koyeb Postgres endpoint |
+| `DATABASE_PORT` | `5432` |
+| `DATABASE_USER` | |
+| `DATABASE_PASSWORD` | |
+| `DATABASE_NAME` | |
+| `DATABASE_SSL` | `true` |
+| `DB_SYNC` | `false` |
+| `JWT_SECRET` | |
+| `JWT_EXPIRATION` | `24h` |
+| `BOT_TOKEN` | |
+| `CLOUDINARY_CLOUD_NAME` | |
+| `CLOUDINARY_API_KEY` | |
+| `CLOUDINARY_API_SECRET` | |
+| `PORT` | `8000` |
+| `NODE_ENV` | `production` |
+| `ALLOWED_ORIGINS` | `http://localhost:5173,https://kuttuk-time.vercel.app` |
+
+> `TG_BOT_USERNAME` и `TG_APP_NAME` удалены — URL захардкожен в redirect.controller.ts
 
 ---
 
 ## Важные TODO перед продом
 
 - [ ] Включить `origin: allowedOrigins` в CORS (сейчас `origin: true`)
-- [ ] Выключить `DB_SYNC=true`
 - [ ] Добавить оплату (Finik/Bakai/Freedom)
