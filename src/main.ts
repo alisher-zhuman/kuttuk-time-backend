@@ -1,7 +1,8 @@
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { RequestMethod, ValidationPipe } from "@nestjs/common";
+import { ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import type { Request, Response, NextFunction } from "express";
 
 import { AppModule } from "./app.module";
 import { GlobalExceptionFilter } from "./common/filters/http-exception.filter";
@@ -17,9 +18,23 @@ const bootstrap = async () => {
     origin: true,
     credentials: true,
   });
-  app.setGlobalPrefix("api", {
-    exclude: [{ path: ":slug", method: RequestMethod.GET }],
+
+  // Slug redirect — runs before NestJS routing so it doesn't interfere with global prefix
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.method !== "GET" || req.path === "/" || req.path.startsWith("/api")) {
+      return next();
+    }
+
+    const slug = req.path.slice(1);
+
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+      return next();
+    }
+
+    return res.redirect(302, `https://t.me/kuttuk_time_bot/app?startapp=${slug}`);
   });
+
+  app.setGlobalPrefix("api");
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
   app.useGlobalFilters(new GlobalExceptionFilter());
 
@@ -33,6 +48,7 @@ const bootstrap = async () => {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
+  
   SwaggerModule.setup("api", app, document);
 
   await app.listen(process.env.PORT ?? 3000);

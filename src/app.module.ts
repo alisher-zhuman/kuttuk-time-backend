@@ -7,7 +7,6 @@ import { AuthModule } from "./auth/auth.module";
 import { MerchantsModule } from "./merchants/merchants.module";
 import { UploadModule } from "./upload/upload.module";
 import { CategoriesModule } from "./categories/categories.module";
-import { RedirectModule } from "./redirect/redirect.module";
 import { JwtGuard } from "./auth/jwt.guard";
 
 @Module({
@@ -36,7 +35,6 @@ import { JwtGuard } from "./auth/jwt.guard";
     MerchantsModule,
     UploadModule,
     CategoriesModule,
-    RedirectModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
