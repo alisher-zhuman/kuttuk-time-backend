@@ -78,6 +78,7 @@ export class AuthService {
 
     if (computedHash !== hash) {
       this.logger.warn(`initData fields: ${Array.from(params.keys()).join(", ")}`);
+      this.logger.warn(`hash expected: ${hash.slice(0, 8)}... computed: ${computedHash.slice(0, 8)}...`);
       throw new UnauthorizedException("Invalid initData signature");
     }
 
