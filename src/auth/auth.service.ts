@@ -59,15 +59,16 @@ export class AuthService {
       throw new UnauthorizedException("Missing hash in initData");
     }
 
+    // Only "hash" is excluded from the data-check-string. The "signature"
+    // field (Ed25519, for third-party validation) MUST stay in — Telegram
+    // computes the HMAC hash with it present.
     params.delete("hash");
-    params.delete("signature");
 
     const dataCheckString = Array.from(params.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => `${k}=${v}`)
       .join("\n");
 
-    this.logger.log(`BOT_TOKEN prefix: ${process.env.BOT_TOKEN?.slice(0, 10)} len=${process.env.BOT_TOKEN?.length}`);
     const secretKey = createHmac("sha256", "WebAppData")
       .update(process.env.BOT_TOKEN ?? "")
       .digest();
@@ -77,8 +78,6 @@ export class AuthService {
       .digest("hex");
 
     if (computedHash !== hash) {
-      this.logger.warn(`initData fields: ${Array.from(params.keys()).join(", ")}`);
-      this.logger.warn(`hash expected: ${hash.slice(0, 8)}... computed: ${computedHash.slice(0, 8)}...`);
       throw new UnauthorizedException("Invalid initData signature");
     }
 
