@@ -8,6 +8,7 @@ import {
   Param,
   ParseIntPipe,
   UseGuards,
+  HttpCode,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -15,6 +16,7 @@ import {
   ApiOperation,
   ApiOkResponse,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -82,13 +84,14 @@ export class CategoriesController {
   }
 
   @Delete(":id")
+  @HttpCode(204)
   @UseGuards(RolesGuard)
   @Roles("admin")
   @ApiOperation({
     summary: "Delete a category",
     description: "**Roles:** `admin` only",
   })
-  @ApiOkResponse({ description: "Category deleted" })
+  @ApiNoContentResponse({ description: "Category deleted" })
   @ApiUnauthorizedResponse({ description: "No token provided" })
   @ApiForbiddenResponse({ description: "Requires admin role" })
   @ApiNotFoundResponse({ description: "Category not found" })
