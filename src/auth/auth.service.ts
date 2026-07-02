@@ -67,6 +67,7 @@ export class AuthService {
       .map(([k, v]) => `${k}=${v}`)
       .join("\n");
 
+    this.logger.debug(`BOT_TOKEN prefix: ${process.env.BOT_TOKEN?.slice(0, 10)} len=${process.env.BOT_TOKEN?.length}`);
     const secretKey = createHmac("sha256", "WebAppData")
       .update(process.env.BOT_TOKEN ?? "")
       .digest();
