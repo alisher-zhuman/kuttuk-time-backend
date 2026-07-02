@@ -60,6 +60,7 @@ export class AuthService {
     }
 
     params.delete("hash");
+    params.delete("signature");
 
     const dataCheckString = Array.from(params.entries())
       .sort(([a], [b]) => a.localeCompare(b))
@@ -75,6 +76,7 @@ export class AuthService {
       .digest("hex");
 
     if (computedHash !== hash) {
+      this.logger.warn(`initData fields: ${Array.from(params.keys()).join(", ")}`);
       throw new UnauthorizedException("Invalid initData signature");
     }
 
