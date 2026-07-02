@@ -1,4 +1,4 @@
-import { Controller, Post, Body } from "@nestjs/common";
+import { Controller, Post, Body, HttpCode } from "@nestjs/common";
 import {
   ApiTags,
   ApiOperation,
@@ -17,6 +17,7 @@ export class AuthController {
 
   @Public()
   @Post("log-in")
+  @HttpCode(200)
   @ApiOperation({
     summary: "Log in via Telegram Mini App",
     description:
