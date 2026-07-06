@@ -55,8 +55,21 @@ export class MerchantsService {
     }));
   }
 
-  async findAllAdmin(search?: string, category?: number, isActive?: boolean): Promise<Merchant[]> {
-    const qb = this.merchantRepo.createQueryBuilder("merchant");
+  async findAllAdmin(
+    search?: string,
+    category?: number,
+    isActive?: boolean,
+  ): Promise<
+    {
+      id: number;
+      name: string;
+      logo: string;
+      isActive: boolean;
+    }[]
+  > {
+    const qb = this.merchantRepo
+      .createQueryBuilder("merchant")
+      .select(["merchant.id", "merchant.name", "merchant.logo", "merchant.isActive"]);
 
     if (isActive !== undefined) {
       qb.andWhere("merchant.isActive = :isActive", { isActive });
@@ -71,6 +84,34 @@ export class MerchantsService {
     }
 
     return qb.getMany();
+  }
+
+  async findOneAdmin(id: number): Promise<
+    Omit<Merchant, "updatedAt">
+  > {
+    const merchant = await this.merchantRepo
+      .createQueryBuilder("merchant")
+      .select([
+        "merchant.id",
+        "merchant.name",
+        "merchant.description",
+        "merchant.categories",
+        "merchant.nominals",
+        "merchant.validityMonths",
+        "merchant.merchantTelegramId",
+        "merchant.logo",
+        "merchant.slug",
+        "merchant.isActive",
+        "merchant.createdAt",
+      ])
+      .where("merchant.id = :id", { id })
+      .getOne();
+
+    if (!merchant) {
+      throw new NotFoundException("Merchant not found");
+    }
+
+    return merchant;
   }
 
   async findOne(
