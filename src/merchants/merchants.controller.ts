@@ -1,21 +1,19 @@
 import {
   Controller,
   Get,
-  Post,
   Patch,
   Body,
   Param,
-  ParseIntPipe,
   Query,
   Headers,
   UseGuards,
+  ParseIntPipe,
 } from "@nestjs/common";
 import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
   ApiOkResponse,
-  ApiCreatedResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -23,7 +21,6 @@ import {
 } from "@nestjs/swagger";
 
 import { MerchantsService } from "./merchants.service";
-import { CreateMerchantDto } from "./dto/create-merchant.dto";
 import { UpdateMerchantDto } from "./dto/update-merchant.dto";
 import { RolesGuard } from "@/auth/roles.guard";
 import { Roles } from "@/auth/roles.decorator";
@@ -42,13 +39,13 @@ export class MerchantsController {
     description: "**Roles:** user · merchant · admin",
   })
   @ApiQuery({ name: "search", required: false, example: "sierra" })
-  @ApiQuery({ name: "category", required: false, example: "coffee" })
+  @ApiQuery({ name: "category", required: false, example: 1 })
   @ApiOkResponse({ description: "Array of merchants" })
   @ApiUnauthorizedResponse({ description: "No token provided" })
   findAll(
     @Headers("accept-language") acceptLanguage: string = "kg",
     @Query("search") search?: string,
-    @Query("category") category?: string,
+    @Query("category", new ParseIntPipe({ optional: true })) category?: number,
   ) {
     const lang = (acceptLanguage ?? "kg").slice(0, 2);
     return this.merchantsService.findAll(lang, search, category);
@@ -70,36 +67,18 @@ export class MerchantsController {
     return this.merchantsService.findOne(idOrSlug, lang);
   }
 
-  @Post()
+  @Patch("me")
   @UseGuards(RolesGuard)
-  @Roles("admin")
+  @Roles("merchant")
   @ApiOperation({
-    summary: "Create a merchant",
-    description: "**Roles:** `admin` only",
-  })
-  @ApiCreatedResponse({ description: "Merchant created" })
-  @ApiUnauthorizedResponse({ description: "No token provided" })
-  @ApiForbiddenResponse({ description: "Requires admin role" })
-  create(@Body() dto: CreateMerchantDto) {
-    return this.merchantsService.create(dto);
-  }
-
-  @Patch(":id")
-  @UseGuards(RolesGuard)
-  @Roles("admin", "merchant")
-  @ApiOperation({
-    summary: "Update a merchant",
-    description: "**Roles:** `admin` (any) · `merchant` (own only)",
+    summary: "Update own merchant profile",
+    description: "**Roles:** `merchant` only. Edits the merchant tied to your own Telegram account.",
   })
   @ApiOkResponse({ description: "Merchant updated" })
   @ApiUnauthorizedResponse({ description: "No token provided" })
-  @ApiForbiddenResponse({ description: "Requires admin or merchant role" })
+  @ApiForbiddenResponse({ description: "Requires merchant role" })
   @ApiNotFoundResponse({ description: "Merchant not found" })
-  update(
-    @Param("id", ParseIntPipe) id: number,
-    @Body() dto: UpdateMerchantDto,
-    @GetUser() user: CurrentUser,
-  ) {
-    return this.merchantsService.update(id, dto, user);
+  updateOwn(@Body() dto: UpdateMerchantDto, @GetUser() user: CurrentUser) {
+    return this.merchantsService.updateOwn(user.telegramId, dto);
   }
 }

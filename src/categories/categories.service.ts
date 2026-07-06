@@ -1,10 +1,12 @@
-import { Injectable, Logger, NotFoundException, ConflictException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
+import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
+import { Repository, DataSource } from "typeorm";
 
 import { Category } from "./entities/category.entity";
+import { Merchant } from "@/merchants/entities/merchant.entity";
 import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
+import { ReorderCategoriesDto } from "./dto/reorder-categories.dto";
 
 @Injectable()
 export class CategoriesService {
@@ -13,37 +15,74 @@ export class CategoriesService {
   constructor(
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
+    @InjectRepository(Merchant)
+    private readonly merchantRepo: Repository<Merchant>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
-  findAll(): Promise<Category[]> {
-    return this.categoryRepo.find({ order: { order: "ASC", name: "ASC" } });
+  async findAll(lang: string): Promise<{ id: number; name: string; order: number }[]> {
+    const categories = await this.categoryRepo.find({ order: { order: "ASC" } });
+
+    return categories.map(({ id, name, order }) => ({
+      id,
+      name: this.resolveName(name, lang),
+      order,
+    }));
   }
 
   async create(dto: CreateCategoryDto): Promise<Category> {
-    const existing = await this.categoryRepo.findOne({ where: { name: dto.name } });
-
-    if (existing) {
-      throw new ConflictException(`Category "${dto.name}" already exists`);
-    }
-
     const category = this.categoryRepo.create(dto);
     const saved = await this.categoryRepo.save(category);
-    this.logger.log(`Category created: id=${saved.id} name="${saved.name}"`);
+    this.logger.log(`Category created: id=${saved.id}`);
     return saved;
   }
 
-  async update(id: number, dto: UpdateCategoryDto): Promise<Category> {
+  async updateName(id: number, dto: UpdateCategoryDto): Promise<Category> {
     const category = await this.findEntity(id);
-    Object.assign(category, dto);
+    category.name = dto.name;
     const saved = await this.categoryRepo.save(category);
-    this.logger.log(`Category updated: id=${id}`);
+    this.logger.log(`Category renamed: id=${id}`);
     return saved;
+  }
+
+  async reorder(dto: ReorderCategoriesDto): Promise<void> {
+    const existing = await this.categoryRepo.find({ select: ["id"] });
+    const existingIds = new Set(existing.map((c) => c.id));
+
+    if (
+      dto.ids.length !== existingIds.size ||
+      !dto.ids.every((id) => existingIds.has(id))
+    ) {
+      throw new BadRequestException("ids must match the full set of existing category ids");
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      await Promise.all(
+        dto.ids.map((id, order) => manager.update(Category, id, { order })),
+      );
+    });
+
+    this.logger.log(`Categories reordered: ${dto.ids.join(",")}`);
   }
 
   async remove(id: number): Promise<void> {
-    const category = await this.findEntity(id);
-    await this.categoryRepo.remove(category);
-    this.logger.log(`Category deleted: id=${id}`);
+    await this.findEntity(id);
+
+    const affected = await this.dataSource.transaction(async (manager) => {
+      const result = await manager
+        .createQueryBuilder()
+        .update(Merchant)
+        .set({ categories: () => "array_remove(categories, :id)" })
+        .where(":id = ANY(categories)", { id })
+        .execute();
+
+      await manager.delete(Category, id);
+
+      return result.affected ?? 0;
+    });
+
+    this.logger.log(`Category deleted: id=${id}, removed from ${affected} merchant(s)`);
   }
 
   private async findEntity(id: number): Promise<Category> {
@@ -54,5 +93,9 @@ export class CategoriesService {
     }
 
     return category;
+  }
+
+  private resolveName(name: Record<string, string>, lang: string): string {
+    return name[lang] ?? name["kg"] ?? name["ru"] ?? name["en"] ?? Object.values(name)[0];
   }
 }

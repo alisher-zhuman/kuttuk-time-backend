@@ -1,164 +1,179 @@
-# KuttukTime Backend — Контекст для Claude
+# KuttukTime Backend — Context for Claude
 
-## Проект
+## Project
 
-**KuttukTime** — Telegram Mini App (TMA) для быстрой покупки и отправки подарочных сертификатов от локальных бизнесов Кыргызстана (кофейни, спа, рестораны, салоны красоты).
+**KuttukTime** — a Telegram Mini App (TMA) for quickly buying and gifting gift certificates from local Kyrgyzstan businesses (coffee shops, spas, restaurants, beauty salons).
 
-**Главная идея:** пользователь за 30 секунд покупает сертификат и отправляет в подарок. Регистрация и номер телефона не нужны — всё через Telegram.
+**Core idea:** the user buys a certificate and gifts it in 30 seconds. No sign-up, no phone number — everything runs through Telegram.
 
 **Production:** `https://kuttuk-time.koyeb.app` (Koyeb, Frankfurt, Free tier)
-**CI/CD:** push в `main` → автоматический редеплой
+**CI/CD:** push to `main` → automatic redeploy
 
 ---
 
-## Бизнес-модель
+## Business model
 
-**Комиссия 10%** с каждой продажи.
+**10% commission** on every sale.
 
 ```
-Пользователь платит:  1000 сом
-Платёжная система:      -20 сом (2%)
-Мерчанту выплата:      -900 сом (90%)
-Наш доход:              +80 сом (~8% чистыми)
+User pays:             1000 KGS
+Payment provider:       -20 KGS (2%)
+Merchant payout:       -900 KGS (90%)
+Our net revenue:        +80 KGS (~8% net)
 ```
 
-**Выплаты мерчантам:** каждый понедельник автоматически через Finik / Bakai / Freedom.
+**Merchant payouts:** every Monday, automatically, via Finik / Bakai / Freedom.
 
-**Прогноз:**
-| Период | Мерчантов | Заказов/нед | Доход/месяц |
-|--------|-----------|-------------|-------------|
-| Месяц 1-2 | 2 | 20-50 | 2 000–3 000 сом |
-| Месяц 3-4 | 5-10 | 100-200 | 15 000–30 000 сом |
-| Месяц 6+ | 20-50 | 500+ | 75 000+ сом |
+**Forecast:**
+| Period | Merchants | Orders/week | Revenue/month |
+|--------|-----------|-------------|---------------|
+| Month 1-2 | 2 | 20-50 | 2,000–3,000 KGS |
+| Month 3-4 | 5-10 | 100-200 | 15,000–30,000 KGS |
+| Month 6+ | 20-50 | 500+ | 75,000+ KGS |
 
-**Точка беспокойства:** < 10 заказов/неделю  
-**Точка успеха:** > 50 заказов/неделю после первого месяца
+**Worry threshold:** < 10 orders/week
+**Success threshold:** > 50 orders/week after the first month
 
 ---
 
-## Flow для пользователя
+## User flow
 
 ```
-1. Открыл KuttukTime в Telegram
-2. Выбрал мерчанта (Кофе Ali, Спа Вишня, Ресторан Мараба...)
-3. Выбрал номинал (500, 1000, 2000 сом...)
-4. Оплатил → получил код → поделился в Telegram
+1. Opened KuttukTime in Telegram
+2. Picked a merchant (Coffee Ali, Spa Vishnya, Restaurant Maraba...)
+3. Picked a denomination (500, 1000, 2000 KGS...)
+4. Paid → got a code → shared it in Telegram
 ```
 
-## Flow для мерчанта
+## Merchant flow
 
-**Подключение:** получает специальную ссылку → открыл в Telegram → система запомнила его как владельца.
+**Onboarding:** receives a special link → opens it in Telegram → the system remembers them as the owner.
 
-**Использование сертификата:**
-1. Клиент приходит, показывает код (напр. `KT-ALI-5847`)
-2. Кассир открывает приложение KuttukTime
-3. Жмёт "Отметить использованным" → код переходит в использованные
-4. Клиент получил услугу ✅
+**Redeeming a certificate:**
+1. Customer arrives, shows the code (e.g. `KT-ALI-5847`)
+2. Cashier opens the KuttukTime app
+3. Taps "Mark as used" → the code moves to the used state
+4. Customer receives the service ✅
 
 ---
 
-## Стек
+## Stack
 
 - **NestJS 10** + TypeScript + Express
-- **PostgreSQL** через TypeORM 0.3
-- **Passport JWT** — аутентификация через Telegram initData (HMAC-SHA256)
-- **Cloudinary** — хранение изображений (авто-конвертация в WebP)
-- **Swagger** — автодока на `/api`
-- **Throttler** — 60 запросов / 60 сек глобально
+- **PostgreSQL** via TypeORM 0.3
+- **Passport JWT** — authentication via Telegram initData (HMAC-SHA256)
+- **Cloudinary** — image storage (auto-converts to WebP)
+- **Swagger** — auto-docs at `/api`
+- **Throttler** — 60 requests / 60 sec globally
 
 ---
 
-## База данных (текущие сущности)
+## Database (current entities)
 
-**users** — `id`, `telegramId` (unique), `role` (user/merchant/admin), `createdAt`
+**users** — `id`, `telegramId` (unique, **bigint** — Telegram IDs exceed int4), `role` (user/merchant/admin), `createdAt`
 
-**merchants** — `id`, `name`, `description` (jsonb мультиязычный `{kg,ru,en}`), `categories[]`, `nominals[]`, `validityMonths` (default 12), `merchantTelegramId`, `logo` (Cloudinary URL), `slug` (unique), `isActive`, `createdAt`, `updatedAt`
+**merchants** — `id`, `name`, `description` (multilingual jsonb `{kg,ru,en}`), `categories[]`, `nominals[]`, `validityMonths` (default 12), `merchantTelegramId` (**bigint**), `logo` (Cloudinary URL), `slug` (unique), `isActive`, `createdAt`, `updatedAt`
 
 **categories** — `id`, `name` (unique), `order`
 
 ---
 
-## Роли
+## Roles
 
-| Роль | Кто | Права |
-|------|-----|-------|
-| `user` | покупатель | browse merchants, покупка |
-| `merchant` | владелец бизнеса | редактировать свой профиль, видеть свои заказы |
-| `admin` | Alisher (владелец системы) | полный доступ ко всему |
+| Role | Who | Permissions |
+|------|-----|-------------|
+| `user` | buyer | browse merchants, purchase |
+| `merchant` | business owner | edit own profile, see own orders |
+| `admin` | Alisher (system owner) | full access to everything |
 
-**Авто-логика:** при логине — если `telegramId` совпадает с активным мерчантом, роль автоматически становится `merchant`.
+**Auto-logic:** on login — if `telegramId` matches an active merchant, the role automatically becomes `merchant`.
 
----
-
-## API (что уже готово)
-
-**Публичные (без JWT):**
-- `POST /api/auth/log-in` — вход через Telegram initData → JWT
-- `GET /:slug` — редирект мерчанта в TMA
-
-**Требуют JWT:**
-- `GET /api/merchants` — список (фильтр `?search=`, `?category=`, язык через `Accept-Language`)
-- `GET /api/merchants/:idOrSlug` — по ID или slug
-- `POST /api/merchants` — создать (admin)
-- `PATCH /api/merchants/:id` — обновить (admin любого; merchant только своего; slug только admin)
-- `GET /api/categories` — список (сортировка по `order`)
-- `POST /api/categories` — создать (admin)
-- `PATCH /api/categories/:id` — обновить (admin)
-- `DELETE /api/categories/:id` — удалить (admin)
-- `POST /api/upload` — загрузить изображение (любой авторизованный, max 5MB)
+**How the role is enforced:** the role is read from the DB at login time and baked into the JWT payload. `JwtStrategy` verifies the token signature (JWT_SECRET) on every request and puts `{ userId, role, telegramId }` on `request.user`; `RolesGuard` compares it against `@Roles(...)`. The role is a snapshot from login — changing it in the DB requires a fresh `log-in` to take effect. `admin` is only assigned manually via SQL (`UPDATE users SET role='admin' WHERE ...`).
 
 ---
 
-## Что ещё нужно сделать (MVP)
+## API (already built)
 
-Главное что не реализовано:
+**Public (no JWT):**
+- `POST /api/auth/log-in` — login via Telegram initData → JWT (returns 200)
+- `GET /:slug` — merchant redirect into the TMA
 
-1. **Orders module** — сертификаты: генерация кодов (`KT-XXX-NNNN`), статусы (active/used/expired), привязка к мерчанту и покупателю
-2. **Payment integration** — Finik / Bakai / Freedom (покупка сертификата)
-3. **Merchant cabinet** — статистика за неделю, список активных кодов, отметка "использован"
-4. **Weekly reports** — автоматический расчёт и уведомление мерчанту каждый понедельник
-
----
-
-## Бот — сообщения и команды (идеи на будущее)
-
-Раз регистрации нет — чат с ботом фактически единственный "аккаунт" пользователя. Разложено по фазам роадмапа.
-
-**Важная находка (проверено руками):** просто открыть TMA по диплинку и полистать — НЕ создаёт постоянный чат с ботом, даже после прохождения нативного экрана Telegram с ToS. Бот закрепляется в чатах юзера только если реально выдано право писать (write access). Без этого — после закрытия TMA бот исчезает бесследно, никакого канала связи с этим юзером не остаётся.
-
-**Сейчас (2 мерчанта на тестировании):**
-- Код сертификата дублируется сообщением от бота сразу после покупки (нужен `requestWriteAccess` на фронте — запрашивать контекстно, в момент покупки, НЕ на первом заходе в приложение). Это не просто "удобный бэкап кода" — это единственный момент, где вообще появляется канал связи с юзером. Если он и тут откажет, бот для него и дальше останется эфемерным — и это нормально, значит юзер ничего не купил и писать ему незачем
-- Мгновенное уведомление мерчанту о новой продаже ("🎉 Продано: Sierra Coffee, 1000 сом") — дёшево в реализации, сильно поднимает доверие мерчантов на этапе точки беспокойства (< 10 заказов/неделю)
-
-**Скоро (5–10 мерчантов, 100+ заказов/неделю):**
-- Напоминание об истекающем сертификате (за N дней до конца `validityMonths`)
-- Еженедельный дайджест мерчанту по понедельникам, синхронно с выплатой (см. Weekly reports выше)
-- `/my_certificates` — команда-шорткат, показать купленные коды без захода в мини-апп
-
-**Потом (20–50+ мерчантов, масштаб):**
-- Inline-режим (`@bot Sierra Coffee 500` прямо в любом чате → карточка сертификата) — сильная виральная штука для подарочного сценария, стоит рассмотреть раньше "потом", если хватит рук
-- Бот как саппорт-канал (сообщения юзера/мерчанта пересылаются в админ-чат)
-- Бот-команды для внутренней команды — быстрый онбординг мерчанта без полноценной админки
-
-**Важно:** НЕ слать сообщения на события "авторизовался" / "просто вернулся в апп" — это происходит слишком часто и без контента, риск что юзер замьютит бота и потеряет доступ к по-настоящему важным сообщениям (код, истечение). Триггерить только на события с конкретной пользой для получателя.
+**Require JWT:**
+- `GET /api/merchants` — list (filters `?search=`, `?category=`, language via `Accept-Language`)
+- `GET /api/merchants/:idOrSlug` — by ID or slug
+- `POST /api/merchants` — create (admin) → 201
+- `PATCH /api/merchants/:id` — update (admin: any; merchant: own only; slug: admin only)
+- `GET /api/categories` — list (sorted by `order`)
+- `POST /api/categories` — create (admin) → 201
+- `PATCH /api/categories/:id` — update (admin)
+- `DELETE /api/categories/:id` — delete (admin) → 204
+- `POST /api/upload` — upload an image (any authenticated user, max 5MB)
 
 ---
 
-## Дизайн
+## What still needs building (MVP)
 
-UI финализирован: фиолетовый `#8B5CF6` / розовый `#EC4899`, light/dark темы.
+The main things not yet implemented:
+
+1. **Orders module** — certificates: code generation (`KT-XXX-NNNN`), statuses (active/used/expired), links to merchant and buyer
+2. **Payment integration** — Finik / Bakai / Freedom (buying a certificate)
+3. **Merchant cabinet** — weekly stats, list of active codes, "mark as used"
+4. **Weekly reports** — automatic calculation and merchant notification every Monday
 
 ---
 
-## Платформы
+## Testing
 
-| Слой | Роль |
-|------|------|
-| Telegram Mini App | Основной продукт, конверсия |
-| Website | SEO + доверие + витрина (долгосрочно) |
-| Instagram/TikTok | Acquisition через ссылки мерчантов |
+**Current state:** the tooling is set up (Jest, Supertest, ts-jest installed; `npm test`, `test:watch`, `test:cov`, `test:e2e` scripts present) but **no tests are written yet** — there are zero `.spec.ts` files.
 
-**Персональные ссылки мерчантов (будущее):**
+**Plan:** tests come **after MVP** (deliberate — we ship the MVP first). When we do write them, start with the highest-value, riskiest logic:
+1. **initData HMAC verification** (`auth.service`) — signing/verification is subtle and already bit us once (the `signature` field). Cover it with real fixtures.
+2. **Order code generation & status transitions** — money-adjacent, must be correct.
+3. **Payment webhooks** — once integrated.
+
+Until then, verify changes by exercising the real flow, not by assuming.
+
+---
+
+## Bot — messages and commands (future ideas)
+
+Since there's no sign-up, the bot chat is effectively the user's only "account". Organized by roadmap phase.
+
+**Important finding (verified by hand):** simply opening the TMA via a deep link and browsing does NOT create a persistent bot chat, even after passing Telegram's native ToS screen. The bot sticks in the user's chats only if write access is actually granted. Without it, once the TMA is closed the bot vanishes without a trace — no channel to that user remains.
+
+**Now (2 merchants in testing):**
+- The certificate code is duplicated as a bot message right after purchase (needs `requestWriteAccess` on the frontend — request it contextually, at the moment of purchase, NOT on first app open). This isn't just a "handy code backup" — it's the only moment a communication channel with the user appears at all. If they decline here too, the bot stays ephemeral for them — and that's fine, it means they didn't buy anything and there's nothing to message them about.
+- Instant merchant notification of a new sale ("🎉 Sold: Sierra Coffee, 1000 KGS") — cheap to build, strongly boosts merchant trust during the worry threshold (< 10 orders/week).
+
+**Soon (5–10 merchants, 100+ orders/week):**
+- Reminder about an expiring certificate (N days before `validityMonths` ends)
+- Weekly digest to the merchant on Mondays, in sync with the payout (see Weekly reports above)
+- `/my_certificates` — shortcut command to show purchased codes without opening the mini app
+
+**Later (20–50+ merchants, scale):**
+- Inline mode (`@bot Sierra Coffee 500` in any chat → certificate card) — a strong viral mechanic for the gifting scenario; worth considering earlier than "later" if there's bandwidth
+- Bot as a support channel (user/merchant messages forwarded to an admin chat)
+- Bot commands for the internal team — fast merchant onboarding without a full admin panel
+
+**Important:** do NOT send messages on "authenticated" / "just reopened the app" events — these happen too often and carry no content; risk that the user mutes the bot and loses access to genuinely important messages (code, expiry). Only trigger on events with concrete value to the recipient.
+
+---
+
+## Design
+
+UI is finalized: purple `#8B5CF6` / pink `#EC4899`, light/dark themes.
+
+---
+
+## Platforms
+
+| Layer | Role |
+|-------|------|
+| Telegram Mini App | Primary product, conversion |
+| Website | SEO + trust + storefront (long-term) |
+| Instagram/TikTok | Acquisition via merchant links |
+
+**Personal merchant links (future):**
 ```
 t.me/bot/app?startapp=coffeehouse_ali
 yourapp.com/m/coffeehouse?ref=insta_ali
@@ -166,53 +181,54 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 ---
 
-## Риски
+## Risks
 
-| Риск | Решение |
-|------|---------|
-| Платёжка упала | 3 провайдера: Finik, Bakai, Freedom |
-| Мерчанты против 10% | Можно снизить до 7-8% если нужно |
-| Клиент оспаривает покупку | На старте решаем вручную |
-| Конкуренция (Giftery) | Локальнее, быстрее, на Telegram |
-
----
-
-## Правила работы с Claude
-
-- **Alisher = frontend dev (React/TS)** — backend объяснять на простом языке
-- Один модуль за раз — следующий шаг только после явного "го"
-- Сначала объяснение на русском, потом код
-- Тесты и подробный Swagger — после MVP
-- Не добавлять лишней абстракции — пишем минимально необходимое
+| Risk | Mitigation |
+|------|------------|
+| Payment provider down | 3 providers: Finik, Bakai, Freedom |
+| Merchants object to 10% | Can drop to 7-8% if needed |
+| Customer disputes a purchase | Handle manually at the start |
+| Competition (Giftery) | More local, faster, on Telegram |
 
 ---
 
-## ENV переменные
+## Working with Claude — rules
+
+- **Alisher = frontend dev (React/TS)** — explain backend in simple terms
+- One module at a time — next step only after an explicit "go"
+- Explanation first (in Russian), then code
+- Tests and detailed Swagger — after MVP
+- No unnecessary abstraction — write the minimum needed
+- **Proactively watch correctness across the whole project** — status codes, types, validation, error handling, edge cases, security, cross-module consistency — and fix issues as part of the work, not only the literal ask
+
+---
+
+## ENV variables
 
 ### Dev (`.env`)
 
-| Переменная | Пример | Примечание |
+| Variable | Example | Note |
 |---|---|---|
 | `DATABASE_HOST` | `localhost` | |
 | `DATABASE_PORT` | `5432` | |
 | `DATABASE_USER` | `postgres` | |
 | `DATABASE_PASSWORD` | `postgres` | |
 | `DATABASE_NAME` | `kuttuktime` | |
-| `DATABASE_SSL` | `false` | `true` на Koyeb |
-| `DB_SYNC` | `true` | **только dev**, на проде `false` |
-| `JWT_SECRET` | `...` | длинная случайная строка |
+| `DATABASE_SSL` | `false` | `true` on Koyeb |
+| `DB_SYNC` | `true` | **dev only**, `false` in prod |
+| `JWT_SECRET` | `...` | long random string |
 | `JWT_EXPIRATION` | `24h` | |
-| `BOT_TOKEN` | `...` | от @BotFather, для верификации initData |
+| `BOT_TOKEN` | `...` | from @BotFather, for initData verification |
 | `CLOUDINARY_CLOUD_NAME` | `...` | |
 | `CLOUDINARY_API_KEY` | `...` | |
 | `CLOUDINARY_API_SECRET` | `...` | |
-| `PORT` | `3000` | на Koyeb `8000` |
-| `NODE_ENV` | `development` | `production` на проде |
-| `ALLOWED_ORIGINS` | `http://localhost:5173` | на проде добавить vercel URL |
+| `PORT` | `3000` | `8000` on Koyeb |
+| `NODE_ENV` | `development` | `production` in prod |
+| `ALLOWED_ORIGINS` | `http://localhost:5173` | add the vercel URL in prod |
 
-### Prod (Koyeb) — актуальный список
+### Prod (Koyeb) — current list
 
-| Переменная | Примечание |
+| Variable | Note |
 |---|---|
 | `DATABASE_HOST` | Koyeb Postgres endpoint |
 | `DATABASE_PORT` | `5432` |
@@ -231,11 +247,12 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `NODE_ENV` | `production` |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,https://kuttuk-time.vercel.app` |
 
-> `TG_BOT_USERNAME` и `TG_APP_NAME` удалены — URL захардкожен в redirect.controller.ts
+> `TG_BOT_USERNAME` and `TG_APP_NAME` were removed — the URL is hardcoded in redirect.controller.ts
 
 ---
 
-## Важные TODO перед продом
+## Important TODOs before prod
 
-- [ ] Включить `origin: allowedOrigins` в CORS (сейчас `origin: true`)
-- [ ] Добавить оплату (Finik/Bakai/Freedom)
+- [ ] Enable `origin: allowedOrigins` in CORS (currently `origin: true`)
+- [ ] Add payments (Finik/Bakai/Freedom)
+- [ ] When `DB_SYNC=false` on prod, apply schema changes manually. Pending: `ALTER TABLE users ALTER COLUMN "telegramId" TYPE bigint;` and `ALTER TABLE merchants ALTER COLUMN "merchantTelegramId" TYPE bigint;`

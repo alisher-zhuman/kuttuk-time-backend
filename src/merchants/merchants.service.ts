@@ -1,16 +1,11 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  ForbiddenException,
-} from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 
 import { Merchant } from "./entities/merchant.entity";
 import { CreateMerchantDto } from "./dto/create-merchant.dto";
 import { UpdateMerchantDto } from "./dto/update-merchant.dto";
-import { CurrentUser } from "@/auth/interfaces/current-user.interface";
+import { AdminUpdateMerchantDto } from "./dto/admin-update-merchant.dto";
 import { CloudinaryService } from "@/cloudinary/cloudinary.service";
 
 @Injectable()
@@ -26,7 +21,7 @@ export class MerchantsService {
   async findAll(
     lang: string,
     search?: string,
-    category?: string,
+    category?: number,
   ): Promise<
     {
       id: number;
@@ -58,6 +53,24 @@ export class MerchantsService {
       logo,
       minNominal: Math.min(...nominals),
     }));
+  }
+
+  async findAllAdmin(search?: string, category?: number, isActive?: boolean): Promise<Merchant[]> {
+    const qb = this.merchantRepo.createQueryBuilder("merchant");
+
+    if (isActive !== undefined) {
+      qb.andWhere("merchant.isActive = :isActive", { isActive });
+    }
+
+    if (category) {
+      qb.andWhere(":category = ANY(merchant.categories)", { category });
+    }
+
+    if (search) {
+      qb.andWhere("merchant.name ILIKE :search", { search: `%${search}%` });
+    }
+
+    return qb.getMany();
   }
 
   async findOne(
@@ -101,22 +114,25 @@ export class MerchantsService {
     return saved;
   }
 
-  async update(
-    id: number,
-    dto: UpdateMerchantDto,
-    user: CurrentUser,
-  ): Promise<Merchant> {
+  async updateOwn(telegramId: number, dto: UpdateMerchantDto): Promise<Merchant> {
+    const merchant = await this.merchantRepo.findOne({ where: { merchantTelegramId: telegramId } });
+
+    if (!merchant) {
+      throw new NotFoundException("Merchant not found");
+    }
+
+    return this.applyUpdate(merchant, dto);
+  }
+
+  async updateAdmin(id: number, dto: AdminUpdateMerchantDto): Promise<Merchant> {
     const merchant = await this.findEntity(id);
-    const isMerchant = merchant.merchantTelegramId === user.telegramId;
+    return this.applyUpdate(merchant, dto);
+  }
 
-    if (!isMerchant && user.role !== "admin") {
-      throw new ForbiddenException();
-    }
-
-    if (dto.slug && user.role !== "admin") {
-      throw new ForbiddenException("Only admin can change slug");
-    }
-
+  private async applyUpdate(
+    merchant: Merchant,
+    dto: UpdateMerchantDto | AdminUpdateMerchantDto,
+  ): Promise<Merchant> {
     if (dto.logo && merchant.logo && merchant.logo !== dto.logo) {
       const publicId = this.extractCloudinaryPublicId(merchant.logo);
 
@@ -129,7 +145,7 @@ export class MerchantsService {
 
     const saved = await this.merchantRepo.save(merchant);
 
-    this.logger.log(`Merchant updated: id=${id}`);
+    this.logger.log(`Merchant updated: id=${merchant.id}`);
 
     return saved;
   }
