@@ -55,8 +55,22 @@ export class MerchantsService {
     }));
   }
 
-  async findAllAdmin(search?: string, category?: number, isActive?: boolean): Promise<Merchant[]> {
-    const qb = this.merchantRepo.createQueryBuilder("merchant");
+  async findAllAdmin(
+    search?: string,
+    category?: number,
+    isActive?: boolean,
+  ): Promise<
+    {
+      id: number;
+      name: string;
+      logo: string;
+      isActive: boolean;
+      createdAt: Date;
+    }[]
+  > {
+    const qb = this.merchantRepo
+      .createQueryBuilder("merchant")
+      .select(["merchant.id", "merchant.name", "merchant.logo", "merchant.isActive", "merchant.createdAt"]);
 
     if (isActive !== undefined) {
       qb.andWhere("merchant.isActive = :isActive", { isActive });
