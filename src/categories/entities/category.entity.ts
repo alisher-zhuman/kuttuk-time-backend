@@ -5,8 +5,8 @@ export class Category {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ unique: true })
-  name!: string;
+  @Column({ type: "jsonb" })
+  name!: Record<string, string>;
 
   @Column({ default: 0 })
   order!: number;

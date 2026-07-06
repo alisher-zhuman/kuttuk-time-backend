@@ -1,7 +1,7 @@
-import { IsString, IsOptional, IsArray, IsInt, IsNumber, IsObject, Matches } from "class-validator";
+import { IsString, IsOptional, IsBoolean, IsArray, IsInt, IsNumber, IsObject, Matches } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
-export class UpdateMerchantDto {
+export class AdminUpdateMerchantDto {
   @ApiProperty({ example: "Sierra Coffee", required: false })
   @IsOptional()
   @IsString()
@@ -37,4 +37,15 @@ export class UpdateMerchantDto {
   @IsString()
   @Matches(/^https:\/\/res\.cloudinary\.com\//, { message: "logo must be a Cloudinary URL" })
   logo?: string;
+
+  @ApiProperty({ example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @ApiProperty({ example: "sierra-coffee", required: false })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-z0-9-]+$/, { message: "slug must contain only lowercase letters, numbers and hyphens" })
+  slug?: string;
 }

@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsNumber,
+  IsInt,
   IsPositive,
   IsArray,
   ArrayMinSize,
@@ -25,11 +26,11 @@ export class CreateMerchantDto {
   @IsObject()
   description?: Record<string, string>;
 
-  @ApiProperty({ example: ["coffee", "restaurant"], description: "coffee | restaurant | spa | fitness" })
+  @ApiProperty({ example: [1, 3], description: "Category ids" })
   @IsArray()
   @ArrayMinSize(1)
-  @IsString({ each: true })
-  categories!: string[];
+  @IsInt({ each: true })
+  categories!: number[];
 
   @ApiProperty({ example: [500, 1000, 2000, 3000, 5000], description: "Available nominals in KGS" })
   @IsArray()
