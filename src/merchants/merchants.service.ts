@@ -65,12 +65,11 @@ export class MerchantsService {
       name: string;
       logo: string;
       isActive: boolean;
-      createdAt: Date;
     }[]
   > {
     const qb = this.merchantRepo
       .createQueryBuilder("merchant")
-      .select(["merchant.id", "merchant.name", "merchant.logo", "merchant.isActive", "merchant.createdAt"]);
+      .select(["merchant.id", "merchant.name", "merchant.logo", "merchant.isActive"]);
 
     if (isActive !== undefined) {
       qb.andWhere("merchant.isActive = :isActive", { isActive });
@@ -85,6 +84,34 @@ export class MerchantsService {
     }
 
     return qb.getMany();
+  }
+
+  async findOneAdmin(id: number): Promise<
+    Omit<Merchant, "updatedAt">
+  > {
+    const merchant = await this.merchantRepo
+      .createQueryBuilder("merchant")
+      .select([
+        "merchant.id",
+        "merchant.name",
+        "merchant.description",
+        "merchant.categories",
+        "merchant.nominals",
+        "merchant.validityMonths",
+        "merchant.merchantTelegramId",
+        "merchant.logo",
+        "merchant.slug",
+        "merchant.isActive",
+        "merchant.createdAt",
+      ])
+      .where("merchant.id = :id", { id })
+      .getOne();
+
+    if (!merchant) {
+      throw new NotFoundException("Merchant not found");
+    }
+
+    return merchant;
   }
 
   async findOne(

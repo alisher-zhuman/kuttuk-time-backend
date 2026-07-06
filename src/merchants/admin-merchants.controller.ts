@@ -55,6 +55,19 @@ export class AdminMerchantsController {
     return this.merchantsService.findAllAdmin(search, category, isActive);
   }
 
+  @Get(":id")
+  @ApiOperation({
+    summary: "Get one merchant (detail/edit view)",
+    description: "**Roles:** `admin` only",
+  })
+  @ApiOkResponse({ description: "Merchant object" })
+  @ApiUnauthorizedResponse({ description: "No token provided" })
+  @ApiForbiddenResponse({ description: "Requires admin role" })
+  @ApiNotFoundResponse({ description: "Merchant not found" })
+  findOne(@Param("id", ParseIntPipe) id: number) {
+    return this.merchantsService.findOneAdmin(id);
+  }
+
   @Post()
   @ApiOperation({ summary: "Create a merchant", description: "**Roles:** `admin` only" })
   @ApiCreatedResponse({ description: "Merchant created" })
