@@ -34,7 +34,8 @@ export class MerchantsService {
     const qb = this.merchantRepo
       .createQueryBuilder("merchant")
       .select(["merchant.id", "merchant.name", "merchant.description", "merchant.logo", "merchant.nominals"])
-      .where("merchant.isActive = true");
+      .where("merchant.isActive = true")
+      .orderBy("merchant.id", "ASC");
 
     if (category) {
       qb.andWhere(":category = ANY(merchant.categories)", { category });
@@ -69,7 +70,8 @@ export class MerchantsService {
   > {
     const qb = this.merchantRepo
       .createQueryBuilder("merchant")
-      .select(["merchant.id", "merchant.name", "merchant.logo", "merchant.isActive"]);
+      .select(["merchant.id", "merchant.name", "merchant.logo", "merchant.isActive"])
+      .orderBy("merchant.id", "ASC");
 
     if (isActive !== undefined) {
       qb.andWhere("merchant.isActive = :isActive", { isActive });

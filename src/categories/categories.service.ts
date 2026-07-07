@@ -32,7 +32,8 @@ export class CategoriesService {
   }
 
   async create(dto: CreateCategoryDto): Promise<Category> {
-    const category = this.categoryRepo.create(dto);
+    const order = dto.order ?? (await this.nextOrder());
+    const category = this.categoryRepo.create({ ...dto, order });
     const saved = await this.categoryRepo.save(category);
     this.logger.log(`Category created: id=${saved.id}`);
     return saved;
@@ -83,6 +84,15 @@ export class CategoriesService {
     });
 
     this.logger.log(`Category deleted: id=${id}, removed from ${affected} merchant(s)`);
+  }
+
+  private async nextOrder(): Promise<number> {
+    const result = await this.categoryRepo
+      .createQueryBuilder("category")
+      .select("MAX(category.order)", "max")
+      .getRawOne<{ max: number | null }>();
+
+    return (result?.max ?? -1) + 1;
   }
 
   private async findEntity(id: number): Promise<Category> {
