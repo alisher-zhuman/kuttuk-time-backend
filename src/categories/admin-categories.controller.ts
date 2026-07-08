@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Patch,
   Delete,
@@ -36,6 +37,22 @@ import { Roles } from "@/auth/roles.decorator";
 @Controller("admin/categories")
 export class AdminCategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: "List all categories (raw, all languages)",
+    description: "**Roles:** `admin` only. Returns `name` as `{kg, ru, en}`, not resolved to one language.",
+  })
+  @ApiOkResponse({
+    schema: {
+      example: [{ id: 1, name: { kg: "Кофе", ru: "Кофе", en: "Coffee" }, order: 0 }],
+    },
+  })
+  @ApiUnauthorizedResponse({ description: "No token provided" })
+  @ApiForbiddenResponse({ description: "Requires admin role" })
+  findAll() {
+    return this.categoriesService.findAllAdmin();
+  }
 
   @Post()
   @ApiOperation({ summary: "Create a category", description: "**Roles:** `admin` only" })

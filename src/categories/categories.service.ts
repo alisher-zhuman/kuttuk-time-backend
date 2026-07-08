@@ -31,6 +31,10 @@ export class CategoriesService {
     }));
   }
 
+  async findAllAdmin(): Promise<Category[]> {
+    return this.categoryRepo.find({ order: { order: "ASC" } });
+  }
+
   async create(dto: CreateCategoryDto): Promise<Category> {
     const order = dto.order ?? (await this.nextOrder());
     const category = this.categoryRepo.create({ ...dto, order });
