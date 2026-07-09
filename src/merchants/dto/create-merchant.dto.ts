@@ -4,15 +4,15 @@ import {
   IsOptional,
   IsNumber,
   IsInt,
+  IsIn,
   IsPositive,
   IsArray,
   ArrayMinSize,
   IsObject,
-  Min,
-  Max,
   Matches,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
+import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../merchant.constants";
 
 export class CreateMerchantDto {
   @ApiProperty({ example: "Sierra Coffee" })
@@ -34,19 +34,15 @@ export class CreateMerchantDto {
   @IsInt({ each: true })
   categories!: number[];
 
-  @ApiProperty({ example: [500, 1000, 2000, 3000, 5000], description: "Available nominals in KGS (500-10000)" })
+  @ApiProperty({ example: [500, 1000, 2000, 3000, 5000], description: `Available nominals in KGS, one of: ${VALID_NOMINALS.join(", ")}` })
   @IsArray()
   @ArrayMinSize(1)
-  @IsInt({ each: true })
-  @Min(500, { each: true })
-  @Max(10000, { each: true })
+  @IsIn(VALID_NOMINALS, { each: true })
   nominals!: number[];
 
-  @ApiProperty({ example: 12, description: "Certificate validity in months (1-24)", required: false })
+  @ApiProperty({ example: 12, description: `Certificate validity in months, one of: ${VALID_VALIDITY_MONTHS.join(", ")}`, required: false })
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(24)
+  @IsIn(VALID_VALIDITY_MONTHS)
   validityMonths?: number;
 
   @ApiProperty({ example: "https://res.cloudinary.com/..." })

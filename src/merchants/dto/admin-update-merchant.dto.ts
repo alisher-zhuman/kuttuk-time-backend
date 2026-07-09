@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsBoolean, IsArray, IsInt, IsObject, Min, Max, Matches } from "class-validator";
+import { IsString, IsOptional, IsBoolean, IsArray, IsInt, IsIn, IsObject, Matches } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
+import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../merchant.constants";
 
 export class AdminUpdateMerchantDto {
   @ApiProperty({ example: "Sierra Coffee", required: false })
@@ -21,19 +22,15 @@ export class AdminUpdateMerchantDto {
   @IsInt({ each: true })
   categories?: number[];
 
-  @ApiProperty({ example: [500, 1000, 2000], description: "Nominals in KGS (500-10000)", required: false })
+  @ApiProperty({ example: [500, 1000, 2000], description: `Nominals in KGS, one of: ${VALID_NOMINALS.join(", ")}`, required: false })
   @IsOptional()
   @IsArray()
-  @IsInt({ each: true })
-  @Min(500, { each: true })
-  @Max(10000, { each: true })
+  @IsIn(VALID_NOMINALS, { each: true })
   nominals?: number[];
 
-  @ApiProperty({ example: 12, description: "Certificate validity in months (1-24)", required: false })
+  @ApiProperty({ example: 12, description: `Certificate validity in months, one of: ${VALID_VALIDITY_MONTHS.join(", ")}`, required: false })
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(24)
+  @IsIn(VALID_VALIDITY_MONTHS)
   validityMonths?: number;
 
   @ApiProperty({ example: "https://res.cloudinary.com/...", required: false })
