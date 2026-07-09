@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsArray, IsInt, IsNumber, IsObject, Matches } from "class-validator";
+import { IsString, IsOptional, IsBoolean, IsArray, IsInt, IsObject, Min, Max, Matches } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 export class AdminUpdateMerchantDto {
@@ -21,15 +21,19 @@ export class AdminUpdateMerchantDto {
   @IsInt({ each: true })
   categories?: number[];
 
-  @ApiProperty({ example: [500, 1000, 2000], required: false })
+  @ApiProperty({ example: [500, 1000, 2000], description: "Nominals in KGS (500-10000)", required: false })
   @IsOptional()
   @IsArray()
-  @IsNumber({}, { each: true })
+  @IsInt({ each: true })
+  @Min(500, { each: true })
+  @Max(10000, { each: true })
   nominals?: number[];
 
-  @ApiProperty({ example: 12, required: false })
+  @ApiProperty({ example: 12, description: "Certificate validity in months (1-24)", required: false })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(24)
   validityMonths?: number;
 
   @ApiProperty({ example: "https://res.cloudinary.com/...", required: false })
