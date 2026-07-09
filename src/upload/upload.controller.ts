@@ -4,6 +4,7 @@ import {
   Logger,
   Post,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
@@ -15,11 +16,14 @@ import {
   ApiBody,
   ApiOkResponse,
   ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
 } from "@nestjs/swagger";
 import { memoryStorage } from "multer";
 import type { Request } from "express";
 
 import { CloudinaryService } from "@/cloudinary/cloudinary.service";
+import { RolesGuard } from "@/auth/roles.guard";
+import { Roles } from "@/auth/roles.decorator";
 
 const imageFileFilter = (
   _req: Request,
@@ -42,6 +46,8 @@ export class UploadController {
   constructor(private readonly cloudinaryService: CloudinaryService) {}
 
   @Post()
+  @UseGuards(RolesGuard)
+  @Roles("merchant", "admin")
   @UseInterceptors(
     FileInterceptor("file", {
       storage: memoryStorage(),
@@ -52,7 +58,7 @@ export class UploadController {
   @ApiOperation({
     summary: "Upload an image",
     description:
-      "**Roles:** user · merchant · admin. Max 5MB. Returns Cloudinary URL.",
+      "**Roles:** merchant · admin. Max 5MB. Returns Cloudinary URL.",
   })
   @ApiConsumes("multipart/form-data")
   @ApiBody({
@@ -65,6 +71,7 @@ export class UploadController {
     schema: { example: { url: "https://res.cloudinary.com/..." } },
   })
   @ApiUnauthorizedResponse({ description: "No token provided" })
+  @ApiForbiddenResponse({ description: "Requires merchant or admin role" })
   async upload(@UploadedFile() file: Express.Multer.File) {
     this.logger.log(
       `Upload request: ${file.originalname} (${file.size} bytes)`,
