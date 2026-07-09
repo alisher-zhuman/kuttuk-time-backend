@@ -1,7 +1,6 @@
 import {
   IsString,
   IsNotEmpty,
-  IsOptional,
   IsNumber,
   IsInt,
   IsIn,
@@ -22,11 +21,9 @@ export class CreateMerchantDto {
 
   @ApiProperty({
     example: { ru: "Лучший кофе в городе", kg: "Шаардагы эң жакшы кофе", en: "Best coffee in the city" },
-    required: false,
   })
-  @IsOptional()
   @IsObject()
-  description?: Record<string, string>;
+  description!: Record<string, string>;
 
   @ApiProperty({ example: [1, 3], description: "Category ids" })
   @IsArray()
@@ -40,10 +37,9 @@ export class CreateMerchantDto {
   @IsIn(VALID_NOMINALS, { each: true })
   nominals!: number[];
 
-  @ApiProperty({ example: 12, description: `Certificate validity in months, one of: ${VALID_VALIDITY_MONTHS.join(", ")}`, required: false })
-  @IsOptional()
+  @ApiProperty({ example: 12, description: `Certificate validity in months, one of: ${VALID_VALIDITY_MONTHS.join(", ")}` })
   @IsIn(VALID_VALIDITY_MONTHS)
-  validityMonths?: number;
+  validityMonths!: number;
 
   @ApiProperty({ example: "https://res.cloudinary.com/..." })
   @IsString()
