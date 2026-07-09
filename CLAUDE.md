@@ -251,6 +251,12 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 ---
 
+## Known gaps (not urgent)
+
+- **Orphaned Cloudinary uploads:** `POST /upload` doesn't track files in the DB — if a photo is uploaded but never attached to a merchant (form abandoned, save failed, replaced before saving), it stays in Cloudinary forever, nothing cleans it up. Not worth fixing at current scale (storage is cheap, ~8 merchants). If it becomes an issue: a daily cron job comparing Cloudinary's `merchants/` folder against all `merchant.logo` URLs currently in use, deleting anything unreferenced.
+
+---
+
 ## Important TODOs before prod
 
 - [ ] Enable `origin: allowedOrigins` in CORS (currently `origin: true`)
