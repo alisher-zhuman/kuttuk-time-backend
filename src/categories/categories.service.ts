@@ -7,6 +7,7 @@ import { Merchant } from "@/merchants/entities/merchant.entity";
 import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { ReorderCategoriesDto } from "./dto/reorder-categories.dto";
+import { resolveTranslation } from "@/common/utils/resolve-translation";
 
 @Injectable()
 export class CategoriesService {
@@ -26,7 +27,7 @@ export class CategoriesService {
 
     return categories.map(({ id, name, order }) => ({
       id,
-      name: this.resolveName(name, lang),
+      name: resolveTranslation(name, lang)!,
       order,
     }));
   }
@@ -107,9 +108,5 @@ export class CategoriesService {
     }
 
     return category;
-  }
-
-  private resolveName(name: Record<string, string>, lang: string): string {
-    return name[lang] ?? name["kg"] ?? name["ru"] ?? name["en"] ?? Object.values(name)[0];
   }
 }
