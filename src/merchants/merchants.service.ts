@@ -7,6 +7,7 @@ import { CreateMerchantDto } from "./dto/create-merchant.dto";
 import { UpdateMerchantDto } from "./dto/update-merchant.dto";
 import { AdminUpdateMerchantDto } from "./dto/admin-update-merchant.dto";
 import { CloudinaryService } from "@/cloudinary/cloudinary.service";
+import { resolveTranslation } from "@/common/utils/resolve-translation";
 
 @Injectable()
 export class MerchantsService {
@@ -50,7 +51,7 @@ export class MerchantsService {
     return merchants.map(({ id, name, description, logo, nominals }) => ({
       id,
       name,
-      description: this.resolveDescription(description, lang),
+      description: resolveTranslation(description, lang),
       logo,
       minNominal: Math.min(...nominals),
     }));
@@ -141,7 +142,7 @@ export class MerchantsService {
     return {
       id: merchant.id,
       name: merchant.name,
-      description: this.resolveDescription(merchant.description, lang),
+      description: resolveTranslation(merchant.description, lang),
       logo: merchant.logo,
       nominals: merchant.nominals,
       validityMonths: merchant.validityMonths,
@@ -206,22 +207,5 @@ export class MerchantsService {
   private extractCloudinaryPublicId(url: string): string | null {
     const match = url.match(/\/upload\/v\d+\/(.+)\.[a-z]+$/);
     return match ? match[1] : null;
-  }
-
-  private resolveDescription(
-    description: Record<string, string> | null,
-    lang: string,
-  ): string | null {
-    if (!description) {
-      return null;
-    }
-
-    return (
-      description[lang] ??
-      description["kg"] ??
-      description["ru"] ??
-      description["en"] ??
-      null
-    );
   }
 }
