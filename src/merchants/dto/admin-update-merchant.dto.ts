@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsArray, IsInt, IsIn, IsObject, Matches } from "class-validator";
+import { IsString, IsOptional, IsBoolean, IsNumber, IsPositive, IsArray, IsInt, IsIn, IsObject, Matches } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../merchant.constants";
 
@@ -49,4 +49,10 @@ export class AdminUpdateMerchantDto {
   @IsString()
   @Matches(/^[a-z0-9-]+$/, { message: "slug must contain only lowercase letters, numbers and hyphens" })
   slug?: string;
+
+  @ApiProperty({ example: 123456789, required: false })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  merchantTelegramId?: number;
 }
