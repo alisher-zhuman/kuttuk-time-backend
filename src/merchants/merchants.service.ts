@@ -95,23 +95,39 @@ export class MerchantsService {
     return qb.getMany();
   }
 
+  private readonly detailSelect = [
+    "merchant.id",
+    "merchant.name",
+    "merchant.description",
+    "merchant.categories",
+    "merchant.nominals",
+    "merchant.validityMonths",
+    "merchant.merchantTelegramId",
+    "merchant.logo",
+    "merchant.slug",
+    "merchant.isActive",
+    "merchant.createdAt",
+  ];
+
   async findOneAdmin(id: number): Promise<Omit<Merchant, "updatedAt">> {
     const merchant = await this.merchantRepo
       .createQueryBuilder("merchant")
-      .select([
-        "merchant.id",
-        "merchant.name",
-        "merchant.description",
-        "merchant.categories",
-        "merchant.nominals",
-        "merchant.validityMonths",
-        "merchant.merchantTelegramId",
-        "merchant.logo",
-        "merchant.slug",
-        "merchant.isActive",
-        "merchant.createdAt",
-      ])
+      .select(this.detailSelect)
       .where("merchant.id = :id", { id })
+      .getOne();
+
+    if (!merchant) {
+      throw new NotFoundException("Merchant not found");
+    }
+
+    return merchant;
+  }
+
+  async getOwn(telegramId: number): Promise<Omit<Merchant, "updatedAt">> {
+    const merchant = await this.merchantRepo
+      .createQueryBuilder("merchant")
+      .select(this.detailSelect)
+      .where("merchant.merchantTelegramId = :telegramId", { telegramId })
       .getOne();
 
     if (!merchant) {
