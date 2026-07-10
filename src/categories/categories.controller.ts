@@ -28,7 +28,12 @@ export class CategoriesController {
       ],
     },
   })
-  @ApiUnauthorizedResponse({ description: "No token provided" })
+  @ApiUnauthorizedResponse({
+    description: "No token provided",
+    schema: {
+      example: { statusCode: 401, message: "Unauthorized", error: "Unauthorized" },
+    },
+  })
   findAll(@Headers("accept-language") acceptLanguage: string = "kg") {
     const lang = (acceptLanguage ?? "kg").slice(0, 2);
     return this.categoriesService.findAll(lang);

@@ -30,7 +30,12 @@ export class AuthController {
       example: { accessToken: "eyJhbGci...", role: "user" },
     },
   })
-  @ApiUnauthorizedResponse({ description: "Invalid or tampered initData" })
+  @ApiUnauthorizedResponse({
+    description: "Invalid or tampered initData",
+    schema: {
+      example: { statusCode: 401, message: "Invalid initData signature", error: "Unauthorized" },
+    },
+  })
   logIn(
     @Body() logInDto: LogInDto,
   ): Promise<{ accessToken: string; role: string }> {
