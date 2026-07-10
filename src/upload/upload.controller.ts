@@ -17,6 +17,7 @@ import {
   ApiOkResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
+  ApiBadRequestResponse,
 } from "@nestjs/swagger";
 import { memoryStorage } from "multer";
 import type { Request } from "express";
@@ -68,10 +69,24 @@ export class UploadController {
     },
   })
   @ApiOkResponse({
-    schema: { example: { url: "https://res.cloudinary.com/..." } },
+    schema: {
+      example: { url: "https://res.cloudinary.com/dnx8vxdyf/image/upload/v1/kuttuk-time/abc.webp" },
+    },
   })
-  @ApiUnauthorizedResponse({ description: "No token provided" })
-  @ApiForbiddenResponse({ description: "Requires merchant or admin role" })
+  @ApiUnauthorizedResponse({
+    description: "No token provided",
+    schema: { example: { statusCode: 401, message: "Unauthorized", error: "Unauthorized" } },
+  })
+  @ApiForbiddenResponse({
+    description: "Requires merchant or admin role",
+    schema: { example: { statusCode: 403, message: "Forbidden", error: "Forbidden" } },
+  })
+  @ApiBadRequestResponse({
+    description: "Not an image, or file exceeds 5MB",
+    schema: {
+      example: { statusCode: 400, message: "Only image files are allowed", error: "Bad Request" },
+    },
+  })
   async upload(@UploadedFile() file: Express.Multer.File) {
     this.logger.log(
       `Upload request: ${file.originalname} (${file.size} bytes)`,
