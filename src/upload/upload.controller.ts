@@ -58,8 +58,7 @@ export class UploadController {
   )
   @ApiOperation({
     summary: "Upload an image",
-    description:
-      "**Roles:** merchant · admin. Max 5MB. Returns Cloudinary URL.",
+    description: "**Roles:** merchant · admin. Max 5MB. Returns Cloudinary URL.",
   })
   @ApiConsumes("multipart/form-data")
   @ApiBody({
@@ -70,27 +69,39 @@ export class UploadController {
   })
   @ApiOkResponse({
     schema: {
-      example: { url: "https://res.cloudinary.com/dnx8vxdyf/image/upload/v1/kuttuk-time/abc.webp" },
+      example: {
+        url: "https://res.cloudinary.com/dnx8vxdyf/image/upload/v1/kuttuk-time/abc.webp",
+      },
     },
   })
   @ApiUnauthorizedResponse({
     description: "No token provided",
-    schema: { example: { statusCode: 401, message: "Unauthorized", error: "Unauthorized" } },
+    schema: {
+      example: {
+        statusCode: 401,
+        message: "Unauthorized",
+        error: "Unauthorized",
+      },
+    },
   })
   @ApiForbiddenResponse({
     description: "Requires merchant or admin role",
-    schema: { example: { statusCode: 403, message: "Forbidden", error: "Forbidden" } },
+    schema: {
+      example: { statusCode: 403, message: "Forbidden", error: "Forbidden" },
+    },
   })
   @ApiBadRequestResponse({
     description: "Not an image, or file exceeds 5MB",
     schema: {
-      example: { statusCode: 400, message: "Only image files are allowed", error: "Bad Request" },
+      example: {
+        statusCode: 400,
+        message: "Only image files are allowed",
+        error: "Bad Request",
+      },
     },
   })
   async upload(@UploadedFile() file: Express.Multer.File) {
-    this.logger.log(
-      `Upload request: ${file.originalname} (${file.size} bytes)`,
-    );
+    this.logger.log(`Upload request: ${file.originalname} (${file.size} bytes)`);
 
     const result = await this.cloudinaryService.uploadFile(file);
     return { url: result.secure_url };

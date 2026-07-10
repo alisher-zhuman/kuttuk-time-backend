@@ -101,7 +101,8 @@ export class MerchantsController {
   @Roles("merchant")
   @ApiOperation({
     summary: "Update own merchant profile",
-    description: "**Roles:** `merchant` only. Edits the merchant tied to your own Telegram account.",
+    description:
+      "**Roles:** `merchant` only. Edits the merchant tied to your own Telegram account.",
   })
   @ApiOkResponse({
     description: "Merchant updated",

@@ -1,10 +1,5 @@
 import { Controller, Post, Body, HttpCode } from "@nestjs/common";
-import {
-  ApiTags,
-  ApiOperation,
-  ApiOkResponse,
-  ApiUnauthorizedResponse,
-} from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiOkResponse, ApiUnauthorizedResponse } from "@nestjs/swagger";
 
 import { AuthService } from "./auth.service";
 import { LogInDto } from "./dtos/log-in.dto";
@@ -36,9 +31,7 @@ export class AuthController {
       example: { statusCode: 401, message: "Invalid initData signature", error: "Unauthorized" },
     },
   })
-  logIn(
-    @Body() logInDto: LogInDto,
-  ): Promise<{ accessToken: string; role: string }> {
+  logIn(@Body() logInDto: LogInDto): Promise<{ accessToken: string; role: string }> {
     return this.authService.logIn(logInDto.initData);
   }
 }

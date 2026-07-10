@@ -9,7 +9,11 @@ export class UpdateMerchantDto {
   name?: string;
 
   @ApiProperty({
-    example: { ru: "Лучший кофе в городе", kg: "Шаардагы эң жакшы кофе", en: "Best coffee in the city" },
+    example: {
+      ru: "Лучший кофе в городе",
+      kg: "Шаардагы эң жакшы кофе",
+      en: "Best coffee in the city",
+    },
     required: false,
   })
   @IsOptional()
@@ -22,13 +26,21 @@ export class UpdateMerchantDto {
   @IsInt({ each: true })
   categories?: number[];
 
-  @ApiProperty({ example: [500, 1000, 2000], description: `Nominals in KGS, one of: ${VALID_NOMINALS.join(", ")}`, required: false })
+  @ApiProperty({
+    example: [500, 1000, 2000],
+    description: `Nominals in KGS, one of: ${VALID_NOMINALS.join(", ")}`,
+    required: false,
+  })
   @IsOptional()
   @IsArray()
   @IsIn(VALID_NOMINALS, { each: true })
   nominals?: number[];
 
-  @ApiProperty({ example: 12, description: `Certificate validity in months, one of: ${VALID_VALIDITY_MONTHS.join(", ")}`, required: false })
+  @ApiProperty({
+    example: 12,
+    description: `Certificate validity in months, one of: ${VALID_VALIDITY_MONTHS.join(", ")}`,
+    required: false,
+  })
   @IsOptional()
   @IsIn(VALID_VALIDITY_MONTHS)
   validityMonths?: number;

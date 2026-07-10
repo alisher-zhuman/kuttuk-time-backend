@@ -56,17 +56,12 @@ export class CategoriesService {
     const existing = await this.categoryRepo.find({ select: ["id"] });
     const existingIds = new Set(existing.map((c) => c.id));
 
-    if (
-      dto.ids.length !== existingIds.size ||
-      !dto.ids.every((id) => existingIds.has(id))
-    ) {
+    if (dto.ids.length !== existingIds.size || !dto.ids.every((id) => existingIds.has(id))) {
       throw new BadRequestException("ids must match the full set of existing category ids");
     }
 
     await this.dataSource.transaction(async (manager) => {
-      await Promise.all(
-        dto.ids.map((id, order) => manager.update(Category, id, { order })),
-      );
+      await Promise.all(dto.ids.map((id, order) => manager.update(Category, id, { order })));
     });
 
     this.logger.log(`Categories reordered: ${dto.ids.join(",")}`);

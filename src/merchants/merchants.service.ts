@@ -34,7 +34,13 @@ export class MerchantsService {
   > {
     const qb = this.merchantRepo
       .createQueryBuilder("merchant")
-      .select(["merchant.id", "merchant.name", "merchant.description", "merchant.logo", "merchant.nominals"])
+      .select([
+        "merchant.id",
+        "merchant.name",
+        "merchant.description",
+        "merchant.logo",
+        "merchant.nominals",
+      ])
       .where("merchant.isActive = true")
       .orderBy("merchant.id", "ASC");
 
@@ -89,9 +95,7 @@ export class MerchantsService {
     return qb.getMany();
   }
 
-  async findOneAdmin(id: number): Promise<
-    Omit<Merchant, "updatedAt">
-  > {
+  async findOneAdmin(id: number): Promise<Omit<Merchant, "updatedAt">> {
     const merchant = await this.merchantRepo
       .createQueryBuilder("merchant")
       .select([
@@ -129,9 +133,7 @@ export class MerchantsService {
     validityMonths: number;
   }> {
     const numericId = Number(idOrSlug);
-    const where = isNaN(numericId)
-      ? { slug: idOrSlug }
-      : { id: numericId };
+    const where = isNaN(numericId) ? { slug: idOrSlug } : { id: numericId };
 
     const merchant = await this.merchantRepo.findOne({ where });
 
