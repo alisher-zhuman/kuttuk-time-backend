@@ -125,10 +125,16 @@ export class AdminMerchantsController {
 
   @Post()
   @ApiOperation({ summary: "Create a merchant", description: "**Roles:** `admin` only" })
-  @ApiCreatedResponse({ description: "Merchant created", schema: { example: FULL_MERCHANT_EXAMPLE } })
+  @ApiCreatedResponse({
+    description: "Merchant created",
+    schema: { example: FULL_MERCHANT_EXAMPLE },
+  })
   @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
   @ApiForbiddenResponse({ description: "Requires admin role", schema: { example: FORBIDDEN } })
-  @ApiConflictResponse({ description: "slug or merchantTelegramId already in use", schema: { example: SLUG_CONFLICT } })
+  @ApiConflictResponse({
+    description: "slug or merchantTelegramId already in use",
+    schema: { example: SLUG_CONFLICT },
+  })
   create(@Body() dto: CreateMerchantDto) {
     return this.merchantsService.create(dto);
   }
@@ -139,7 +145,10 @@ export class AdminMerchantsController {
   @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
   @ApiForbiddenResponse({ description: "Requires admin role", schema: { example: FORBIDDEN } })
   @ApiNotFoundResponse({ description: "Merchant not found", schema: { example: NOT_FOUND } })
-  @ApiConflictResponse({ description: "slug or merchantTelegramId already in use", schema: { example: SLUG_CONFLICT } })
+  @ApiConflictResponse({
+    description: "slug or merchantTelegramId already in use",
+    schema: { example: SLUG_CONFLICT },
+  })
   update(@Param("id", ParseIntPipe) id: number, @Body() dto: AdminUpdateMerchantDto) {
     return this.merchantsService.updateAdmin(id, dto);
   }

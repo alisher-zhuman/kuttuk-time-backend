@@ -1,4 +1,15 @@
-import { IsString, IsOptional, IsBoolean, IsNumber, IsPositive, IsArray, IsInt, IsIn, IsObject, Matches } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  IsPositive,
+  IsArray,
+  IsInt,
+  IsIn,
+  IsObject,
+  Matches,
+} from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../merchant.constants";
 
@@ -9,7 +20,11 @@ export class AdminUpdateMerchantDto {
   name?: string;
 
   @ApiProperty({
-    example: { ru: "Лучший кофе в городе", kg: "Шаардагы эң жакшы кофе", en: "Best coffee in the city" },
+    example: {
+      ru: "Лучший кофе в городе",
+      kg: "Шаардагы эң жакшы кофе",
+      en: "Best coffee in the city",
+    },
     required: false,
   })
   @IsOptional()
@@ -22,13 +37,21 @@ export class AdminUpdateMerchantDto {
   @IsInt({ each: true })
   categories?: number[];
 
-  @ApiProperty({ example: [500, 1000, 2000], description: `Nominals in KGS, one of: ${VALID_NOMINALS.join(", ")}`, required: false })
+  @ApiProperty({
+    example: [500, 1000, 2000],
+    description: `Nominals in KGS, one of: ${VALID_NOMINALS.join(", ")}`,
+    required: false,
+  })
   @IsOptional()
   @IsArray()
   @IsIn(VALID_NOMINALS, { each: true })
   nominals?: number[];
 
-  @ApiProperty({ example: 12, description: `Certificate validity in months, one of: ${VALID_VALIDITY_MONTHS.join(", ")}`, required: false })
+  @ApiProperty({
+    example: 12,
+    description: `Certificate validity in months, one of: ${VALID_VALIDITY_MONTHS.join(", ")}`,
+    required: false,
+  })
   @IsOptional()
   @IsIn(VALID_VALIDITY_MONTHS)
   validityMonths?: number;
@@ -47,7 +70,9 @@ export class AdminUpdateMerchantDto {
   @ApiProperty({ example: "sierra-coffee", required: false })
   @IsOptional()
   @IsString()
-  @Matches(/^[a-z0-9-]+$/, { message: "slug must contain only lowercase letters, numbers and hyphens" })
+  @Matches(/^[a-z0-9-]+$/, {
+    message: "slug must contain only lowercase letters, numbers and hyphens",
+  })
   slug?: string;
 
   @ApiProperty({ example: 123456789, required: false })

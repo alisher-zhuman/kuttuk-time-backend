@@ -68,6 +68,39 @@ export class MerchantsController {
     return this.merchantsService.findAll(lang, search, category);
   }
 
+  @Get("me")
+  @UseGuards(RolesGuard)
+  @Roles("merchant")
+  @ApiOperation({
+    summary: "Get own merchant profile",
+    description:
+      "**Roles:** `merchant` only. Returns the full merchant profile tied to your own Telegram account.",
+  })
+  @ApiOkResponse({
+    description: "Merchant object",
+    schema: {
+      example: {
+        id: 9,
+        name: "Sierra Coffee",
+        description: { kg: "...", ru: "Лучший кофе в городе", en: "Best coffee in the city" },
+        categories: [1],
+        nominals: [500, 1000, 2000],
+        validityMonths: 12,
+        merchantTelegramId: 123456789,
+        logo: "https://res.cloudinary.com/dnx8vxdyf/image/upload/v1/kuttuk-time/abc.webp",
+        slug: "sierra-coffee",
+        isActive: true,
+        createdAt: "2026-06-15T10:00:00.000Z",
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
+  @ApiForbiddenResponse({ description: "Requires merchant role", schema: { example: FORBIDDEN } })
+  @ApiNotFoundResponse({ description: "Merchant not found", schema: { example: NOT_FOUND } })
+  getOwn(@GetUser() user: CurrentUser) {
+    return this.merchantsService.getOwn(user.telegramId);
+  }
+
   @Get(":idOrSlug")
   @ApiOperation({
     summary: "Get one merchant by ID or slug",
@@ -101,7 +134,8 @@ export class MerchantsController {
   @Roles("merchant")
   @ApiOperation({
     summary: "Update own merchant profile",
-    description: "**Roles:** `merchant` only. Edits the merchant tied to your own Telegram account.",
+    description:
+      "**Roles:** `merchant` only. Edits the merchant tied to your own Telegram account.",
   })
   @ApiOkResponse({
     description: "Merchant updated",

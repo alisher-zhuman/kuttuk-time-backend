@@ -18,9 +18,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async logIn(
-    initData: string,
-  ): Promise<{ accessToken: string; role: string }> {
+  async logIn(initData: string): Promise<{ accessToken: string; role: string }> {
     const telegramId = this.verifyInitData(initData);
 
     let user = await this.userRepository.findOne({ where: { telegramId } });
@@ -73,9 +71,7 @@ export class AuthService {
       .update(process.env.BOT_TOKEN ?? "")
       .digest();
 
-    const computedHash = createHmac("sha256", secretKey)
-      .update(dataCheckString)
-      .digest("hex");
+    const computedHash = createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
 
     if (computedHash !== hash) {
       throw new UnauthorizedException("Invalid initData signature");

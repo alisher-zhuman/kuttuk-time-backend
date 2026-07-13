@@ -45,7 +45,8 @@ export class AdminCategoriesController {
   @Get()
   @ApiOperation({
     summary: "List all categories (raw, all languages)",
-    description: "**Roles:** `admin` only. Returns `name` as `{kg, ru, en}`, not resolved to one language.",
+    description:
+      "**Roles:** `admin` only. Returns `name` as `{kg, ru, en}`, not resolved to one language.",
   })
   @ApiOkResponse({
     schema: {

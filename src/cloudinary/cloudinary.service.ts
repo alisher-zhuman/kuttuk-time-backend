@@ -19,9 +19,7 @@ export class CloudinaryService {
       cloudinary.uploader
         .upload_stream({ folder: "kuttuk-time", format: "webp" }, (error, result) => {
           if (error || !result) {
-            this.logger.error(
-              `Upload failed: ${error?.message ?? "no result"}`,
-            );
+            this.logger.error(`Upload failed: ${error?.message ?? "no result"}`);
 
             return reject(error);
           }

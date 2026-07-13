@@ -1,10 +1,4 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  HttpStatus,
-} from "@nestjs/common";
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from "@nestjs/common";
 import { Response } from "express";
 import { QueryFailedError } from "typeorm";
 
@@ -38,9 +32,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+      exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
     let message = "Internal server error";
     let error = "Internal Server Error";
@@ -55,7 +47,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         const body = res as Record<string, unknown>;
         message = Array.isArray(body.message)
           ? (body.message as string[]).join(", ")
-          : (body.message as string) ?? exception.message;
+          : ((body.message as string) ?? exception.message);
         error = (body.error as string) ?? exception.name;
       }
     }

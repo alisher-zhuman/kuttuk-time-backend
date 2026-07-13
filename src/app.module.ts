@@ -24,10 +24,7 @@ import { JwtGuard } from "./auth/jwt.guard";
         database: config.get("DATABASE_NAME"),
         entities: [__dirname + "/**/*.entity{.ts,.js}"],
         synchronize: config.get("DB_SYNC") === "true",
-        ssl:
-          config.get("DATABASE_SSL") === "true"
-            ? { rejectUnauthorized: false }
-            : false,
+        ssl: config.get("DATABASE_SSL") === "true" ? { rejectUnauthorized: false } : false,
       }),
       inject: [ConfigService],
     }),

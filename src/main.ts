@@ -40,15 +40,13 @@ const bootstrap = async () => {
 
   const config = new DocumentBuilder()
     .setTitle("KuttukTime API")
-    .setDescription(
-      "Gift certificate platform for local businesses in Kyrgyzstan",
-    )
+    .setDescription("Gift certificate platform for local businesses in Kyrgyzstan")
     .setVersion("1.0")
     .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  
+
   SwaggerModule.setup("api", app, document);
 
   await app.listen(process.env.PORT ?? 3000);

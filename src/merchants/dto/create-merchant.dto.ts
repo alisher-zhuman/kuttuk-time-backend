@@ -20,7 +20,11 @@ export class CreateMerchantDto {
   name!: string;
 
   @ApiProperty({
-    example: { ru: "Лучший кофе в городе", kg: "Шаардагы эң жакшы кофе", en: "Best coffee in the city" },
+    example: {
+      ru: "Лучший кофе в городе",
+      kg: "Шаардагы эң жакшы кофе",
+      en: "Best coffee in the city",
+    },
   })
   @IsObject()
   description!: Record<string, string>;
@@ -31,13 +35,19 @@ export class CreateMerchantDto {
   @IsInt({ each: true })
   categories!: number[];
 
-  @ApiProperty({ example: [500, 1000, 2000, 3000, 5000], description: `Available nominals in KGS, one of: ${VALID_NOMINALS.join(", ")}` })
+  @ApiProperty({
+    example: [500, 1000, 2000, 3000, 5000],
+    description: `Available nominals in KGS, one of: ${VALID_NOMINALS.join(", ")}`,
+  })
   @IsArray()
   @ArrayMinSize(1)
   @IsIn(VALID_NOMINALS, { each: true })
   nominals!: number[];
 
-  @ApiProperty({ example: 12, description: `Certificate validity in months, one of: ${VALID_VALIDITY_MONTHS.join(", ")}` })
+  @ApiProperty({
+    example: 12,
+    description: `Certificate validity in months, one of: ${VALID_VALIDITY_MONTHS.join(", ")}`,
+  })
   @IsIn(VALID_VALIDITY_MONTHS)
   validityMonths!: number;
 
@@ -54,6 +64,8 @@ export class CreateMerchantDto {
   @ApiProperty({ example: "sierra-coffee", description: "URL slug for redirect link" })
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[a-z0-9-]+$/, { message: "slug must contain only lowercase letters, numbers and hyphens" })
+  @Matches(/^[a-z0-9-]+$/, {
+    message: "slug must contain only lowercase letters, numbers and hyphens",
+  })
   slug!: string;
 }

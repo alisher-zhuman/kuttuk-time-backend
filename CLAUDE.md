@@ -217,7 +217,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `DATABASE_SSL` | `false` | `true` on Koyeb |
 | `DB_SYNC` | `true` | **dev only**, `false` in prod |
 | `JWT_SECRET` | `...` | long random string |
-| `JWT_EXPIRATION` | `24h` | |
+| `JWT_EXPIRATION` | `2h` | short-lived — token isn't persisted on the frontend (in-memory only), it silently re-logs-in via Telegram initData on 401, so a long TTL only adds risk without any UX benefit |
 | `BOT_TOKEN` | `...` | from @BotFather, for initData verification |
 | `CLOUDINARY_CLOUD_NAME` | `...` | |
 | `CLOUDINARY_API_KEY` | `...` | |
@@ -238,7 +238,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `DATABASE_SSL` | `true` |
 | `DB_SYNC` | `false` |
 | `JWT_SECRET` | |
-| `JWT_EXPIRATION` | `24h` |
+| `JWT_EXPIRATION` | `2h` |
 | `BOT_TOKEN` | |
 | `CLOUDINARY_CLOUD_NAME` | |
 | `CLOUDINARY_API_KEY` | |
