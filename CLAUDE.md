@@ -96,18 +96,34 @@ Our net revenue:        +80 KGS (~8% net)
 
 **Public (no JWT):**
 - `POST /api/auth/log-in` — login via Telegram initData → JWT (returns 200)
-- `GET /:slug` — merchant redirect into the TMA
+- `GET /:slug` — merchant redirect into the TMA (redirects to `telegram.me/kuttuk_time_bot/app?startapp=:slug`)
 
-**Require JWT:**
-- `GET /api/merchants` — list (filters `?search=`, `?category=`, language via `Accept-Language`)
+**Merchants — public surface (any authenticated role: user/merchant/admin), resolved shape:**
+- `GET /api/merchants` — active only, filters `?search=`, `?category=` (id), language via `Accept-Language`
 - `GET /api/merchants/:idOrSlug` — by ID or slug
-- `POST /api/merchants` — create (admin) → 201
-- `PATCH /api/merchants/:id` — update (admin: any; merchant: own only; slug: admin only)
-- `GET /api/categories` — list (sorted by `order`)
-- `POST /api/categories` — create (admin) → 201
-- `PATCH /api/categories/:id` — update (admin)
-- `DELETE /api/categories/:id` — delete (admin) → 204
-- `POST /api/upload` — upload an image (any authenticated user, max 5MB)
+
+**Merchants — self-service (role: merchant):**
+- `GET /api/merchants/me` — own full profile, looked up by `merchantTelegramId`
+- `PATCH /api/merchants/me` — update own profile (no `isActive`/`slug`/`merchantTelegramId`)
+
+**Merchants — admin (role: admin), raw shape, under `/api/admin/merchants`:**
+- `GET /api/admin/merchants` — trimmed list (id/name/logo/isActive), filters `?search=`, `?category=`, `?isActive=`
+- `GET /api/admin/merchants/:id` — full detail (minus `updatedAt`)
+- `POST /api/admin/merchants` — create → 201
+- `PATCH /api/admin/merchants/:id` — update any (incl. `isActive`, `slug`, `merchantTelegramId`)
+
+**Categories — public (any authenticated role):**
+- `GET /api/categories` — sorted by `order`, `name` resolved to one language via `Accept-Language`
+
+**Categories — admin (role: admin), raw `{kg,ru,en}` shape, under `/api/admin/categories`:**
+- `GET /api/admin/categories` — list
+- `POST /api/admin/categories` — create → 201
+- `PATCH /api/admin/categories/reorder` — reorder (body: full ordered array of ids)
+- `PATCH /api/admin/categories/:id` — rename only
+- `DELETE /api/admin/categories/:id` — delete, also strips the id from any merchant's `categories` → 204
+
+**Upload (role: merchant or admin):**
+- `POST /api/upload` — upload an image, max 5MB
 
 ---
 
@@ -175,7 +191,7 @@ UI is finalized: purple `#8B5CF6` / pink `#EC4899`, light/dark themes.
 
 **Personal merchant links (future):**
 ```
-t.me/bot/app?startapp=coffeehouse_ali
+telegram.me/bot/app?startapp=coffeehouse_ali
 yourapp.com/m/coffeehouse?ref=insta_ali
 ```
 
