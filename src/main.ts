@@ -31,7 +31,7 @@ const bootstrap = async () => {
       return next();
     }
 
-    return res.redirect(302, `https://t.me/kuttuk_time_bot/app?startapp=${slug}`);
+    return res.redirect(302, `https://telegram.me/kuttuk_time_bot/app?startapp=${slug}`);
   });
 
   app.setGlobalPrefix("api");
