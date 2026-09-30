@@ -136,7 +136,7 @@ Our net revenue:        +80 KGS (~8% net)
 - `DELETE /api/admin/categories/:id` — delete, also strips the id from any merchant's `categories` → 204
 
 **Upload (role: merchant or admin):**
-- `POST /api/upload` — upload an image, max 5MB
+- `POST /api/upload` — upload an image (multipart field `file`), max 5MB → 413 if larger, 400 if missing/not an image
 
 ---
 
