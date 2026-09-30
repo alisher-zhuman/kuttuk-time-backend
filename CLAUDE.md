@@ -168,6 +168,8 @@ The main things not yet implemented:
 2. **Order code generation & status transitions** — money-adjacent, must be correct.
 3. **Payment webhooks** — once integrated.
 
+**Agreed exception (2026-09-30):** the Orders module ships *with* unit tests for code generation and status transitions (active → used/expired; no double redemption) — a few DB-free tests, written together with the module, not after MVP.
+
 Until then, verify changes by exercising the real flow, not by assuming.
 
 **Local verification recipe (worked well):**
