@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { JwtModule } from "@nestjs/jwt";
+import { ConfigService } from "@nestjs/config";
+import { JwtModule, type JwtSignOptions } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { User } from "../users/entities/user.entity";
 import { Merchant } from "../merchants/entities/merchant.entity";
@@ -14,9 +15,12 @@ import { JwtGuard } from "./jwt.guard";
     TypeOrmModule.forFeature([User, Merchant]),
     PassportModule,
     JwtModule.registerAsync({
-      useFactory: () => ({
-        secret: process.env.JWT_SECRET,
-        signOptions: { expiresIn: 60 * 60 * 24 * 7 },
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>("JWT_SECRET"),
+        signOptions: {
+          expiresIn: config.get("JWT_EXPIRATION", "2h") as JwtSignOptions["expiresIn"],
+        },
       }),
     }),
   ],
