@@ -1,12 +1,12 @@
 import {
   IsString,
   IsNotEmpty,
-  IsNumber,
   IsInt,
   IsIn,
   IsPositive,
   IsArray,
   ArrayMinSize,
+  ArrayUnique,
   IsObject,
   Matches,
 } from "class-validator";
@@ -41,6 +41,7 @@ export class CreateMerchantDto {
   })
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayUnique()
   @IsIn(VALID_NOMINALS, { each: true })
   nominals!: number[];
 
@@ -57,7 +58,7 @@ export class CreateMerchantDto {
   logo!: string;
 
   @ApiProperty({ example: 123456789 })
-  @IsNumber()
+  @IsInt()
   @IsPositive()
   merchantTelegramId!: number;
 
