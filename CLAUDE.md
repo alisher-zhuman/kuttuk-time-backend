@@ -109,7 +109,7 @@ Our net revenue:        +80 KGS (~8% net)
 
 **Public (no JWT):**
 - `POST /api/auth/log-in` — login via Telegram initData → JWT (returns 200)
-- `GET /:slug` — merchant redirect into the TMA (redirects to `telegram.me/kuttuk_time_bot/app?startapp=:slug`)
+- `GET /:slug` — merchant redirect into the TMA (redirects to `t.me/kuttuk_time_bot/app?startapp=:slug`)
 
 **Merchants — public surface (any authenticated role: user/merchant/admin), resolved shape:**
 - `GET /api/merchants` — active only, filters `?search=`, `?category=` (id), language via `Accept-Language`
@@ -219,7 +219,7 @@ UI is finalized: purple `#8B5CF6` / pink `#EC4899`, light/dark themes.
 
 **Personal merchant links (future):**
 ```
-telegram.me/bot/app?startapp=coffeehouse_ali
+t.me/bot/app?startapp=coffeehouse_ali
 yourapp.com/m/coffeehouse?ref=insta_ali
 ```
 
