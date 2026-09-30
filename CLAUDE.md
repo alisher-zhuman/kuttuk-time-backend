@@ -146,7 +146,8 @@ Our net revenue:        +80 KGS (~8% net)
 - **~2.5-month break.**
 - **2026-09-30:** full review + fix pass on `dev` (RolesGuard ignored class-level `@Roles` → any user could reach `/api/admin/*`; JWT lived 7d instead of 2h; initData had no `auth_date` expiry; 5xx weren't logged; upload without file → 500; inactive merchants visible by id/slug; weak merchant DTO validation; old logo deleted before save). Frontend got a similar pass the same day.
 - **Not yet on prod:** the 09-30 fixes stay on `dev` until merged to `main`. Local `main` can be stale — `git fetch` before comparing.
-- **Next:** review backlog is done (throttler proxy-IP issue parked in TODOs) — start the MVP list below with the Orders module. Frontend is blocked on orders + payments (buy button is a TODO, certificates tab is mock data).
+- **Next:** review backlog is done (throttler proxy-IP issue parked in TODOs). **Orders module waits for Finik** (decided 2026-09-30; connection expected soon): the `pending → paid` flow depends on Finik's API (payment UX, webhook format/signature, amount units, retries/refunds), so we build Orders in one go with their docs in hand. If Finik slips, start with the payment-independent part (certificate codes, active/used/expired, redemption, merchant cabinet) and plug payment in later. When access arrives, share Finik's API docs first — design the order schema around them before coding.
+- **While waiting:** merge the 09-30 fixes to `main` (prod still has the RolesGuard hole until then); frontend "account deactivated" notice in the merchant cabinet; throttler client-IP diagnostic (see TODOs). Frontend is blocked on orders + payments (buy button is a TODO, certificates tab is mock data).
 
 ## What still needs building (MVP)
 
