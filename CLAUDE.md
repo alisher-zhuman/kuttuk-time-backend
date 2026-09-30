@@ -113,11 +113,11 @@ Our net revenue:        +80 KGS (~8% net)
 
 **Merchants — public surface (any authenticated role: user/merchant/admin), resolved shape:**
 - `GET /api/merchants` — active only, filters `?search=`, `?category=` (id), language via `Accept-Language`
-- `GET /api/merchants/:idOrSlug` — by ID or slug
+- `GET /api/merchants/:idOrSlug` — by ID or slug, active only (inactive → 404)
 
 **Merchants — self-service (role: merchant):**
 - `GET /api/merchants/me` — own full profile, looked up by `merchantTelegramId`
-- `PATCH /api/merchants/me` — update own profile (no `isActive`/`slug`/`merchantTelegramId`)
+- `PATCH /api/merchants/me` — update own profile (no `isActive`/`slug`/`merchantTelegramId`); 403 if deactivated (`GET /me` still works and returns `isActive`)
 
 **Merchants — admin (role: admin), raw shape, under `/api/admin/merchants`:**
 - `GET /api/admin/merchants` — trimmed list (id/name/logo/isActive), filters `?search=`, `?category=`, `?isActive=`

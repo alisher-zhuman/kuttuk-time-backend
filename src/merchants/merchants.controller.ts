@@ -120,7 +120,10 @@ export class MerchantsController {
     },
   })
   @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
-  @ApiNotFoundResponse({ description: "Merchant not found", schema: { example: NOT_FOUND } })
+  @ApiNotFoundResponse({
+    description: "Merchant not found or deactivated",
+    schema: { example: NOT_FOUND },
+  })
   findOne(
     @Param("idOrSlug") idOrSlug: string,
     @Headers("accept-language") acceptLanguage: string = "kg",
@@ -157,7 +160,10 @@ export class MerchantsController {
     },
   })
   @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
-  @ApiForbiddenResponse({ description: "Requires merchant role", schema: { example: FORBIDDEN } })
+  @ApiForbiddenResponse({
+    description: "Requires merchant role, or merchant is deactivated",
+    schema: { example: FORBIDDEN },
+  })
   @ApiNotFoundResponse({ description: "Merchant not found", schema: { example: NOT_FOUND } })
   updateOwn(@Body() dto: UpdateMerchantDto, @GetUser() user: CurrentUser) {
     return this.merchantsService.updateOwn(user.telegramId, dto);

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 
@@ -151,7 +151,8 @@ export class MerchantsService {
     const numericId = Number(idOrSlug);
     const where = isNaN(numericId) ? { slug: idOrSlug } : { id: numericId };
 
-    const merchant = await this.merchantRepo.findOne({ where });
+    // Deactivated merchants are hidden from buyers, same as in findAll()
+    const merchant = await this.merchantRepo.findOne({ where: { ...where, isActive: true } });
 
     if (!merchant) {
       throw new NotFoundException("Merchant not found");
@@ -181,6 +182,11 @@ export class MerchantsService {
 
     if (!merchant) {
       throw new NotFoundException("Merchant not found");
+    }
+
+    // GET /me still works so the frontend can show a "deactivated" notice
+    if (!merchant.isActive) {
+      throw new ForbiddenException("Merchant is deactivated");
     }
 
     return this.applyUpdate(merchant, dto);
