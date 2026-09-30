@@ -66,6 +66,17 @@ Our net revenue:        +80 KGS (~8% net)
 - **Swagger** — auto-docs at `/api`
 - **Throttler** — 60 requests / 60 sec globally
 
+## Commands & conventions
+
+- `npm run start:dev` — dev server with watch (`:3000`, Swagger at `/api`)
+- `npm run build` / `npm run start:prod` — what the Dockerfile runs
+- `npm run typecheck` · `npm run lint` · `npm run format` — lefthook runs typecheck + lint on **pre-push**
+- `@/` path alias = `src/`
+- **Every route requires a JWT** (global `JwtGuard` + `ThrottlerGuard` in `app.module.ts`); opt out with `@Public()`
+- Admin endpoints live in separate `admin-*.controller.ts` files under `/api/admin/*`, class-level `@UseGuards(RolesGuard) @Roles("admin")`
+- `ValidationPipe({ whitelist: true })` without `transform` — unknown body fields are silently stripped (not rejected); query/params stay strings, so use `ParseIntPipe` / `ParseBoolPipe`
+- `GlobalExceptionFilter` turns Postgres unique violations into 409 (`<field> "<value>" is already in use`) and logs every 5xx with a stack trace
+
 ---
 
 ## Database (current entities)
@@ -272,13 +283,13 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `NODE_ENV` | `production` |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,https://kuttuk-time.vercel.app` |
 
-> `TG_BOT_USERNAME` and `TG_APP_NAME` were removed — the URL is hardcoded in redirect.controller.ts
+> `TG_BOT_USERNAME` and `TG_APP_NAME` were removed — the URL is hardcoded in the slug-redirect middleware in `src/main.ts`
 
 ---
 
 ## Known gaps (not urgent)
 
-- **Orphaned Cloudinary uploads:** `POST /upload` doesn't track files in the DB — if a photo is uploaded but never attached to a merchant (form abandoned, save failed, replaced before saving), it stays in Cloudinary forever, nothing cleans it up. Not worth fixing at current scale (storage is cheap, ~8 merchants). If it becomes an issue: a daily cron job comparing Cloudinary's `merchants/` folder against all `merchant.logo` URLs currently in use, deleting anything unreferenced.
+- **Orphaned Cloudinary uploads:** `POST /upload` doesn't track files in the DB — if a photo is uploaded but never attached to a merchant (form abandoned, save failed, replaced before saving), it stays in Cloudinary forever, nothing cleans it up. Not worth fixing at current scale (storage is cheap, ~8 merchants). If it becomes an issue: a daily cron job comparing Cloudinary's `kuttuk-time/` folder against all `merchant.logo` URLs currently in use, deleting anything unreferenced.
 
 ---
 
