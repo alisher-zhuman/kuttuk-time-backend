@@ -1,8 +1,9 @@
 import {
+  ArrayMinSize,
+  ArrayUnique,
   IsString,
   IsOptional,
   IsBoolean,
-  IsNumber,
   IsPositive,
   IsArray,
   IsInt,
@@ -44,6 +45,8 @@ export class AdminUpdateMerchantDto {
   })
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
+  @ArrayUnique()
   @IsIn(VALID_NOMINALS, { each: true })
   nominals?: number[];
 
@@ -77,7 +80,7 @@ export class AdminUpdateMerchantDto {
 
   @ApiProperty({ example: 123456789, required: false })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @IsPositive()
   merchantTelegramId?: number;
 }

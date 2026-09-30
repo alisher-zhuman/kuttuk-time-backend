@@ -18,6 +18,7 @@ import {
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiBadRequestResponse,
+  ApiPayloadTooLargeResponse,
 } from "@nestjs/swagger";
 import { memoryStorage } from "multer";
 import type { Request } from "express";
@@ -91,7 +92,7 @@ export class UploadController {
     },
   })
   @ApiBadRequestResponse({
-    description: "Not an image, or file exceeds 5MB",
+    description: 'No file in field "file", or not an image',
     schema: {
       example: {
         statusCode: 400,
@@ -100,7 +101,17 @@ export class UploadController {
       },
     },
   })
-  async upload(@UploadedFile() file: Express.Multer.File) {
+  @ApiPayloadTooLargeResponse({
+    description: "File exceeds 5MB",
+    schema: {
+      example: { statusCode: 413, message: "File too large", error: "Payload Too Large" },
+    },
+  })
+  async upload(@UploadedFile() file: Express.Multer.File | undefined) {
+    if (!file) {
+      throw new BadRequestException('File is required (multipart field "file")');
+    }
+
     this.logger.log(`Upload request: ${file.originalname} (${file.size} bytes)`);
 
     const result = await this.cloudinaryService.uploadFile(file);

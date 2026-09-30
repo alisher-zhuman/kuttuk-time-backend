@@ -2,9 +2,16 @@ import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { User } from "../users/entities/user.entity";
 import { Merchant } from "../merchants/entities/merchant.entity";
+
+// Telegram doesn't refresh initData while the Mini App stays open, and the
+// frontend re-logs-in with the same string on 401 — so this must outlast a
+// realistic session, not just the JWT TTL.
+const INIT_DATA_MAX_AGE_SEC = 24 * 60 * 60;
+// Tolerate small clock drift between Telegram and our server.
+const INIT_DATA_MAX_FUTURE_SKEW_SEC = 60;
 
 @Injectable()
 export class AuthService {
@@ -71,10 +78,25 @@ export class AuthService {
       .update(process.env.BOT_TOKEN ?? "")
       .digest();
 
-    const computedHash = createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+    const computedHash = createHmac("sha256", secretKey).update(dataCheckString).digest();
+    const receivedHash = Buffer.from(hash, "hex");
 
-    if (computedHash !== hash) {
+    if (
+      receivedHash.length !== computedHash.length ||
+      !timingSafeEqual(receivedHash, computedHash)
+    ) {
       throw new UnauthorizedException("Invalid initData signature");
+    }
+
+    const authDate = Number(params.get("auth_date"));
+    const ageSec = Math.floor(Date.now() / 1000) - authDate;
+
+    if (
+      !Number.isInteger(authDate) ||
+      ageSec > INIT_DATA_MAX_AGE_SEC ||
+      ageSec < -INIT_DATA_MAX_FUTURE_SKEW_SEC
+    ) {
+      throw new UnauthorizedException("initData expired");
     }
 
     const userParam = params.get("user");
@@ -82,7 +104,17 @@ export class AuthService {
       throw new UnauthorizedException("Missing user in initData");
     }
 
-    const telegramUser = JSON.parse(userParam) as { id: number };
-    return telegramUser.id;
+    let telegramId: unknown;
+    try {
+      telegramId = (JSON.parse(userParam) as { id?: unknown }).id;
+    } catch {
+      throw new UnauthorizedException("Malformed user in initData");
+    }
+
+    if (!Number.isSafeInteger(telegramId) || (telegramId as number) <= 0) {
+      throw new UnauthorizedException("Malformed user in initData");
+    }
+
+    return telegramId as number;
   }
 }

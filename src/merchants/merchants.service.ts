@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 
@@ -151,7 +151,8 @@ export class MerchantsService {
     const numericId = Number(idOrSlug);
     const where = isNaN(numericId) ? { slug: idOrSlug } : { id: numericId };
 
-    const merchant = await this.merchantRepo.findOne({ where });
+    // Deactivated merchants are hidden from buyers, same as in findAll()
+    const merchant = await this.merchantRepo.findOne({ where: { ...where, isActive: true } });
 
     if (!merchant) {
       throw new NotFoundException("Merchant not found");
@@ -183,6 +184,11 @@ export class MerchantsService {
       throw new NotFoundException("Merchant not found");
     }
 
+    // GET /me still works so the frontend can show a "deactivated" notice
+    if (!merchant.isActive) {
+      throw new ForbiddenException("Merchant is deactivated");
+    }
+
     return this.applyUpdate(merchant, dto);
   }
 
@@ -195,19 +201,28 @@ export class MerchantsService {
     merchant: Merchant,
     dto: UpdateMerchantDto | AdminUpdateMerchantDto,
   ): Promise<Merchant> {
-    if (dto.logo && merchant.logo && merchant.logo !== dto.logo) {
-      const publicId = this.extractCloudinaryPublicId(merchant.logo);
-
-      if (publicId) {
-        await this.cloudinaryService.deleteFile(publicId);
-      }
-    }
+    const oldLogo = merchant.logo;
 
     Object.assign(merchant, dto);
 
     const saved = await this.merchantRepo.save(merchant);
 
     this.logger.log(`Merchant updated: id=${merchant.id}`);
+
+    // Delete the old logo only after the save succeeded — otherwise a failed
+    // save (e.g. 409 on slug) would leave the DB pointing at a deleted image.
+    if (dto.logo && oldLogo && oldLogo !== dto.logo) {
+      const publicId = this.extractCloudinaryPublicId(oldLogo);
+
+      if (publicId) {
+        // The update is already saved; a leftover file is harmless, so don't fail the request
+        await this.cloudinaryService
+          .deleteFile(publicId)
+          .catch((err: Error) =>
+            this.logger.warn(`Old logo cleanup failed: ${publicId} (${err.message})`),
+          );
+      }
+    }
 
     return saved;
   }

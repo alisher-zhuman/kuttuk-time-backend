@@ -1,4 +1,14 @@
-import { IsString, IsOptional, IsArray, IsInt, IsIn, IsObject, Matches } from "class-validator";
+import {
+  ArrayMinSize,
+  ArrayUnique,
+  IsString,
+  IsOptional,
+  IsArray,
+  IsInt,
+  IsIn,
+  IsObject,
+  Matches,
+} from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../merchant.constants";
 
@@ -33,6 +43,8 @@ export class UpdateMerchantDto {
   })
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
+  @ArrayUnique()
   @IsIn(VALID_NOMINALS, { each: true })
   nominals?: number[];
 

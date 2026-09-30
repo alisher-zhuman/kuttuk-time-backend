@@ -66,6 +66,17 @@ Our net revenue:        +80 KGS (~8% net)
 - **Swagger** — auto-docs at `/api`
 - **Throttler** — 60 requests / 60 sec globally
 
+## Commands & conventions
+
+- `npm run start:dev` — dev server with watch (`:3000`, Swagger at `/api`)
+- `npm run build` / `npm run start:prod` — what the Dockerfile runs
+- `npm run typecheck` · `npm run lint` · `npm run format` — lefthook runs typecheck + lint on **pre-push**
+- `@/` path alias = `src/`
+- **Every route requires a JWT** (global `JwtGuard` + `ThrottlerGuard` in `app.module.ts`); opt out with `@Public()`
+- Admin endpoints live in separate `admin-*.controller.ts` files under `/api/admin/*`, class-level `@UseGuards(RolesGuard) @Roles("admin")`
+- `ValidationPipe({ whitelist: true })` without `transform` — unknown body fields are silently stripped (not rejected); query/params stay strings, so use `ParseIntPipe` / `ParseBoolPipe`
+- `GlobalExceptionFilter` turns Postgres unique violations into 409 (`<field> "<value>" is already in use`) and logs every 5xx with a stack trace
+
 ---
 
 ## Database (current entities)
@@ -74,7 +85,7 @@ Our net revenue:        +80 KGS (~8% net)
 
 **merchants** — `id`, `name`, `description` (multilingual jsonb `{kg,ru,en}`), `categories[]`, `nominals[]`, `validityMonths` (default 12), `merchantTelegramId` (**bigint**), `logo` (Cloudinary URL), `slug` (unique), `isActive`, `createdAt`, `updatedAt`
 
-**categories** — `id`, `name` (unique), `order`
+**categories** — `id`, `name` (multilingual jsonb `{kg,ru,en}`), `order`
 
 ---
 
@@ -90,26 +101,53 @@ Our net revenue:        +80 KGS (~8% net)
 
 **How the role is enforced:** the role is read from the DB at login time and baked into the JWT payload. `JwtStrategy` verifies the token signature (JWT_SECRET) on every request and puts `{ userId, role, telegramId }` on `request.user`; `RolesGuard` compares it against `@Roles(...)`. The role is a snapshot from login — changing it in the DB requires a fresh `log-in` to take effect. `admin` is only assigned manually via SQL (`UPDATE users SET role='admin' WHERE ...`).
 
+`@Roles(...)` works on a class or a method (method overrides class); it needs `@UseGuards(RolesGuard)` alongside. `log-in` rejects initData older than 24h (`auth_date`) — deliberately not shorter, since Telegram doesn't refresh initData while the Mini App is open and the frontend re-logs-in with it on 401.
+
 ---
 
 ## API (already built)
 
 **Public (no JWT):**
 - `POST /api/auth/log-in` — login via Telegram initData → JWT (returns 200)
-- `GET /:slug` — merchant redirect into the TMA
+- `GET /:slug` — merchant redirect into the TMA (redirects to `t.me/kuttuk_time_bot/app?startapp=:slug`)
 
-**Require JWT:**
-- `GET /api/merchants` — list (filters `?search=`, `?category=`, language via `Accept-Language`)
-- `GET /api/merchants/:idOrSlug` — by ID or slug
-- `POST /api/merchants` — create (admin) → 201
-- `PATCH /api/merchants/:id` — update (admin: any; merchant: own only; slug: admin only)
-- `GET /api/categories` — list (sorted by `order`)
-- `POST /api/categories` — create (admin) → 201
-- `PATCH /api/categories/:id` — update (admin)
-- `DELETE /api/categories/:id` — delete (admin) → 204
-- `POST /api/upload` — upload an image (any authenticated user, max 5MB)
+**Merchants — public surface (any authenticated role: user/merchant/admin), resolved shape:**
+- `GET /api/merchants` — active only, filters `?search=`, `?category=` (id), language via `Accept-Language`
+- `GET /api/merchants/:idOrSlug` — by ID or slug, active only (inactive → 404)
+
+**Merchants — self-service (role: merchant):**
+- `GET /api/merchants/me` — own full profile, looked up by `merchantTelegramId`
+- `PATCH /api/merchants/me` — update own profile (no `isActive`/`slug`/`merchantTelegramId`); 403 if deactivated (`GET /me` still works and returns `isActive`)
+
+**Merchants — admin (role: admin), raw shape, under `/api/admin/merchants`:**
+- `GET /api/admin/merchants` — trimmed list (id/name/logo/isActive), filters `?search=`, `?category=`, `?isActive=`
+- `GET /api/admin/merchants/:id` — full detail (minus `updatedAt`)
+- `POST /api/admin/merchants` — create → 201
+- `PATCH /api/admin/merchants/:id` — update any (incl. `isActive`, `slug`, `merchantTelegramId`)
+
+**Categories — public (any authenticated role):**
+- `GET /api/categories` — sorted by `order`, `name` resolved to one language via `Accept-Language`
+
+**Categories — admin (role: admin), raw `{kg,ru,en}` shape, under `/api/admin/categories`:**
+- `GET /api/admin/categories` — list
+- `POST /api/admin/categories` — create → 201
+- `PATCH /api/admin/categories/reorder` — reorder (body: full ordered array of ids)
+- `PATCH /api/admin/categories/:id` — rename only
+- `DELETE /api/admin/categories/:id` — delete, also strips the id from any merchant's `categories` → 204
+
+**Upload (role: merchant or admin):**
+- `POST /api/upload` — upload an image (multipart field `file`), max 5MB → 413 if larger, 400 if missing/not an image
 
 ---
+
+## Project status — where we stopped
+
+- **2026-07-02 → 07-14:** active development. Last feature: `GET /merchants/me` (07-10). PR #34 merged to `main` on 07-14 — **that's what prod runs**. Frontend's last commit before the break: 07-15 (merchant profile edit).
+- **~2.5-month break.**
+- **2026-09-30:** full review + fix pass on `dev` (RolesGuard ignored class-level `@Roles` → any user could reach `/api/admin/*`; JWT lived 7d instead of 2h; initData had no `auth_date` expiry; 5xx weren't logged; upload without file → 500; inactive merchants visible by id/slug; weak merchant DTO validation; old logo deleted before save). Frontend got a similar pass the same day.
+- **Not yet on prod:** the 09-30 fixes stay on `dev` until merged to `main`. Local `main` can be stale — `git fetch` before comparing.
+- **Next:** review backlog is done (throttler proxy-IP issue parked in TODOs). **Orders module waits for Finik** (decided 2026-09-30; connection expected soon): the `pending → paid` flow depends on Finik's API (payment UX, webhook format/signature, amount units, retries/refunds), so we build Orders in one go with their docs in hand. If Finik slips, start with the payment-independent part (certificate codes, active/used/expired, redemption, merchant cabinet) and plug payment in later. When access arrives, share Finik's API docs first — design the order schema around them before coding.
+- **While waiting:** merge the 09-30 fixes to `main` (prod still has the RolesGuard hole until then); frontend "account deactivated" notice in the merchant cabinet; throttler client-IP diagnostic (see TODOs). Frontend is blocked on orders + payments (buy button is a TODO, certificates tab is mock data).
 
 ## What still needs building (MVP)
 
@@ -131,7 +169,16 @@ The main things not yet implemented:
 2. **Order code generation & status transitions** — money-adjacent, must be correct.
 3. **Payment webhooks** — once integrated.
 
+**Agreed exception (2026-09-30):** the Orders module ships *with* unit tests for code generation and status transitions (active → used/expired; no double redemption) — a few DB-free tests, written together with the module, not after MVP.
+
 Until then, verify changes by exercising the real flow, not by assuming.
+
+**Local verification recipe (worked well):**
+- `npm run typecheck` + `npx eslint <file>` + `npx prettier --write <file>` — same checks lefthook runs on pre-push
+- Local Postgres is expected on `localhost:5432` (`pg_isready`); start the app with `npx nest start`, wait for `curl localhost:3000/api`, `pkill -f "nest start"` after
+- Role/guard checks: sign a JWT with `JWT_SECRET` from `.env` via `new (require('@nestjs/jwt').JwtService)({secret}).sign({userId, role, telegramId})` — no Telegram needed
+- Login checks: build initData in node (sorted `k=v` lines, HMAC key = `HMAC("WebAppData", BOT_TOKEN)`) and POST to `/api/auth/log-in`; delete the test user afterwards (`DELETE FROM users WHERE "telegramId"=...`)
+- Prod rate-limit state is visible in `X-RateLimit-Remaining` response headers — probe with a few requests only (shared bucket, see TODOs)
 
 ---
 
@@ -247,18 +294,19 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `NODE_ENV` | `production` |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,https://kuttuk-time.vercel.app` |
 
-> `TG_BOT_USERNAME` and `TG_APP_NAME` were removed — the URL is hardcoded in redirect.controller.ts
+> `TG_BOT_USERNAME` and `TG_APP_NAME` were removed — the URL is hardcoded in the slug-redirect middleware in `src/main.ts`
 
 ---
 
 ## Known gaps (not urgent)
 
-- **Orphaned Cloudinary uploads:** `POST /upload` doesn't track files in the DB — if a photo is uploaded but never attached to a merchant (form abandoned, save failed, replaced before saving), it stays in Cloudinary forever, nothing cleans it up. Not worth fixing at current scale (storage is cheap, ~8 merchants). If it becomes an issue: a daily cron job comparing Cloudinary's `merchants/` folder against all `merchant.logo` URLs currently in use, deleting anything unreferenced.
+- **Orphaned Cloudinary uploads:** `POST /upload` doesn't track files in the DB — if a photo is uploaded but never attached to a merchant (form abandoned, save failed, replaced before saving), it stays in Cloudinary forever, nothing cleans it up. Not worth fixing at current scale (storage is cheap, ~8 merchants). If it becomes an issue: a daily cron job comparing Cloudinary's `kuttuk-time/` folder against all `merchant.logo` URLs currently in use, deleting anything unreferenced.
 
 ---
 
 ## Important TODOs before prod
 
 - [ ] Enable `origin: allowedOrigins` in CORS (currently `origin: true`)
+- [ ] **Throttler keys on the Koyeb proxy IP, not the client.** No `trust proxy` is set, so `req.ip` is the proxy hop, and every user behind the same proxy node shares one 60 req/min bucket. Verified on prod (2026-09-30): repeated requests from one client got `X-RateLimit-Remaining` 59→59→58→58→59, i.e. different proxy nodes, not one counter per client. Harmless at current traffic, but it will cause false 429s as traffic grows. Chain is client → Cloudflare → Koyeb → app. **Don't** just set `trust proxy: true`: Express would take the leftmost `X-Forwarded-For`, which the client controls, so anyone could bypass the limit by spoofing it. Plan: temporarily log `cf-connecting-ip`, `x-forwarded-for`, `x-real-ip` and `req.ip` on prod, check Koyeb logs to see which header carries the real client IP and can't be spoofed (most likely `CF-Connecting-IP`), then override the throttler tracker (`getTracker`) to use it, and remove the log. Note: the official NestJS docs example (`req.ips[0]` + `trust proxy`) has the same spoofing problem — don't copy it as-is.
 - [ ] Add payments (Finik/Bakai/Freedom)
 - [ ] When `DB_SYNC=false` on prod, apply schema changes manually. Pending: `ALTER TABLE users ALTER COLUMN "telegramId" TYPE bigint;` and `ALTER TABLE merchants ALTER COLUMN "merchantTelegramId" TYPE bigint;`
