@@ -201,19 +201,28 @@ export class MerchantsService {
     merchant: Merchant,
     dto: UpdateMerchantDto | AdminUpdateMerchantDto,
   ): Promise<Merchant> {
-    if (dto.logo && merchant.logo && merchant.logo !== dto.logo) {
-      const publicId = this.extractCloudinaryPublicId(merchant.logo);
-
-      if (publicId) {
-        await this.cloudinaryService.deleteFile(publicId);
-      }
-    }
+    const oldLogo = merchant.logo;
 
     Object.assign(merchant, dto);
 
     const saved = await this.merchantRepo.save(merchant);
 
     this.logger.log(`Merchant updated: id=${merchant.id}`);
+
+    // Delete the old logo only after the save succeeded — otherwise a failed
+    // save (e.g. 409 on slug) would leave the DB pointing at a deleted image.
+    if (dto.logo && oldLogo && oldLogo !== dto.logo) {
+      const publicId = this.extractCloudinaryPublicId(oldLogo);
+
+      if (publicId) {
+        // The update is already saved; a leftover file is harmless, so don't fail the request
+        await this.cloudinaryService
+          .deleteFile(publicId)
+          .catch((err: Error) =>
+            this.logger.warn(`Old logo cleanup failed: ${publicId} (${err.message})`),
+          );
+      }
+    }
 
     return saved;
   }
