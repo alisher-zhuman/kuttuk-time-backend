@@ -144,9 +144,9 @@ Our net revenue:        +80 KGS (~8% net)
 
 - **2026-07-02 → 07-14:** active development. Last feature: `GET /merchants/me` (07-10). PR #34 merged to `main` on 07-14 — **that's what prod runs**. Frontend's last commit before the break: 07-15 (merchant profile edit).
 - **~2.5-month break.**
-- **2026-09-30:** full review + fix pass on `dev` (RolesGuard ignored class-level `@Roles` → any user could reach `/api/admin/*`; JWT lived 7d instead of 2h; initData had no `auth_date` expiry; 5xx weren't logged; upload without file → 500; inactive merchants visible by id/slug). Frontend got a similar pass the same day.
+- **2026-09-30:** full review + fix pass on `dev` (RolesGuard ignored class-level `@Roles` → any user could reach `/api/admin/*`; JWT lived 7d instead of 2h; initData had no `auth_date` expiry; 5xx weren't logged; upload without file → 500; inactive merchants visible by id/slug; weak merchant DTO validation; old logo deleted before save). Frontend got a similar pass the same day.
 - **Not yet on prod:** the 09-30 fixes stay on `dev` until merged to `main`. Local `main` can be stale — `git fetch` before comparing.
-- **Next:** finish the small review backlog, then the MVP list below, starting with the Orders module. Frontend is blocked on orders + payments (buy button is a TODO, certificates tab is mock data).
+- **Next:** review backlog is done (throttler proxy-IP issue parked in TODOs) — start the MVP list below with the Orders module. Frontend is blocked on orders + payments (buy button is a TODO, certificates tab is mock data).
 
 ## What still needs building (MVP)
 
