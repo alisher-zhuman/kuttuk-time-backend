@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [dev, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # testcontainers 12 needs >= 22.22; "22" resolves to the latest 22.x.
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # `npm run lint` uses --fix, which would silently rewrite files and pass.
+      - run: npm run lint:check
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      # Testcontainers starts postgres:18 through the runner's Docker.
+      - run: npm run test:int
+
+      - name: npm audit (production deps)
+        # Reporting only for now; whether to block on it is still to be decided.
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
