@@ -4,7 +4,11 @@ import { DataSource } from "typeorm";
 import { buildTypeOrmOptions } from "../../src/database/typeorm.options";
 import { openTestDataSource } from "../helpers/db";
 
-const MIGRATIONS = ["Baseline1760000000000", "AddOrdersAndCertificates1791786384962"];
+const MIGRATIONS = [
+  "Baseline1760000000000",
+  "AddOrdersAndCertificates1791786384962",
+  "FinikWebhookAndNeedsReview1791798635519",
+];
 
 describe("Migrations (integration)", () => {
   describe("on an empty database", () => {
@@ -39,7 +43,7 @@ describe("Migrations (integration)", () => {
       ).resolves.toEqual([{ n: 0 }]);
     });
 
-    it("applies Baseline + AddOrdersAndCertificates in order", async () => {
+    it("applies all migrations in order, starting with Baseline", async () => {
       const executed = await ds.runMigrations();
 
       expect(executed.map((m) => m.name)).toEqual(MIGRATIONS);

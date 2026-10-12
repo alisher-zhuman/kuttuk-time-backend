@@ -16,6 +16,8 @@ export enum OrderStatus {
   Pending = "pending",
   Paid = "paid",
   Expired = "expired",
+  // Paid, but the amount didn't match — no certificate; resolve by hand.
+  NeedsReview = "needs_review",
 }
 
 @Entity("orders")
