@@ -90,9 +90,11 @@ Our net revenue:        +80 KGS (~8% net)
 
 **categories** — `id`, `name` (multilingual jsonb `{kg,ru,en}`), `order`
 
-**orders** — `id` (uuid, generated in the app, = Finik `PaymentId`), `userId` (FK users), `merchantId` (FK merchants), `amount` (int, KGS), `status` (`pending`/`paid`/`expired`), `paymentUrl`, `expiresAt`, `paidAt`, `finikTransactionId` (unique), `createdAt`, `updatedAt`. Indexes `(userId, createdAt)`, `(status, expiresAt)`
+**orders** — `id` (uuid, generated in the app, = Finik `PaymentId`), `userId` (FK users), `merchantId` (FK merchants), `amount` (int, KGS), `status` (`pending`/`paid`/`expired`/`needs_review`), `paymentUrl`, `expiresAt`, `paidAt`, `finikTransactionId` (unique), `createdAt`, `updatedAt`. Indexes `(userId, createdAt)`, `(status, expiresAt)`
 
 **certificates** — `id` (uuid), `code` (unique, `KT-XXXX-XXXX`), `orderId` (FK, unique — one order = one certificate), `merchantId`, `ownerUserId`, `amount`, `status` (`active`/`used`/`expired`), `validUntil`, `usedAt`, `createdAt`
+
+**finik_webhook_events** — audit of **every** request to the webhook, valid or not: `id`, `receivedAt`, `signatureValid`, `headers` (only `host` + `x-api-*`; the `signature` header itself is not stored), `body`, `result`, `orderId` (nullable, indexed, **no FK** so the audit row can always be written). `headers`/`body` are **`json`, not `jsonb`**: jsonb reorders keys, and nested key order is part of Finik's signature — with `json` a stored body can be re-verified later
 
 All FKs are `ON DELETE RESTRICT` — a user/merchant with orders can't be deleted. New tables use `timestamptz`; the old ones keep `timestamp without time zone`.
 
@@ -169,8 +171,25 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 - `GET /api/orders/:id` — for polling after payment. Only the owner; anyone else's order → 404. Non-uuid → 400. Returns `status`, `amount`, `merchantId`, `expiresAt`, `paidAt`, `paymentUrl` (only while `pending`) and `certificate: { code, validUntil }` once `paid`
 
 **Statuses:**
-- Order: `pending → paid | expired`. A cron (`OrdersService.expireStale`, every minute) moves `pending` with `expiresAt < now` to `expired`. `paid` is set by the Finik webhook (not built yet)
-- Certificate: `active → used | expired`. Created only after payment (in the webhook), `validUntil = paidAt + merchant.validityMonths`. Code `KT-XXXX-XXXX` from a 32-symbol alphabet without `0/O/1/I`, `crypto.randomInt` (`src/certificates/certificate-code.ts`)
+- Order: `pending → paid | expired | needs_review`, and `expired → paid | needs_review` (a payment can land after the QR expired — the money is taken, so it's honoured). A cron (`OrdersService.expireStale`, every minute) moves only `pending` with `expiresAt < now` to `expired` — it never touches `paid`/`needs_review`. `paid`/`needs_review` are set only by the Finik webhook. `GET /api/orders/:id` returns `needs_review` as is (no certificate, no payment URL)
+- Certificate: `active → used | expired`. Created only by the webhook, in the same transaction that marks the order `paid`. `validUntil = addMonths(paidAt, merchant.validityMonths)` — calendar months in UTC, clamped to the month's last day (Jan 31 + 1 → Feb 28/29; `src/common/utils/add-months.ts`). Code `KT-XXXX-XXXX` from a 32-symbol alphabet without `0/O/1/I`, `crypto.randomInt` (`src/certificates/certificate-code.ts`)
+
+**Finik webhook — `POST /api/finik/webhook`** (`src/orders/finik-webhook.{controller,service}.ts`, signature check in `src/finik/finik-webhook.verifier.ts`). Public (`@Public`), not throttled (`@SkipThrottle`), hidden from Swagger. Answers **200** = "don't retry", **401** = bad signature, **5xx** = Finik retries (up to a day).
+- **Signature:** our `finik-signer` + Finik's public key (`FINIK_PUBLIC_KEY_B64`). Host and path come from **`FINIK_WEBHOOK_URL`**, not from the request (behind Koyeb's proxy they differ) — so it must be **exactly** the public URL Finik calls, with `/api`: `https://kuttuk-time.koyeb.app/api/finik/webhook`; anything else and every webhook gets 401. `x-api-*` headers and the query come from the request, the body is the parsed JSON as is (key order preserved), the signature from the lower-case `signature` header. No timestamp-freshness check on purpose: Finik retries for up to 24h and may not re-sign; idempotency protects against replays.
+- **Processing** (one transaction, `SELECT … FOR UPDATE` on the order, so concurrent deliveries serialize). The order is `body.fields.paymentId` (= our `order.id`). The `result` written to the audit:
+  - `invalid_signature` → 401, logged without the body
+  - `order_not_found` — unknown or non-uuid `paymentId` → 200 (retrying is pointless)
+  - `ignored_status: <status>` — `body.status` isn't `success`/`succeeded` (case-insensitive) → 200, order untouched
+  - `already_paid` / `already_needs_review` — duplicate delivery → 200, no-op
+  - `needs_review: amount_mismatch` — `body.amount !== order.amount` → order `needs_review`, `paidAt` + `finikTransactionId` filled, **no certificate**, error log → 200
+  - `paid` / `paid_after_expiry` — order `paid`, `paidAt = body.transactionDate` (fallback now), `finikTransactionId = body.id`; certificate issued (owner = buyer). Code collisions retried up to 5× via `INSERT … ON CONFLICT (code) DO NOTHING` (catching the error would abort the transaction)
+  - `error: <message>` — anything unexpected → everything rolled back, 500, Finik retries
+- **Audit** is written first, outside the payment transaction (`received`, then the final `result`), so it survives a rollback. To re-check a disputed webhook: take `body` + `headers` from `finik_webhook_events` and run them through `FinikWebhookVerifier.verify` with the signature from Finik.
+
+**Resolving `needs_review` by hand** (Finik took money, but not the amount we expected — usually a Finik-side or tampering issue):
+1. Find them: `SELECT o.*, e.body FROM orders o JOIN finik_webhook_events e ON e."orderId" = o.id AND e.result LIKE 'needs_review%' WHERE o.status = 'needs_review';` — compare `e.body->>'amount'` with `o.amount` and check `o."finikTransactionId"` in Finik's cabinet.
+2. Decide: **refund** through Finik (then leave the order as `needs_review`, or note it), or **honour** it — set the order to `paid` and insert the certificate by hand in one transaction (code from `generateCertificateCode()`, `validUntil` = `paidAt` + the merchant's `validityMonths`). There's no admin endpoint for this yet.
+3. A retried webhook for that order is a no-op (`already_needs_review`), so a manual fix is never overwritten.
 
 **Finik (`src/finik/`):** `finik.config.ts` (env, base64 → PEM), `finik-signer.ts` (our own request signer on `node:crypto`, byte-for-byte compatible with `@mancho.devs/authorizer`, which is only a devDependency for parity tests), `finik.service.ts` (`createPayment`: `POST /v1/payment`, `redirect: 'manual'`, 302 `Location` = payment URL, 15s timeout). The doc's test-vector signature doesn't match Finik's published beta public key — need a matching key/signature pair from Finik (that test is `it.skip` until then).
 
@@ -183,15 +202,16 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 - **2026-09-30:** full review + fix pass on `dev` (RolesGuard ignored class-level `@Roles` → any user could reach `/api/admin/*`; JWT lived 7d instead of 2h; initData had no `auth_date` expiry; 5xx weren't logged; upload without file → 500; inactive merchants visible by id/slug; weak merchant DTO validation; old logo deleted before save). Frontend got a similar pass the same day.
 - **Not yet on prod:** the 09-30 fixes stay on `dev` until merged to `main`. Local `main` can be stale — `git fetch` before comparing.
 - **2026-10-12:** Finik access arrived. Built on `dev`: Finik config + signer + `createPayment`, Orders/Certificates (`POST /api/orders`, `GET /api/orders/:id`, expiry cron), TypeORM migrations with a prod baseline. `FinikModule` is now part of the app (via `OrdersModule`), so **the app won't start without `FINIK_*` env** — don't merge to `main` before they're set on Koyeb.
-- **Next:** Finik webhook (verify the signature with our signer on the raw body → `paid` + create the certificate in one transaction; decide what to do with a payment that arrives after `expired`; retry the code on a unique collision), then redemption ("mark as used") and the merchant cabinet.
+- **Also 2026-10-12:** the Finik webhook (signature check, audit, `paid` + certificate, `needs_review` on amount mismatch). Not yet verified against a **real** Finik webhook — the doc's test vector doesn't match their beta key; the first real one lands in `finik_webhook_events` either way.
+- **Next:** redemption ("mark as used") and the merchant cabinet; a real end-to-end payment on Finik beta.
 - **Before merging `dev` → `main`:** set `FINIK_*` on Koyeb, `pg_dump` prod, then merge — the first boot records `Baseline` and creates `orders`/`certificates`. This merge also ships the 09-30 fixes (prod still has the RolesGuard hole until then). Frontend: buy button + certificates tab still need wiring to the new endpoints.
 
 ## What still needs building (MVP)
 
 The main things not yet implemented:
 
-1. **Orders module** — ✅ orders, certificate entity and code generation (`KT-XXXX-XXXX`) are built; still missing: issuing the certificate on payment, redemption
-2. **Payment integration** — Finik: ✅ payment creation; still missing: webhook. Bakai / Freedom: not started
+1. **Orders module** — ✅ orders, certificates issued on payment (webhook); still missing: redemption
+2. **Payment integration** — Finik: ✅ payment creation + webhook (not yet tried with a real Finik webhook). Bakai / Freedom: not started
 3. **Merchant cabinet** — weekly stats, list of active codes, "mark as used"
 4. **Weekly reports** — automatic calculation and merchant notification every Monday
 
@@ -218,7 +238,7 @@ The main things not yet implemented:
 - Helpers: `createTestApp()` (`test/helpers/app.ts`: real `AppModule`, `FakeFinikService` recording calls / `failWith`, `tokenFor(user)` via the app's own `JwtService`), factories `createUser`/`createMerchant`/`createOrder`/`createCertificate` (`test/helpers/factories.ts`)
 - Known noise: a `pg` "client.query() when the client is already executing a query" deprecation warning comes from inside TypeORM's schema builder — not our code, but it becomes an error with `pg@9`
 
-**What to cover next (riskiest first):** initData HMAC verification (`auth.service`, real fixtures — the `signature` field bit us once); the Finik webhook (signature on the raw body, `pending → paid` + certificate in one transaction, duplicates/late payments); redemption (`active → used`, no double redemption).
+**What to cover next (riskiest first):** initData HMAC verification (`auth.service`, real fixtures — the `signature` field bit us once); redemption (`active → used`, no double redemption).
 
 Beyond tests, verify changes by exercising the real flow, not by assuming.
 
@@ -328,7 +348,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `FINIK_ACCOUNT_ID` | `...` | |
 | `FINIK_PRIVATE_KEY_B64` | `...` | `base64 -i finik_private.pem \| tr -d '\n'` (`*.pem` is gitignored) |
 | `FINIK_PUBLIC_KEY_B64` | `...` | Finik's public key, base64 — for webhook verification |
-| `FINIK_WEBHOOK_URL` | `...` | |
+| `FINIK_WEBHOOK_URL` | `https://kuttuk-time.koyeb.app/api/finik/webhook` | sent to Finik with each payment **and** used to verify webhook signatures (host + path) — must be exactly the public URL, with `/api` |
 | `FINIK_REDIRECT_URL` | `...` | where Finik sends the buyer after paying |
 
 ### Prod (Koyeb) — current list
@@ -368,4 +388,4 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 - [ ] Enable `origin: allowedOrigins` in CORS (currently `origin: true`)
 - [ ] **Throttler keys on the Koyeb proxy IP, not the client.** No `trust proxy` is set, so `req.ip` is the proxy hop, and every user behind the same proxy node shares one 60 req/min bucket. Verified on prod (2026-09-30): repeated requests from one client got `X-RateLimit-Remaining` 59→59→58→58→59, i.e. different proxy nodes, not one counter per client. Harmless at current traffic, but it will cause false 429s as traffic grows. Chain is client → Cloudflare → Koyeb → app. **Don't** just set `trust proxy: true`: Express would take the leftmost `X-Forwarded-For`, which the client controls, so anyone could bypass the limit by spoofing it. Plan: temporarily log `cf-connecting-ip`, `x-forwarded-for`, `x-real-ip` and `req.ip` on prod, check Koyeb logs to see which header carries the real client IP and can't be spoofed (most likely `CF-Connecting-IP`), then override the throttler tracker (`getTracker`) to use it, and remove the log. Note: the official NestJS docs example (`req.ips[0]` + `trust proxy`) has the same spoofing problem — don't copy it as-is.
 - [ ] Set `FINIK_*` on Koyeb, then merge `dev` → `main` (see **Project status**)
-- [ ] Finik webhook (payment creation is done); Bakai/Freedom not started
+- [ ] First real Finik webhook on beta: check it in `finik_webhook_events` (`signatureValid = true`); Bakai/Freedom not started
