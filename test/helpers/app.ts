@@ -56,7 +56,10 @@ export const createTestApp = async (): Promise<TestApp> => {
   const app = moduleRef.createNestApplication({ logger: false });
 
   configureApp(app);
-  await app.init();
+  // Listen once on a real port. On a non-listening server Supertest calls listen()/close() per
+  // request, so with concurrent requests the first to finish closes the server under the
+  // others (ECONNRESET), leaving their transactions running into the next test's TRUNCATE.
+  await app.listen(0, "127.0.0.1");
 
   const ds = app.get(DataSource);
 
