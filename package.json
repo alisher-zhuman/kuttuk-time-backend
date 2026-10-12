@@ -19,7 +19,11 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "finik:smoke": "node --env-file=.env -r ts-node/register scripts/finik-smoke.ts"
+    "finik:smoke": "node --env-file=.env -r ts-node/register scripts/finik-smoke.ts",
+    "migration:generate": "node --env-file-if-exists=.env -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate -p -d src/database/data-source.ts",
+    "migration:run": "node --env-file-if-exists=.env -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d src/database/data-source.ts",
+    "migration:revert": "node --env-file-if-exists=.env -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts",
+    "migration:show": "node --env-file-if-exists=.env -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:show -d src/database/data-source.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",

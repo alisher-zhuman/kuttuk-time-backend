@@ -26,7 +26,8 @@ export class Certificate {
   @Column({ type: "text", unique: true })
   code!: string;
 
-  @Column({ type: "uuid", unique: true })
+  // Unique via the @OneToOne join column below; an explicit `unique` would add a duplicate index.
+  @Column({ type: "uuid" })
   orderId!: string;
 
   @OneToOne(() => Order, { onDelete: "RESTRICT" })

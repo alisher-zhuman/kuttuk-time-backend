@@ -10,6 +10,7 @@ import { UploadModule } from "./upload/upload.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { OrdersModule } from "./orders/orders.module";
 import { JwtGuard } from "./auth/jwt.guard";
+import { buildTypeOrmOptions } from "./database/typeorm.options";
 
 @Module({
   imports: [
@@ -18,17 +19,7 @@ import { JwtGuard } from "./auth/jwt.guard";
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (config: ConfigService) => ({
-        type: "postgres",
-        host: config.get("DATABASE_HOST"),
-        port: parseInt(config.get<string>("DATABASE_PORT", "5432"), 10),
-        username: config.get("DATABASE_USER"),
-        password: config.get("DATABASE_PASSWORD"),
-        database: config.get("DATABASE_NAME"),
-        entities: [__dirname + "/**/*.entity{.ts,.js}"],
-        synchronize: config.get("DB_SYNC") === "true",
-        ssl: config.get("DATABASE_SSL") === "true" ? { rejectUnauthorized: false } : false,
-      }),
+      useFactory: (config: ConfigService) => buildTypeOrmOptions((key) => config.get<string>(key)),
       inject: [ConfigService],
     }),
     AuthModule,
