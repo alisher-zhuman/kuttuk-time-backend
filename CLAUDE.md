@@ -70,8 +70,8 @@ Our net revenue:        +80 KGS (~8% net)
 
 - `npm run start:dev` — dev server with watch (`:3000`, Swagger at `/api`)
 - `npm run build` / `npm run start:prod` — what the Dockerfile runs
-- `npm run typecheck` · `npm run lint` · `npm run format` — lefthook runs typecheck + lint on **pre-push**
-- `npm test` — Jest unit tests (`src/**/*.spec.ts`)
+- `npm run typecheck` · `npm run lint` (with `--fix`) · `npm run lint:check` (no fix, used by CI) · `npm run format` — lefthook runs typecheck + lint on **pre-push**
+- `npm test` · `npm run test:int` (needs Docker) · `npm run test:all` — see **Testing**
 - `npm run migration:generate | migration:run | migration:revert | migration:show` — TypeORM CLI (see **Migrations**)
 - `npm run finik:smoke` — manual: creates a real 1 KGS Finik payment from `.env` and prints the URL. Not for CI
 - `@/` path alias = `src/`
@@ -199,16 +199,28 @@ The main things not yet implemented:
 
 ## Testing
 
-**Current state:** Jest + ts-jest, config in `package.json` (`rootDir: src`, `*.spec.ts`). Unit tests, no DB: `finik-signer` (incl. parity with `@mancho.devs/authorizer`), `finik.service` (mocked `fetch`), `certificate-code`, `orders.service` (mocked repositories + Finik). **Next step:** test infrastructure with a real Postgres, built on **migrations** (empty test DB → `Baseline` + the rest), not on `synchronize`.
+**Commands:**
+- `npm test` — unit tests: `src/**/*.spec.ts` (config `jest.config.js`), parallel, no DB, no Docker
+- `npm run test:int` — integration tests: `test/**/*.int-spec.ts` (config `jest.int.config.js`) against a real Postgres. **Requires Docker running** (Testcontainers starts `postgres:18`, the same major as prod; one container per run). ~4 s locally
+- `npm run test:all` — both. CI (`.github/workflows/ci.yml`) runs `lint:check`, `typecheck`, `test`, `test:int` and `npm audit` on push to `dev`/`main` and on PRs to `main`
 
-**Plan:** tests come **after MVP** (deliberate — we ship the MVP first). When we do write them, start with the highest-value, riskiest logic:
-1. **initData HMAC verification** (`auth.service`) — signing/verification is subtle and already bit us once (the `signature` field). Cover it with real fixtures.
-2. **Order code generation & status transitions** — money-adjacent, must be correct.
-3. **Payment webhooks** — once integrated.
+**Kinds of tests:**
+- **Unit** (`*.spec.ts`, next to the code): mocked repositories/`fetch`/Finik — `finik-signer`, `finik.service`, `certificate-code`, `orders.service`
+- **Property-based** (`*.property.spec.ts`, fast-check, part of the unit run): only where an oracle exists — the signer vs `@mancho.devs/authorizer` (canonical string, cross-sign/verify) and the certificate-code generator (`generateCertificateCode(random)` takes an injectable index source for this)
+- **Integration** (`test/integration/*.int-spec.ts`): HTTP via Supertest against the real `AppModule` (`orders`), migrations on an empty DB, DB constraints
 
-**Agreed exception (2026-09-30):** the Orders module ships *with* unit tests for code generation and status transitions (active → used/expired; no double redemption) — a few DB-free tests, written together with the module, not after MVP.
+**Integration rules:**
+- Integration tests live **only** in `test/` and are named `*.int-spec.ts` — the unit config never picks them up, and `tsconfig.build.json` keeps `test/` out of `dist`
+- **The schema is built only by our migrations**, never `synchronize`: the test app boots with `DB_SYNC=false`, so `migrationsRun` applies `Baseline` + the rest — the same path as Koyeb. `test/helpers/db.ts` refuses to run against anything but the container DB or with `synchronize` on
+- **Isolation = `TRUNCATE … RESTART IDENTITY CASCADE`** of all entity tables (not `migrations`) before each test (`t.reset()`), not a transaction per test — requests go through TypeORM's connection pool, which a single test transaction wouldn't cover. Hence `maxWorkers: 1`: files share one DB and must not run in parallel
+- **Cron is off in tests:** the test app overrides `SCHEDULE_MODULE_OPTIONS` with `{ cronJobs: false, … }`, so `@Cron` jobs are never registered (`createTestApp` throws if any are). Test cron logic by calling the method directly (`app.get(OrdersService).expireStale()`)
+- `globalSetup` sets **every** env var the app reads (DB, JWT, Cloudinary, Finik with generated PEM keys) — explicit `process.env` beats the local `.env`, and CI has none
+- Helpers: `createTestApp()` (`test/helpers/app.ts`: real `AppModule`, `FakeFinikService` recording calls / `failWith`, `tokenFor(user)` via the app's own `JwtService`), factories `createUser`/`createMerchant`/`createOrder`/`createCertificate` (`test/helpers/factories.ts`)
+- Known noise: a `pg` "client.query() when the client is already executing a query" deprecation warning comes from inside TypeORM's schema builder — not our code, but it becomes an error with `pg@9`
 
-Until then, verify changes by exercising the real flow, not by assuming.
+**What to cover next (riskiest first):** initData HMAC verification (`auth.service`, real fixtures — the `signature` field bit us once); the Finik webhook (signature on the raw body, `pending → paid` + certificate in one transaction, duplicates/late payments); redemption (`active → used`, no double redemption).
+
+Beyond tests, verify changes by exercising the real flow, not by assuming.
 
 **Local verification recipe (worked well):**
 - `npm run typecheck` + `npx eslint <file>` + `npx prettier --write <file>` — same checks lefthook runs on pre-push
