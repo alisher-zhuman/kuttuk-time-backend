@@ -197,14 +197,13 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 
 ## Project status — where we stopped
 
-- **2026-07-02 → 07-14:** active development. Last feature: `GET /merchants/me` (07-10). PR #34 merged to `main` on 07-14 — **that's what prod runs**. Frontend's last commit before the break: 07-15 (merchant profile edit).
+- **2026-07-02 → 07-14:** active development. Last feature: `GET /merchants/me` (07-10). PR #34 merged to `main` on 07-14. Frontend's last commit before the break: 07-15 (merchant profile edit).
 - **~2.5-month break.**
-- **2026-09-30:** full review + fix pass on `dev` (RolesGuard ignored class-level `@Roles` → any user could reach `/api/admin/*`; JWT lived 7d instead of 2h; initData had no `auth_date` expiry; 5xx weren't logged; upload without file → 500; inactive merchants visible by id/slug; weak merchant DTO validation; old logo deleted before save). Frontend got a similar pass the same day.
-- **Not yet on prod:** the 09-30 fixes stay on `dev` until merged to `main`. Local `main` can be stale — `git fetch` before comparing.
+- **2026-09-30:** full review + fix pass (RolesGuard ignored class-level `@Roles` → any user could reach `/api/admin/*`; JWT lived 7d instead of 2h; initData had no `auth_date` expiry; 5xx weren't logged; upload without file → 500; inactive merchants visible by id/slug; weak merchant DTO validation; old logo deleted before save). Frontend got a similar pass the same day. Merged to `main` via PR #35 the same day — **`main` has everything up to 09-30** (Koyeb deploys `main`). Local `main` can be stale — `git fetch` before comparing.
 - **2026-10-12:** Finik access arrived. Built on `dev`: Finik config + signer + `createPayment`, Orders/Certificates (`POST /api/orders`, `GET /api/orders/:id`, expiry cron), TypeORM migrations with a prod baseline. `FinikModule` is now part of the app (via `OrdersModule`), so **the app won't start without `FINIK_*` env** — don't merge to `main` before they're set on Koyeb.
 - **Also 2026-10-12:** the Finik webhook (signature check, audit, `paid` + certificate, `needs_review` on amount mismatch). Not yet verified against a **real** Finik webhook — the doc's test vector doesn't match their beta key; the first real one lands in `finik_webhook_events` either way.
 - **Next:** redemption ("mark as used") and the merchant cabinet; a real end-to-end payment on Finik beta.
-- **Before merging `dev` → `main`:** set `FINIK_*` on Koyeb, `pg_dump` prod, then merge — the first boot records `Baseline` and creates `orders`/`certificates`. This merge also ships the 09-30 fixes (prod still has the RolesGuard hole until then). Frontend: buy button + certificates tab still need wiring to the new endpoints.
+- **Before merging `dev` → `main`** (the 10-12 work): full `pg_dump` of prod, rotate the prod DB password + update `DATABASE_*` on Koyeb, set `FINIK_*` on Koyeb, CI green — then merge. The first boot records `Baseline` and creates `orders`/`certificates`/`finik_webhook_events`. Frontend: buy button + certificates tab still need wiring to the new endpoints.
 
 ## What still needs building (MVP)
 
