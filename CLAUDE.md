@@ -71,6 +71,9 @@ Our net revenue:        +80 KGS (~8% net)
 - `npm run start:dev` — dev server with watch (`:3000`, Swagger at `/api`)
 - `npm run build` / `npm run start:prod` — what the Dockerfile runs
 - `npm run typecheck` · `npm run lint` · `npm run format` — lefthook runs typecheck + lint on **pre-push**
+- `npm test` — Jest unit tests (`src/**/*.spec.ts`)
+- `npm run migration:generate | migration:run | migration:revert | migration:show` — TypeORM CLI (see **Migrations**)
+- `npm run finik:smoke` — manual: creates a real 1 KGS Finik payment from `.env` and prints the URL. Not for CI
 - `@/` path alias = `src/`
 - **Every route requires a JWT** (global `JwtGuard` + `ThrottlerGuard` in `app.module.ts`); opt out with `@Public()`
 - Admin endpoints live in separate `admin-*.controller.ts` files under `/api/admin/*`, class-level `@UseGuards(RolesGuard) @Roles("admin")`
@@ -86,6 +89,29 @@ Our net revenue:        +80 KGS (~8% net)
 **merchants** — `id`, `name`, `description` (multilingual jsonb `{kg,ru,en}`), `categories[]`, `nominals[]`, `validityMonths` (default 12), `merchantTelegramId` (**bigint**), `logo` (Cloudinary URL), `slug` (unique), `isActive`, `createdAt`, `updatedAt`
 
 **categories** — `id`, `name` (multilingual jsonb `{kg,ru,en}`), `order`
+
+**orders** — `id` (uuid, generated in the app, = Finik `PaymentId`), `userId` (FK users), `merchantId` (FK merchants), `amount` (int, KGS), `status` (`pending`/`paid`/`expired`), `paymentUrl`, `expiresAt`, `paidAt`, `finikTransactionId` (unique), `createdAt`, `updatedAt`. Indexes `(userId, createdAt)`, `(status, expiresAt)`
+
+**certificates** — `id` (uuid), `code` (unique, `KT-XXXX-XXXX`), `orderId` (FK, unique — one order = one certificate), `merchantId`, `ownerUserId`, `amount`, `status` (`active`/`used`/`expired`), `validUntil`, `usedAt`, `createdAt`
+
+All FKs are `ON DELETE RESTRICT` — a user/merchant with orders can't be deleted. New tables use `timestamptz`; the old ones keep `timestamp without time zone`.
+
+### Migrations
+
+Schema changes go through TypeORM migrations in `src/database/migrations/`. Shared config: `src/database/typeorm.options.ts` (used by the app, the CLI via `src/database/data-source.ts`, and future tests).
+
+- **Modes:** `DB_SYNC=true` → `synchronize`, no migrations (local dev DB only). Anything else → `migrationsRun: true`: pending migrations run at app start, each in its own transaction. The two never run together.
+- **On Koyeb:** `DB_SYNC=false`, so `node dist/main` applies pending migrations on boot, before serving traffic. A failing migration rolls back and the app doesn't start. Single instance on the free tier, so no race. Take a `pg_dump` of prod before deploying a migration.
+- **`Baseline` (1760000000000):** prod schema as of 2026-10-12, copied 1:1 from `pg_dump`. On prod (tables exist) it's a no-op that only gets recorded; on an empty DB (tests, fresh local) it creates the same schema; with only some of the tables present it refuses to run. Its `down()` throws on purpose.
+- **Generating a migration — always against `kuttuktime_prodshape`**, a local DB holding the prod schema (restored from a prod `pg_dump --schema-only`; local Postgres 14 needs `\restrict`/`\unrestrict` and `SET transaction_timeout` lines stripped). Never generate against the dev DB — it's built by `synchronize` and doesn't match prod:
+  ```
+  DATABASE_NAME=kuttuktime_prodshape npm run migration:run        # bring it up to the latest migration
+  DATABASE_NAME=kuttuktime_prodshape npm run migration:generate -- src/database/migrations/<Name>
+  npx prettier --write src/database/migrations
+  ```
+  Then check it: run it on `kuttuktime_prodshape`, `migration:generate -- … --dr` must print "No changes", and `migration:revert` must work.
+- **Rule: read the full SQL of every migration before committing.** Look especially for `DROP` and for `ALTER` on existing columns that hold data. `migration:generate` drops whatever the entities don't declare — that's how the first draft tried to drop prod's hand-made GIN index.
+- **`merchants_categories_idx`** — a GIN index on `merchants.categories`, created by hand on prod. TypeORM can't declare GIN indexes, so the entity marks it `@Index(..., { synchronize: false })` to keep it from being dropped. Note: the code filters with `:category = ANY(categories)`, which GIN doesn't speed up (it would need `categories @> ARRAY[:id]`).
 
 ---
 
@@ -138,6 +164,16 @@ Our net revenue:        +80 KGS (~8% net)
 **Upload (role: merchant or admin):**
 - `POST /api/upload` — upload an image (multipart field `file`), max 5MB → 413 if larger, 400 if missing/not an image
 
+**Orders (any authenticated role):**
+- `POST /api/orders` — body `{ merchantId, nominal }` → 201 `{ orderId, paymentUrl, expiresAt }`. The amount is the nominal, checked against the merchant's **current** `nominals` (client amounts are never trusted). Merchant missing/inactive or nominal not offered → 400. Creates an order `pending` for 30 min, then calls `FinikService.createPayment`. If Finik fails (API/network/timeout) → the order goes `expired` (kept, not deleted: on a timeout Finik may still have created the payment, and a later webhook must find it) and the client gets 502 without Finik details. Throttled to 10/min (global is 60; still keyed on the proxy IP, see TODOs)
+- `GET /api/orders/:id` — for polling after payment. Only the owner; anyone else's order → 404. Non-uuid → 400. Returns `status`, `amount`, `merchantId`, `expiresAt`, `paidAt`, `paymentUrl` (only while `pending`) and `certificate: { code, validUntil }` once `paid`
+
+**Statuses:**
+- Order: `pending → paid | expired`. A cron (`OrdersService.expireStale`, every minute) moves `pending` with `expiresAt < now` to `expired`. `paid` is set by the Finik webhook (not built yet)
+- Certificate: `active → used | expired`. Created only after payment (in the webhook), `validUntil = paidAt + merchant.validityMonths`. Code `KT-XXXX-XXXX` from a 32-symbol alphabet without `0/O/1/I`, `crypto.randomInt` (`src/certificates/certificate-code.ts`)
+
+**Finik (`src/finik/`):** `finik.config.ts` (env, base64 → PEM), `finik-signer.ts` (our own request signer on `node:crypto`, byte-for-byte compatible with `@mancho.devs/authorizer`, which is only a devDependency for parity tests), `finik.service.ts` (`createPayment`: `POST /v1/payment`, `redirect: 'manual'`, 302 `Location` = payment URL, 15s timeout). The doc's test-vector signature doesn't match Finik's published beta public key — need a matching key/signature pair from Finik (that test is `it.skip` until then).
+
 ---
 
 ## Project status — where we stopped
@@ -146,15 +182,16 @@ Our net revenue:        +80 KGS (~8% net)
 - **~2.5-month break.**
 - **2026-09-30:** full review + fix pass on `dev` (RolesGuard ignored class-level `@Roles` → any user could reach `/api/admin/*`; JWT lived 7d instead of 2h; initData had no `auth_date` expiry; 5xx weren't logged; upload without file → 500; inactive merchants visible by id/slug; weak merchant DTO validation; old logo deleted before save). Frontend got a similar pass the same day.
 - **Not yet on prod:** the 09-30 fixes stay on `dev` until merged to `main`. Local `main` can be stale — `git fetch` before comparing.
-- **Next:** review backlog is done (throttler proxy-IP issue parked in TODOs). **Orders module waits for Finik** (decided 2026-09-30; connection expected soon): the `pending → paid` flow depends on Finik's API (payment UX, webhook format/signature, amount units, retries/refunds), so we build Orders in one go with their docs in hand. If Finik slips, start with the payment-independent part (certificate codes, active/used/expired, redemption, merchant cabinet) and plug payment in later. When access arrives, share Finik's API docs first — design the order schema around them before coding.
-- **While waiting:** merge the 09-30 fixes to `main` (prod still has the RolesGuard hole until then); frontend "account deactivated" notice in the merchant cabinet; throttler client-IP diagnostic (see TODOs). Frontend is blocked on orders + payments (buy button is a TODO, certificates tab is mock data).
+- **2026-10-12:** Finik access arrived. Built on `dev`: Finik config + signer + `createPayment`, Orders/Certificates (`POST /api/orders`, `GET /api/orders/:id`, expiry cron), TypeORM migrations with a prod baseline. `FinikModule` is now part of the app (via `OrdersModule`), so **the app won't start without `FINIK_*` env** — don't merge to `main` before they're set on Koyeb.
+- **Next:** Finik webhook (verify the signature with our signer on the raw body → `paid` + create the certificate in one transaction; decide what to do with a payment that arrives after `expired`; retry the code on a unique collision), then redemption ("mark as used") and the merchant cabinet.
+- **Before merging `dev` → `main`:** set `FINIK_*` on Koyeb, `pg_dump` prod, then merge — the first boot records `Baseline` and creates `orders`/`certificates`. This merge also ships the 09-30 fixes (prod still has the RolesGuard hole until then). Frontend: buy button + certificates tab still need wiring to the new endpoints.
 
 ## What still needs building (MVP)
 
 The main things not yet implemented:
 
-1. **Orders module** — certificates: code generation (`KT-XXX-NNNN`), statuses (active/used/expired), links to merchant and buyer
-2. **Payment integration** — Finik / Bakai / Freedom (buying a certificate)
+1. **Orders module** — ✅ orders, certificate entity and code generation (`KT-XXXX-XXXX`) are built; still missing: issuing the certificate on payment, redemption
+2. **Payment integration** — Finik: ✅ payment creation; still missing: webhook. Bakai / Freedom: not started
 3. **Merchant cabinet** — weekly stats, list of active codes, "mark as used"
 4. **Weekly reports** — automatic calculation and merchant notification every Monday
 
@@ -162,7 +199,7 @@ The main things not yet implemented:
 
 ## Testing
 
-**Current state:** the tooling is set up (Jest, Supertest, ts-jest installed; `npm test`, `test:watch`, `test:cov`, `test:e2e` scripts present) but **no tests are written yet** — there are zero `.spec.ts` files.
+**Current state:** Jest + ts-jest, config in `package.json` (`rootDir: src`, `*.spec.ts`). Unit tests, no DB: `finik-signer` (incl. parity with `@mancho.devs/authorizer`), `finik.service` (mocked `fetch`), `certificate-code`, `orders.service` (mocked repositories + Finik). **Next step:** test infrastructure with a real Postgres, built on **migrations** (empty test DB → `Baseline` + the rest), not on `synchronize`.
 
 **Plan:** tests come **after MVP** (deliberate — we ship the MVP first). When we do write them, start with the highest-value, riskiest logic:
 1. **initData HMAC verification** (`auth.service`) — signing/verification is subtle and already bit us once (the `signature` field). Cover it with real fixtures.
@@ -175,7 +212,9 @@ Until then, verify changes by exercising the real flow, not by assuming.
 
 **Local verification recipe (worked well):**
 - `npm run typecheck` + `npx eslint <file>` + `npx prettier --write <file>` — same checks lefthook runs on pre-push
-- Local Postgres is expected on `localhost:5432` (`pg_isready`); start the app with `npx nest start`, wait for `curl localhost:3000/api`, `pkill -f "nest start"` after
+- Local Postgres is expected on `localhost:5432` (`pg_isready`); start the app with `npx nest start`, wait for `curl localhost:3000/api`. To stop it, kill whatever listens on the port: `kill $(lsof -tiTCP:3000 -sTCP:LISTEN)`. **Not** `pkill -f "nest start"`: that kills only the `nest` wrapper, and the `node dist/main` it spawned keeps holding `:3000`, so the next start silently fails while `curl` still answers from the old process
+- Prod-like boot check: `npm run build`, then `DB_SYNC=false DATABASE_NAME=kuttuktime_prodshape PORT=3999 node dist/main` — runs migrations on start exactly like Koyeb
+- Finik without hitting the real API: run a tiny local HTTP stub and start the app with `FINIK_BASE_URL=http://127.0.0.1:<port>` (shell env wins over `.env`). The local `.env` holds real beta keys — don't create real payments without asking
 - Role/guard checks: sign a JWT with `JWT_SECRET` from `.env` via `new (require('@nestjs/jwt').JwtService)({secret}).sign({userId, role, telegramId})` — no Telegram needed
 - Login checks: build initData in node (sorted `k=v` lines, HMAC key = `HMAC("WebAppData", BOT_TOKEN)`) and POST to `/api/auth/log-in`; delete the test user afterwards (`DELETE FROM users WHERE "telegramId"=...`)
 - Prod rate-limit state is visible in `X-RateLimit-Remaining` response headers — probe with a few requests only (shared bucket, see TODOs)
@@ -262,7 +301,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `DATABASE_PASSWORD` | `postgres` | |
 | `DATABASE_NAME` | `kuttuktime` | |
 | `DATABASE_SSL` | `false` | `true` on Koyeb |
-| `DB_SYNC` | `true` | **dev only**, `false` in prod |
+| `DB_SYNC` | `true` | **dev only**. `true` = `synchronize`, anything else = run migrations on start |
 | `JWT_SECRET` | `...` | long random string |
 | `JWT_EXPIRATION` | `2h` | short-lived — token isn't persisted on the frontend (in-memory only), it silently re-logs-in via Telegram initData on 401, so a long TTL only adds risk without any UX benefit |
 | `BOT_TOKEN` | `...` | from @BotFather, for initData verification |
@@ -272,6 +311,13 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `PORT` | `3000` | `8000` on Koyeb |
 | `NODE_ENV` | `development` | `production` in prod |
 | `ALLOWED_ORIGINS` | `http://localhost:5173` | add the vercel URL in prod |
+| `FINIK_BASE_URL` | `https://beta.api.acquiring.averspay.kg` | **required** — the app won't start without any `FINIK_*` |
+| `FINIK_API_KEY` | `...` | |
+| `FINIK_ACCOUNT_ID` | `...` | |
+| `FINIK_PRIVATE_KEY_B64` | `...` | `base64 -i finik_private.pem \| tr -d '\n'` (`*.pem` is gitignored) |
+| `FINIK_PUBLIC_KEY_B64` | `...` | Finik's public key, base64 — for webhook verification |
+| `FINIK_WEBHOOK_URL` | `...` | |
+| `FINIK_REDIRECT_URL` | `...` | where Finik sends the buyer after paying |
 
 ### Prod (Koyeb) — current list
 
@@ -293,6 +339,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `PORT` | `8000` |
 | `NODE_ENV` | `production` |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,https://kuttuk-time.vercel.app` |
+| `FINIK_*` (7 vars) | **not set yet** — must be added before `dev` is merged to `main`, or prod won't start |
 
 > `TG_BOT_USERNAME` and `TG_APP_NAME` were removed — the URL is hardcoded in the slug-redirect middleware in `src/main.ts`
 
@@ -308,5 +355,5 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 - [ ] Enable `origin: allowedOrigins` in CORS (currently `origin: true`)
 - [ ] **Throttler keys on the Koyeb proxy IP, not the client.** No `trust proxy` is set, so `req.ip` is the proxy hop, and every user behind the same proxy node shares one 60 req/min bucket. Verified on prod (2026-09-30): repeated requests from one client got `X-RateLimit-Remaining` 59→59→58→58→59, i.e. different proxy nodes, not one counter per client. Harmless at current traffic, but it will cause false 429s as traffic grows. Chain is client → Cloudflare → Koyeb → app. **Don't** just set `trust proxy: true`: Express would take the leftmost `X-Forwarded-For`, which the client controls, so anyone could bypass the limit by spoofing it. Plan: temporarily log `cf-connecting-ip`, `x-forwarded-for`, `x-real-ip` and `req.ip` on prod, check Koyeb logs to see which header carries the real client IP and can't be spoofed (most likely `CF-Connecting-IP`), then override the throttler tracker (`getTracker`) to use it, and remove the log. Note: the official NestJS docs example (`req.ips[0]` + `trust proxy`) has the same spoofing problem — don't copy it as-is.
-- [ ] Add payments (Finik/Bakai/Freedom)
-- [ ] When `DB_SYNC=false` on prod, apply schema changes manually. Pending: `ALTER TABLE users ALTER COLUMN "telegramId" TYPE bigint;` and `ALTER TABLE merchants ALTER COLUMN "merchantTelegramId" TYPE bigint;`
+- [ ] Set `FINIK_*` on Koyeb, then merge `dev` → `main` (see **Project status**)
+- [ ] Finik webhook (payment creation is done); Bakai/Freedom not started
