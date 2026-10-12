@@ -4,9 +4,13 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from "typeorm";
 
 @Entity("merchants")
+// GIN index created by hand on prod (see Baseline migration); TypeORM can't declare GIN,
+// so it must not try to manage (drop) it.
+@Index("merchants_categories_idx", { synchronize: false })
 export class Merchant {
   @PrimaryGeneratedColumn()
   id!: number;

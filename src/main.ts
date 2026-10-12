@@ -1,11 +1,10 @@
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import type { Request, Response, NextFunction } from "express";
 
 import { AppModule } from "./app.module";
-import { GlobalExceptionFilter } from "./common/filters/http-exception.filter";
+import { configureApp } from "./app.setup";
 
 const bootstrap = async () => {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -34,9 +33,7 @@ const bootstrap = async () => {
     return res.redirect(302, `https://t.me/kuttuk_time_bot/app?startapp=${slug}`);
   });
 
-  app.setGlobalPrefix("api");
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  configureApp(app);
 
   const config = new DocumentBuilder()
     .setTitle("KuttukTime API")
