@@ -2,6 +2,7 @@ import type { DataSource } from "typeorm";
 import { QueryFailedError } from "typeorm";
 
 import { openTestDataSource, truncateAll } from "../helpers/db";
+import { CertificateStatus } from "../../src/certificates/entities/certificate.entity";
 import { createCertificate, createMerchant, createOrder, createUser } from "../helpers/factories";
 
 const uniqueViolation = (constraint: string) =>
@@ -67,5 +68,56 @@ describe("certificates DB constraints (integration)", () => {
     await expect(
       createCertificate(ds, { ...base, orderId: orderIds[1], code: "KT-BBBB-3333" }),
     ).resolves.toBeDefined();
+  });
+
+  describe("used ⇔ usedAt (certificates_used_at_iff_used)", () => {
+    const checkViolation = expect.objectContaining({
+      driverError: expect.objectContaining({
+        code: "23514",
+        constraint: "certificates_used_at_iff_used",
+      }),
+    });
+
+    const insert = (status: CertificateStatus, usedAt: Date | null) =>
+      createCertificate(ds, {
+        ...base,
+        orderId: orderIds[0],
+        code: "KT-USED-2222",
+        status,
+        usedAt,
+      }).catch((e: unknown) => e);
+
+    it("rejects used without usedAt", async () => {
+      expect(await insert(CertificateStatus.Used, null)).toEqual(checkViolation);
+    });
+
+    it.each([CertificateStatus.Active, CertificateStatus.Expired])(
+      "rejects %s with usedAt",
+      async (status) => {
+        expect(await insert(status, new Date())).toEqual(checkViolation);
+      },
+    );
+
+    it.each([
+      [CertificateStatus.Used, new Date()],
+      [CertificateStatus.Active, null],
+      [CertificateStatus.Expired, null],
+    ])("accepts %s with usedAt=%p", async (status, usedAt) => {
+      expect(await insert(status, usedAt)).not.toBeInstanceOf(Error);
+    });
+
+    it("also guards UPDATEs: marking used without usedAt fails", async () => {
+      const cert = await createCertificate(ds, {
+        ...base,
+        orderId: orderIds[0],
+        code: "KT-UPDT-2222",
+      });
+
+      const error = await ds
+        .query(`UPDATE certificates SET status = 'used' WHERE id = $1`, [cert.id])
+        .catch((e: unknown) => e);
+
+      expect(error).toEqual(checkViolation);
+    });
   });
 });

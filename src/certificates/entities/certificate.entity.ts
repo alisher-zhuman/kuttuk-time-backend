@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -19,6 +20,9 @@ export enum CertificateStatus {
 }
 
 @Entity("certificates")
+// used ⇔ usedAt is set. The frontend parses GET /certificates/my with a schema that requires
+// usedAt on used, so a used row without it would break the whole list.
+@Check("certificates_used_at_iff_used", `("status" = 'used') = ("usedAt" IS NOT NULL)`)
 export class Certificate {
   @PrimaryColumn("uuid")
   id!: string;

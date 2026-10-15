@@ -9,6 +9,7 @@ const MIGRATIONS = [
   "AddOrdersAndCertificates1791786384962",
   "FinikWebhookAndNeedsReview1791798635519",
   "MerchantCategoryIntegrity1792043280467",
+  "CertificateUsedAtInvariant1792053473835",
 ];
 
 describe("Migrations (integration)", () => {
