@@ -27,7 +27,7 @@ export class MerchantsService {
     {
       id: number;
       name: string;
-      description: string | null;
+      description: string;
       logo: string;
       minNominal: number;
     }[]
@@ -143,7 +143,7 @@ export class MerchantsService {
   ): Promise<{
     id: number;
     name: string;
-    description: string | null;
+    description: string;
     logo: string;
     nominals: number[];
     validityMonths: number;

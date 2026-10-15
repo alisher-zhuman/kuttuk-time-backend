@@ -27,7 +27,7 @@ export class CategoriesService {
 
     return categories.map(({ id, name, order }) => ({
       id,
-      name: resolveTranslation(name, lang)!,
+      name: resolveTranslation(name, lang),
       order,
     }));
   }

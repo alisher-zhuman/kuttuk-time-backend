@@ -90,6 +90,8 @@ Our net revenue:        +80 KGS (~8% net)
 
 **categories** — `id`, `name` (multilingual jsonb `{kg,ru,en}`), `order`
 
+**Multilingual fields are always complete** (since 2026-10-15): `merchants.description` and `merchants.slug` are `NOT NULL`; CHECKs `merchants_description_langs` / `categories_name_langs` (`?& ARRAY['ru','kg','en']`) and `merchants_nominals_not_empty` (`cardinality(nominals) > 0`), declared with `@Check` in the entities so schema diffs stay clean. DTOs validate the same with `@IsTranslations()` (`src/common/validators.ts`: exactly `ru`/`kg`/`en`, non-blank strings, extra keys → 400). PATCH DTOs use `@IsOptionalNotNull()` instead of `@IsOptional()` — a field may be omitted but not `null` (null on a NOT NULL column used to be a 500). `resolveTranslation` therefore always returns a string (unknown language → `kg`); type `Translations` in `src/common/translations.ts`.
+
 **orders** — `id` (uuid, generated in the app, = Finik `PaymentId`), `userId` (FK users), `merchantId` (FK merchants), `amount` (int, KGS), `status` (`pending`/`paid`/`expired`/`needs_review`), `paymentUrl`, `expiresAt`, `paidAt`, `finikTransactionId` (unique), `createdAt`, `updatedAt`. Indexes `(userId, createdAt)`, `(status, expiresAt)`
 
 **certificates** — `id` (uuid), `code` (unique, `KT-XXXX-XXXX`), `orderId` (FK, unique — one order = one certificate), `merchantId`, `ownerUserId`, `amount`, `status` (`active`/`used`/`expired`), `validUntil`, `usedAt`, `createdAt`

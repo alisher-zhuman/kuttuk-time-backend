@@ -2,20 +2,23 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsString,
-  IsOptional,
+  IsNotEmpty,
   IsArray,
   IsInt,
   IsIn,
-  IsObject,
   Matches,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
+
+import type { Translations } from "@/common/translations";
+import { IsOptionalNotNull, IsTranslations } from "@/common/validators";
 import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../merchant.constants";
 
 export class UpdateMerchantDto {
   @ApiProperty({ example: "Sierra Coffee", required: false })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString()
+  @IsNotEmpty()
   name?: string;
 
   @ApiProperty({
@@ -26,12 +29,12 @@ export class UpdateMerchantDto {
     },
     required: false,
   })
-  @IsOptional()
-  @IsObject()
-  description?: Record<string, string>;
+  @IsOptionalNotNull()
+  @IsTranslations()
+  description?: Translations;
 
   @ApiProperty({ example: [1, 3], description: "Category ids", required: false })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsArray()
   @IsInt({ each: true })
   categories?: number[];
@@ -41,7 +44,7 @@ export class UpdateMerchantDto {
     description: `Nominals in KGS, one of: ${VALID_NOMINALS.join(", ")}`,
     required: false,
   })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsArray()
   @ArrayMinSize(1)
   @ArrayUnique()
@@ -53,12 +56,12 @@ export class UpdateMerchantDto {
     description: `Certificate validity in months, one of: ${VALID_VALIDITY_MONTHS.join(", ")}`,
     required: false,
   })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsIn(VALID_VALIDITY_MONTHS)
   validityMonths?: number;
 
   @ApiProperty({ example: "https://res.cloudinary.com/...", required: false })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString()
   @Matches(/^https:\/\/res\.cloudinary\.com\//, { message: "logo must be a Cloudinary URL" })
   logo?: string;
