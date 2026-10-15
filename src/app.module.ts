@@ -9,6 +9,7 @@ import { MerchantsModule } from "./merchants/merchants.module";
 import { UploadModule } from "./upload/upload.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { OrdersModule } from "./orders/orders.module";
+import { CertificatesModule } from "./certificates/certificates.module";
 import { JwtGuard } from "./auth/jwt.guard";
 import { UserThrottlerGuard } from "./auth/user-throttler.guard";
 import { buildTypeOrmOptions } from "./database/typeorm.options";
@@ -28,6 +29,7 @@ import { buildTypeOrmOptions } from "./database/typeorm.options";
     UploadModule,
     CategoriesModule,
     OrdersModule,
+    CertificatesModule,
   ],
   providers: [
     // Order matters: global guards run in registration order, and the throttler keys on
