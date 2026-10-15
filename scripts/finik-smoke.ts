@@ -5,7 +5,8 @@ import { finikConfig } from "../src/finik/finik.config";
 import { FinikService } from "../src/finik/finik.service";
 
 const main = async () => {
-  const service = new FinikService(finikConfig());
+  const config = finikConfig();
+  const service = new FinikService(config);
   const paymentId = randomUUID();
 
   const { paymentUrl } = await service.createPayment({
@@ -13,6 +14,8 @@ const main = async () => {
     amount: 1,
     nameEn: "KuttukTime smoke test",
     description: "Smoke test, 1 KGS",
+    // The base URL as is: there is no order behind a smoke payment.
+    redirectUrl: config.redirectUrl,
   });
 
   console.log(`paymentId:  ${paymentId}`);

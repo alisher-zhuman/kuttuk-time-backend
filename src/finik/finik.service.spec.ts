@@ -20,13 +20,15 @@ const config: ConfigType<typeof finikConfig> = {
   privateKey,
   publicKey: "unused",
   webhookUrl: "https://kuttuk-time.koyeb.app/api/finik/webhook",
-  redirectUrl: "https://kuttuk-time.vercel.app/paid",
+  redirectUrl: "https://t.me/kuttuk_time_bot/app",
 };
 
 const input: CreatePaymentInput = {
   paymentId: "5e1c1f5b-0a3c-4c1b-9a59-2a1d7c8a3f10",
   amount: 1000,
   nameEn: "KuttukTime",
+  redirectUrl:
+    "https://t.me/kuttuk_time_bot/app?startapp=order_5e1c1f5b-0a3c-4c1b-9a59-2a1d7c8a3f10",
 };
 
 const redirect = (location: string, status = 302) =>
@@ -109,7 +111,8 @@ describe("FinikService.createPayment", () => {
       Amount: 1000,
       CardType: "FINIK_QR",
       PaymentId: input.paymentId,
-      RedirectUrl: config.redirectUrl,
+      // From the input (per order), not the config base.
+      RedirectUrl: input.redirectUrl,
       Data: { accountId: config.accountId, name_en: "KuttukTime", webhookUrl: config.webhookUrl },
     });
   });

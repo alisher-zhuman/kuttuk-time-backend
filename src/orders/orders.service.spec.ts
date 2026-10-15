@@ -12,6 +12,7 @@ import { Order, OrderStatus } from "./entities/order.entity";
 import { Certificate } from "@/certificates/entities/certificate.entity";
 import { Merchant } from "@/merchants/entities/merchant.entity";
 import { FinikService } from "@/finik/finik.service";
+import { finikConfig } from "@/finik/finik.config";
 import { FinikApiError, FinikNetworkError, FinikTimeoutError } from "@/finik/finik.errors";
 
 const USER_ID = 7;
@@ -55,6 +56,7 @@ describe("OrdersService", () => {
         { provide: getRepositoryToken(Certificate), useValue: certificateRepo },
         { provide: getRepositoryToken(Merchant), useValue: merchantRepo },
         { provide: FinikService, useValue: finikService },
+        { provide: finikConfig.KEY, useValue: { redirectUrl: "https://t.me/kuttuk_time_bot/app" } },
       ],
     }).compile();
 
@@ -91,6 +93,7 @@ describe("OrdersService", () => {
         description: "Sierra Coffee — 1000 KGS",
         lang: "ru",
         endDate: expiresAt.getTime(),
+        redirectUrl: `https://t.me/kuttuk_time_bot/app?startapp=order_${saved.id}`,
       });
       expect(orderRepo.update).toHaveBeenCalledWith(saved.id, {
         paymentUrl: "https://pay.finik.kg/qr/abc",

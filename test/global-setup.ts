@@ -56,6 +56,6 @@ export default async (): Promise<void> => {
     FINIK_PRIVATE_KEY_B64: b64(privateKey),
     FINIK_PUBLIC_KEY_B64: b64(publicKey),
     FINIK_WEBHOOK_URL: "http://localhost/api/finik/webhook",
-    FINIK_REDIRECT_URL: "http://localhost/paid",
+    FINIK_REDIRECT_URL: "https://t.me/kuttuk_time_bot/app",
   });
 };
