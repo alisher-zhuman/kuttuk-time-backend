@@ -64,7 +64,7 @@ Our net revenue:        +80 KGS (~8% net)
 - **Passport JWT** — authentication via Telegram initData (HMAC-SHA256)
 - **Cloudinary** — image storage (auto-converts to WebP)
 - **Swagger** — auto-docs at `/api`
-- **Throttler** — 60 requests / 60 sec globally
+- **Throttler** — 60 requests / 60 sec per route by default; **keyed per user** for authenticated requests (`user:<id>`), by IP for public ones (see TODOs)
 
 ## Commands & conventions
 
@@ -75,7 +75,7 @@ Our net revenue:        +80 KGS (~8% net)
 - `npm run migration:generate | migration:run | migration:revert | migration:show` — TypeORM CLI (see **Migrations**)
 - `npm run finik:smoke` — manual: creates a real 1 KGS Finik payment from `.env` and prints the URL. Not for CI
 - `@/` path alias = `src/`
-- **Every route requires a JWT** (global `JwtGuard` + `ThrottlerGuard` in `app.module.ts`); opt out with `@Public()`
+- **Every route requires a JWT** (global `JwtGuard` + `UserThrottlerGuard` in `app.module.ts`); opt out with `@Public()`. **Guard order matters:** global guards run in registration order, and `JwtGuard` must come first so `req.user` is set when the throttler picks its key (`test/integration/rate-limit.int-spec.ts` fails if the order flips). Side effect: requests with a missing/invalid token get 401 before the throttler and aren't counted
 - Admin endpoints live in separate `admin-*.controller.ts` files under `/api/admin/*`, class-level `@UseGuards(RolesGuard) @Roles("admin")`
 - `ValidationPipe({ whitelist: true })` without `transform` — unknown body fields are silently stripped (not rejected); query/params stay strings, so use `ParseIntPipe` / `ParseBoolPipe`
 - `GlobalExceptionFilter` turns Postgres unique violations into 409 (`<field> "<value>" is already in use`) and logs every 5xx with a stack trace
@@ -169,8 +169,8 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 - `POST /api/upload` — upload an image (multipart field `file`), max 5MB → 413 if larger, 400 if missing/not an image
 
 **Orders (any authenticated role):**
-- `POST /api/orders` — body `{ merchantId, nominal }` → 201 `{ orderId, paymentUrl, expiresAt }`. The amount is the nominal, checked against the merchant's **current** `nominals` (client amounts are never trusted). Merchant missing/inactive or nominal not offered → 400. Creates an order `pending` for 30 min, then calls `FinikService.createPayment`. If Finik fails (API/network/timeout) → the order goes `expired` (kept, not deleted: on a timeout Finik may still have created the payment, and a later webhook must find it) and the client gets 502 without Finik details. Throttled to 10/min (global is 60; still keyed on the proxy IP, see TODOs)
-- `GET /api/orders/:id` — for polling after payment. Only the owner; anyone else's order → 404. Non-uuid → 400. Returns `status`, `amount`, `merchantId`, `expiresAt`, `paidAt`, `paymentUrl` (only while `pending`) and `certificate: { code, validUntil }` once `paid`
+- `POST /api/orders` — body `{ merchantId, nominal }` → 201 `{ orderId, paymentUrl, expiresAt }`. The amount is the nominal, checked against the merchant's **current** `nominals` (client amounts are never trusted). Merchant missing/inactive or nominal not offered → 400. Creates an order `pending` for 30 min, then calls `FinikService.createPayment`. If Finik fails (API/network/timeout) → the order goes `expired` (kept, not deleted: on a timeout Finik may still have created the payment, and a later webhook must find it) and the client gets 502 without Finik details. Rate limit 10/min **per user**
+- `GET /api/orders/:id` — for polling after payment. Only the owner; anyone else's order → 404. Non-uuid → 400. Returns `status`, `amount`, `merchantId`, `expiresAt`, `paidAt`, `paymentUrl` (only while `pending`) and `certificate: { code, validUntil }` once `paid`. Rate limit 60/min **per user** (the frontend polls every 3 s = 20/min)
 
 **Statuses:**
 - Order: `pending → paid | expired | needs_review`, and `expired → paid | needs_review` (a payment can land after the QR expired — the money is taken, so it's honoured). A cron (`OrdersService.expireStale`, every minute) moves only `pending` with `expiresAt < now` to `expired` — it never touches `paid`/`needs_review`. `paid`/`needs_review` are set only by the Finik webhook. `GET /api/orders/:id` returns `needs_review` as is (no certificate, no payment URL)
@@ -250,7 +250,7 @@ Beyond tests, verify changes by exercising the real flow, not by assuming.
 - Finik without hitting the real API: run a tiny local HTTP stub and start the app with `FINIK_BASE_URL=http://127.0.0.1:<port>` (shell env wins over `.env`). The local `.env` holds real beta keys — don't create real payments without asking
 - Role/guard checks: sign a JWT with `JWT_SECRET` from `.env` via `new (require('@nestjs/jwt').JwtService)({secret}).sign({userId, role, telegramId})` — no Telegram needed
 - Login checks: build initData in node (sorted `k=v` lines, HMAC key = `HMAC("WebAppData", BOT_TOKEN)`) and POST to `/api/auth/log-in`; delete the test user afterwards (`DELETE FROM users WHERE "telegramId"=...`)
-- Prod rate-limit state is visible in `X-RateLimit-Remaining` response headers — probe with a few requests only (shared bucket, see TODOs)
+- Prod rate-limit state is visible in `X-RateLimit-Limit`/`X-RateLimit-Remaining` response headers. On authenticated routes the counter is yours (`user:<id>`); on public routes it's shared with everyone behind the same proxy node — probe those with a few requests only
 
 ---
 
@@ -387,6 +387,6 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 ## Important TODOs before prod
 
 - [ ] Enable `origin: allowedOrigins` in CORS (currently `origin: true`)
-- [ ] **Throttler keys on the Koyeb proxy IP, not the client.** No `trust proxy` is set, so `req.ip` is the proxy hop, and every user behind the same proxy node shares one 60 req/min bucket. Verified on prod (2026-09-30): repeated requests from one client got `X-RateLimit-Remaining` 59→59→58→58→59, i.e. different proxy nodes, not one counter per client. Harmless at current traffic, but it will cause false 429s as traffic grows. Chain is client → Cloudflare → Koyeb → app. **Don't** just set `trust proxy: true`: Express would take the leftmost `X-Forwarded-For`, which the client controls, so anyone could bypass the limit by spoofing it. Plan: temporarily log `cf-connecting-ip`, `x-forwarded-for`, `x-real-ip` and `req.ip` on prod, check Koyeb logs to see which header carries the real client IP and can't be spoofed (most likely `CF-Connecting-IP`), then override the throttler tracker (`getTracker`) to use it, and remove the log. Note: the official NestJS docs example (`req.ips[0]` + `trust proxy`) has the same spoofing problem — don't copy it as-is.
+- [ ] **Public routes are still rate-limited by the Koyeb proxy IP.** Authenticated routes are fixed (2026-10-15): `UserThrottlerGuard` (`src/auth/user-throttler.guard.ts`) keys them as `user:<id>`. Routes without a user — `POST /api/auth/log-in` above all, also `GET /:slug` — still use `req.ip`, which is the proxy hop (no `trust proxy` is set), so everyone behind the same Koyeb node shares one counter per route. Seen on prod 2026-09-30: `X-RateLimit-Remaining` went 59→59→58→58→59 for one client, i.e. different proxy nodes, not one counter per client. Chain: client → Cloudflare → Koyeb → app. **Which header carries the real client IP is NOT verified** — it can only be seen server-side on prod; `CF-Connecting-IP` and `X-Forwarded-For` are likely candidates, but that's an assumption. Full fix: temporarily log `cf-connecting-ip`, `x-forwarded-for`, `x-real-ip` and `req.ip` on prod, check in the Koyeb logs which header holds the client IP and can't be set by the client, use it in `UserThrottlerGuard.getTracker` for the no-user case, remove the log. **Don't** just set `trust proxy: true`: Express would take the leftmost `X-Forwarded-For`, which the client controls, so anyone could bypass the limit by spoofing it (the NestJS docs example with `req.ips[0]` has the same problem). Low urgency: log-in happens once per session; the frequent calls (polling) are authenticated.
 - [ ] Set `FINIK_*` on Koyeb, then merge `dev` → `main` (see **Project status**)
 - [ ] First real Finik webhook on beta: check it in `finik_webhook_events` (`signatureValid = true`); Bakai/Freedom not started

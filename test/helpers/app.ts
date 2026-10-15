@@ -1,6 +1,7 @@
 import type { INestApplication } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { SchedulerRegistry } from "@nestjs/schedule";
+import { getStorageToken, type ThrottlerStorageService } from "@nestjs/throttler";
 import { Test } from "@nestjs/testing";
 import { DataSource } from "typeorm";
 
@@ -78,6 +79,9 @@ export const createTestApp = async (): Promise<TestApp> => {
     tokenFor: (user) => jwt.sign({ userId: user.id, role: user.role, telegramId: user.telegramId }),
     reset: async () => {
       finik.reset();
+      // TRUNCATE … RESTART IDENTITY hands out user id 1 again, so per-user rate-limit
+      // counters (user:1) would otherwise carry over from the previous test.
+      app.get<ThrottlerStorageService>(getStorageToken()).storage.clear();
       await truncateAll(ds);
     },
     close: () => app.close(),

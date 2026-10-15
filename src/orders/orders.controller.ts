@@ -24,6 +24,7 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
+  // Per user (UserThrottlerGuard), not per proxy IP.
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({
     summary: "Create an order and a Finik payment",
@@ -47,6 +48,8 @@ export class OrdersController {
   }
 
   @Get(":id")
+  // The frontend polls every 3 s while waiting for payment (20/min) — 60/min per user leaves headroom.
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   @ApiOperation({
     summary: "Get own order (polling after payment)",
     description: "**Roles:** any. Other users' orders return 404.",
@@ -66,6 +69,7 @@ export class OrdersController {
     },
   })
   @ApiNotFoundResponse({ description: "Order not found or not yours" })
+  @ApiTooManyRequestsResponse({ description: "More than 60 requests per minute" })
   findOne(@Param("id", new ParseUUIDPipe()) id: string, @GetUser() user: CurrentUser) {
     return this.ordersService.findOwn(user.userId, id);
   }
