@@ -94,6 +94,28 @@ describe("Orders API (integration)", () => {
       ]);
     });
 
+    it("sends Finik a RedirectUrl that opens this order in the Mini App (startapp=order_<id>)", async () => {
+      const user = await createUser(t.ds);
+      const merchant = await createMerchant(t.ds);
+
+      const first = await http()
+        .post("/api/orders")
+        .auth(t.tokenFor(user), { type: "bearer" })
+        .send({ merchantId: merchant.id, nominal: 1000 })
+        .expect(201);
+      const second = await http()
+        .post("/api/orders")
+        .auth(t.tokenFor(user), { type: "bearer" })
+        .send({ merchantId: merchant.id, nominal: 500 })
+        .expect(201);
+
+      // FINIK_REDIRECT_URL in globalSetup is https://t.me/kuttuk_time_bot/app.
+      expect(t.finik.calls.map((call) => call.redirectUrl)).toEqual([
+        `https://t.me/kuttuk_time_bot/app?startapp=order_${first.body.orderId}`,
+        `https://t.me/kuttuk_time_bot/app?startapp=order_${second.body.orderId}`,
+      ]);
+    });
+
     it("strips extra fields: client amount/status are ignored", async () => {
       const user = await createUser(t.ds);
       const merchant = await createMerchant(t.ds);

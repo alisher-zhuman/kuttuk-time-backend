@@ -16,6 +16,8 @@ export interface CreatePaymentInput {
   description?: string;
   lang?: "ky" | "ru" | "en";
   endDate?: number;
+  // Where Finik sends the buyer after paying (built per order by OrdersService).
+  redirectUrl: string;
 }
 
 const REDIRECT_STATUSES = new Set([301, 302, 303]);
@@ -109,7 +111,7 @@ export class FinikService {
       Amount: input.amount,
       CardType: "FINIK_QR",
       PaymentId: input.paymentId,
-      RedirectUrl: this.config.redirectUrl,
+      RedirectUrl: input.redirectUrl,
     };
 
     if (input.lang !== undefined) {

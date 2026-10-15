@@ -1,10 +1,12 @@
 import {
   BadGatewayException,
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import type { ConfigType } from "@nestjs/config";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
 import { randomUUID } from "node:crypto";
@@ -15,6 +17,8 @@ import { CreateOrderDto } from "./dto/create-order.dto";
 import { Certificate } from "@/certificates/entities/certificate.entity";
 import { Merchant } from "@/merchants/entities/merchant.entity";
 import { FinikService } from "@/finik/finik.service";
+import { finikConfig } from "@/finik/finik.config";
+import { paymentRedirectUrl } from "./payment-redirect-url";
 import { FinikApiError, FinikNetworkError, FinikTimeoutError } from "@/finik/finik.errors";
 
 export const ORDER_TTL_MS = 30 * 60 * 1000;
@@ -45,6 +49,7 @@ export class OrdersService {
     @InjectRepository(Certificate) private readonly certificateRepo: Repository<Certificate>,
     @InjectRepository(Merchant) private readonly merchantRepo: Repository<Merchant>,
     private readonly finikService: FinikService,
+    @Inject(finikConfig.KEY) private readonly finik: ConfigType<typeof finikConfig>,
   ) {}
 
   async create(userId: number, dto: CreateOrderDto): Promise<CreatedOrder> {
@@ -80,6 +85,7 @@ export class OrdersService {
         description: `${merchant.name} — ${order.amount} KGS`,
         lang: "ru",
         endDate: order.expiresAt.getTime(),
+        redirectUrl: paymentRedirectUrl(this.finik.redirectUrl, order.id),
       }));
     } catch (error) {
       // Kept (not deleted): on a timeout Finik may still have created the payment,

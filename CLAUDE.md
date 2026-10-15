@@ -193,6 +193,8 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 2. Decide: **refund** through Finik (then leave the order as `needs_review`, or note it), or **honour** it — set the order to `paid` and insert the certificate by hand in one transaction (code from `generateCertificateCode()`, `validUntil` = `paidAt` + the merchant's `validityMonths`). There's no admin endpoint for this yet.
 3. A retried webhook for that order is a no-op (`already_needs_review`), so a manual fix is never overwritten.
 
+**Payment RedirectUrl → back to the order:** for each order `OrdersService` sends Finik `RedirectUrl = FINIK_REDIRECT_URL + startapp=order_<order.id>`, e.g. `https://t.me/kuttuk_time_bot/app?startapp=order_5e1c1f5b-…`. Built with `URL`/`searchParams` (`src/orders/payment-redirect-url.ts`), so an existing query in the env survives and an existing `startapp` is replaced. After paying, Telegram opens the Mini App with that start param, and the frontend routes `order_<uuid>` to the order screen before any role-based redirect. **The prefix is shared with the frontend:** `ORDER_START_PARAM_PREFIX = "order_"` in `../frontend/src/shared/constants/base.ts` — change both together. It can't collide with a merchant deep link (`startapp=<slug>`): slugs are `/^[a-z0-9-]+$/`, no underscore. `FinikService.createPayment` takes `redirectUrl` as a parameter; `npm run finik:smoke` passes the bare base (no order behind it).
+
 **Finik (`src/finik/`):** `finik.config.ts` (env, base64 → PEM), `finik-signer.ts` (our own request signer on `node:crypto`, byte-for-byte compatible with `@mancho.devs/authorizer`, which is only a devDependency for parity tests), `finik.service.ts` (`createPayment`: `POST /v1/payment`, `redirect: 'manual'`, 302 `Location` = payment URL, 15s timeout). The doc's test-vector signature doesn't match Finik's published beta public key — need a matching key/signature pair from Finik (that test is `it.skip` until then).
 
 ---
@@ -350,7 +352,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `FINIK_PRIVATE_KEY_B64` | `...` | `base64 -i finik_private.pem \| tr -d '\n'` (`*.pem` is gitignored) |
 | `FINIK_PUBLIC_KEY_B64` | `...` | Finik's public key, base64 — for webhook verification |
 | `FINIK_WEBHOOK_URL` | `https://kuttuk-time.koyeb.app/api/finik/webhook` | sent to Finik with each payment **and** used to verify webhook signatures (host + path) — must be exactly the public URL, with `/api` |
-| `FINIK_REDIRECT_URL` | `...` | where Finik sends the buyer after paying |
+| `FINIK_REDIRECT_URL` | `https://t.me/kuttuk_time_bot/app` | **base** of where Finik sends the buyer after paying; each order gets `?startapp=order_<uuid>` added to it (see **Finik**) |
 
 ### Prod (Koyeb) — current list
 
