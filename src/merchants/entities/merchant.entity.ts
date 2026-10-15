@@ -5,12 +5,18 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  Check,
 } from "typeorm";
+
+import type { Translations } from "@/common/translations";
 
 @Entity("merchants")
 // GIN index created by hand on prod (see Baseline migration); TypeORM can't declare GIN,
 // so it must not try to manage (drop) it.
 @Index("merchants_categories_idx", { synchronize: false })
+// Declared here so schema diffs stay clean; TypeORM matches CHECKs by name.
+@Check("merchants_description_langs", `"description" ?& ARRAY['ru', 'kg', 'en']`)
+@Check("merchants_nominals_not_empty", `cardinality("nominals") > 0`)
 export class Merchant {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -18,8 +24,8 @@ export class Merchant {
   @Column()
   name!: string;
 
-  @Column({ type: "jsonb", nullable: true })
-  description!: Record<string, string> | null;
+  @Column({ type: "jsonb" })
+  description!: Translations;
 
   @Column("int", { array: true })
   categories!: number[];
@@ -45,8 +51,8 @@ export class Merchant {
   @Column({ type: "text" })
   logo!: string;
 
-  @Column({ type: "text", unique: true, nullable: true })
-  slug!: string | null;
+  @Column({ type: "text", unique: true })
+  slug!: string;
 
   @Column({ default: true })
   isActive!: boolean;

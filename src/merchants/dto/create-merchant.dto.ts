@@ -7,10 +7,12 @@ import {
   IsArray,
   ArrayMinSize,
   ArrayUnique,
-  IsObject,
   Matches,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
+
+import type { Translations } from "@/common/translations";
+import { IsTranslations } from "@/common/validators";
 import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../merchant.constants";
 
 export class CreateMerchantDto {
@@ -26,8 +28,8 @@ export class CreateMerchantDto {
       en: "Best coffee in the city",
     },
   })
-  @IsObject()
-  description!: Record<string, string>;
+  @IsTranslations()
+  description!: Translations;
 
   @ApiProperty({ example: [1, 3], description: "Category ids" })
   @IsArray()

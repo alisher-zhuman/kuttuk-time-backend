@@ -3,13 +3,14 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { APP_GUARD } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
-import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { AuthModule } from "./auth/auth.module";
 import { MerchantsModule } from "./merchants/merchants.module";
 import { UploadModule } from "./upload/upload.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { OrdersModule } from "./orders/orders.module";
 import { JwtGuard } from "./auth/jwt.guard";
+import { UserThrottlerGuard } from "./auth/user-throttler.guard";
 import { buildTypeOrmOptions } from "./database/typeorm.options";
 
 @Module({
@@ -29,8 +30,10 @@ import { buildTypeOrmOptions } from "./database/typeorm.options";
     OrdersModule,
   ],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // Order matters: global guards run in registration order, and the throttler keys on
+    // req.user, which JwtGuard sets. Covered by test/integration/rate-limit.int-spec.ts.
     { provide: APP_GUARD, useClass: JwtGuard },
+    { provide: APP_GUARD, useClass: UserThrottlerGuard },
   ],
 })
 export class AppModule {}

@@ -1,17 +1,7 @@
-export function resolveTranslation(
-  translations: Record<string, string> | null,
-  lang: string,
-): string | null {
-  if (!translations) {
-    return null;
-  }
+import { LANGUAGES, type Language, type Translations } from "../translations";
 
-  return (
-    translations[lang] ??
-    translations["kg"] ??
-    translations["ru"] ??
-    translations["en"] ??
-    Object.values(translations)[0] ??
-    null
-  );
-}
+// Unknown language (e.g. a raw Accept-Language) falls back to kg, the default.
+export const resolveTranslation = (translations: Translations, lang: string): string =>
+  (LANGUAGES as readonly string[]).includes(lang)
+    ? translations[lang as Language]
+    : translations.kg;
