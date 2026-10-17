@@ -8,12 +8,13 @@ import {
   ArrayMinSize,
   ArrayUnique,
   Matches,
+  IsNotIn,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 import type { Translations } from "@/common/translations";
 import { IsTranslations } from "@/common/validators";
-import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../merchant.constants";
+import { RESERVED_SLUGS, VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../merchant.constants";
 
 export class CreateMerchantDto {
   @ApiProperty({ example: "Sierra Coffee" })
@@ -70,5 +71,6 @@ export class CreateMerchantDto {
   @Matches(/^[a-z0-9-]+$/, {
     message: "slug must contain only lowercase letters, numbers and hyphens",
   })
+  @IsNotIn(RESERVED_SLUGS, { message: `slug must not be one of: ${RESERVED_SLUGS.join(", ")}` })
   slug!: string;
 }

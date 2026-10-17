@@ -140,10 +140,11 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 **Public (no JWT):**
 - `POST /api/auth/log-in` — login via Telegram initData → JWT (returns 200)
 - `GET /:slug` — merchant redirect into the TMA (redirects to `t.me/kuttuk_time_bot/app?startapp=:slug`)
+- `GET /api/merchants/options` → `{ nominals: number[], validityMonths: number[] }` from `VALID_NOMINALS` / `VALID_VALIDITY_MONTHS` (`src/merchants/merchant.constants.ts`), sorted ascending. **Rule: the backend is the single source of allowed merchant values** — the frontend doesn't keep its own lists, it reads them from here (the DTOs validate against the same constants). Default rate limit, by IP (public)
 
 **Merchants — public surface (any authenticated role: user/merchant/admin), resolved shape:**
 - `GET /api/merchants` — active only, filters `?search=`, `?category=` (id), language via `Accept-Language`
-- `GET /api/merchants/:idOrSlug` — by ID or slug, active only (inactive → 404)
+- `GET /api/merchants/:idOrSlug` — by ID or slug, active only (inactive → 404). Static routes (`me`, `options`) are declared before it in the controller, so those words are **reserved slugs** (`RESERVED_SLUGS`, rejected by the create/admin-update DTOs) — a merchant with such a slug would be unreachable here and its `startapp=<slug>` deep link would get the wrong response. Add any new `GET /api/merchants/<word>` to `RESERVED_SLUGS`
 
 **Merchants — self-service (role: merchant):**
 - `GET /api/merchants/me` — own full profile, looked up by `merchantTelegramId`
@@ -391,6 +392,11 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 ## Important TODOs before prod
 
+- [ ] **Remove the TEMP 10 KGS test nominal before launch** (added 2026-10-17 to test payments on prod — no real users yet). While it's there, the public merchant list shows `minNominal: 10` ("from 10 som") for any merchant that has it. Order matters — **data first, then code**: once 10 is gone from `VALID_NOMINALS`, every merchant PATCH that sends the full `nominals` array (the frontend forms always do) is rejected with 400 for a merchant that still has 10.
+  1. Find them: `SELECT id, name, nominals FROM merchants WHERE 10 = ANY(nominals);` — a merchant whose nominals are exactly `{10}` needs real nominals first (removing the only one would violate `merchants_nominals_not_empty`, and the whole UPDATE fails).
+  2. `UPDATE merchants SET nominals = array_remove(nominals, 10) WHERE 10 = ANY(nominals);`
+  3. Code: remove `10` from `VALID_NOMINALS` (`src/merchants/merchant.constants.ts`) and delete `test/integration/temp-test-nominal.int-spec.ts`. The frontend should take the list from `GET /api/merchants/options`; if it still has its own `NOMINAL_PRESETS` (`../frontend/src/shared/constants/merchant.ts`, has the same TEMP 10 as of 2026-10-17), remove 10 there too.
+  4. Already-paid 10 KGS orders/certificates are history — leave them.
 - [ ] Enable `origin: allowedOrigins` in CORS (currently `origin: true`)
 - [ ] **Public routes are still rate-limited by the Koyeb proxy IP.** Authenticated routes are fixed (2026-10-15): `UserThrottlerGuard` (`src/auth/user-throttler.guard.ts`) keys them as `user:<id>`. Routes without a user — `POST /api/auth/log-in` above all, also `GET /:slug` — still use `req.ip`, which is the proxy hop (no `trust proxy` is set), so everyone behind the same Koyeb node shares one counter per route. Seen on prod 2026-09-30: `X-RateLimit-Remaining` went 59→59→58→58→59 for one client, i.e. different proxy nodes, not one counter per client. Chain: client → Cloudflare → Koyeb → app. **Which header carries the real client IP is NOT verified** — it can only be seen server-side on prod; `CF-Connecting-IP` and `X-Forwarded-For` are likely candidates, but that's an assumption. Full fix: temporarily log `cf-connecting-ip`, `x-forwarded-for`, `x-real-ip` and `req.ip` on prod, check in the Koyeb logs which header holds the client IP and can't be set by the client, use it in `UserThrottlerGuard.getTracker` for the no-user case, remove the log. **Don't** just set `trust proxy: true`: Express would take the leftmost `X-Forwarded-For`, which the client controls, so anyone could bypass the limit by spoofing it (the NestJS docs example with `req.ips[0]` has the same problem). Low urgency: log-in happens once per session; the frequent calls (polling) are authenticated.
 - [ ] Set `FINIK_*` on Koyeb, then merge `dev` → `main` (see **Project status**)

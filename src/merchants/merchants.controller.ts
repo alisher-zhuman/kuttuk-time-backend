@@ -26,6 +26,8 @@ import { RolesGuard } from "@/auth/roles.guard";
 import { Roles } from "@/auth/roles.decorator";
 import { GetUser } from "@/auth/get-user.decorator";
 import { CurrentUser } from "@/auth/interfaces/current-user.interface";
+import { Public } from "@/auth/public.decorator";
+import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "./merchant.constants";
 
 const UNAUTHORIZED = { statusCode: 401, message: "Unauthorized", error: "Unauthorized" };
 const FORBIDDEN = { statusCode: 403, message: "Forbidden", error: "Forbidden" };
@@ -99,6 +101,25 @@ export class MerchantsController {
   @ApiNotFoundResponse({ description: "Merchant not found", schema: { example: NOT_FOUND } })
   getOwn(@GetUser() user: CurrentUser) {
     return this.merchantsService.getOwn(user.telegramId);
+  }
+
+  // Declared before ":idOrSlug" — Express matches routes in order, so "options" would
+  // otherwise be taken for a merchant slug.
+  @Get("options")
+  @Public()
+  @ApiOperation({
+    summary: "Allowed merchant values (nominals, validity months)",
+    description:
+      "**Public.** The single source of truth for the merchant forms — the frontend doesn't keep its own lists. Sorted ascending.",
+  })
+  @ApiOkResponse({
+    schema: { example: { nominals: [500, 1000, 2000], validityMonths: [3, 6, 12, 24] } },
+  })
+  getOptions(): { nominals: number[]; validityMonths: number[] } {
+    return {
+      nominals: [...VALID_NOMINALS].sort((a, b) => a - b),
+      validityMonths: [...VALID_VALIDITY_MONTHS].sort((a, b) => a - b),
+    };
   }
 
   @Get(":idOrSlug")
