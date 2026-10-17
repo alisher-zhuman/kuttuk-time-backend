@@ -51,9 +51,23 @@ Our net revenue:        +80 KGS (~8% net)
 
 **Redeeming a certificate:**
 1. Customer arrives, shows the code (e.g. `KT-ALI-5847`)
-2. Cashier opens the KuttukTime app
+2. The merchant owner opens the KuttukTime app (merchant role — there's no cashier role, see **Product decisions**)
 3. Taps "Mark as used" → the code moves to the used state
 4. Customer receives the service ✅
+
+---
+
+## Product decisions
+
+**Decided:**
+- **Roles are only `user` / `merchant` / `admin`.** No separate roles (cashier, staff) — the merchant owner redeems certificates.
+- **Redemption is all-or-nothing.** No partial redemption.
+- **The merchant is paid for the sale, not for the redemption.** If the customer spends more than the nominal, they pay the difference to the merchant directly.
+
+**Open — not decided, don't implement without discussing:**
+- Undoing a mistaken redemption.
+- Refunds to the buyer (an expired unused certificate, a merchant that closes).
+- Money flow: today everything lands on the sole proprietorship (ИП) and the merchant's 90% is paid out by hand. NBKR (National Bank of the Kyrgyz Republic) requirements for payment aggregators haven't been checked; ask Finik about split payments.
 
 ---
 
@@ -390,15 +404,30 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 ---
 
-## Important TODOs before prod
+## TODOs
+
+### Before launch
 
 - [ ] **Remove the TEMP 10 KGS test nominal before launch** (added 2026-10-17 to test payments on prod — no real users yet). While it's there, the public merchant list shows `minNominal: 10` ("from 10 som") for any merchant that has it. Order matters — **data first, then code**: once 10 is gone from `VALID_NOMINALS`, every merchant PATCH that sends the full `nominals` array (the frontend forms always do) is rejected with 400 for a merchant that still has 10.
   1. Find them: `SELECT id, name, nominals FROM merchants WHERE 10 = ANY(nominals);` — a merchant whose nominals are exactly `{10}` needs real nominals first (removing the only one would violate `merchants_nominals_not_empty`, and the whole UPDATE fails).
   2. `UPDATE merchants SET nominals = array_remove(nominals, 10) WHERE 10 = ANY(nominals);`
-  3. Code: remove `10` from `VALID_NOMINALS` (`src/merchants/merchant.constants.ts`) and delete `test/integration/temp-test-nominal.int-spec.ts`. The frontend should take the list from `GET /api/merchants/options`; if it still has its own `NOMINAL_PRESETS` (`../frontend/src/shared/constants/merchant.ts`, has the same TEMP 10 as of 2026-10-17), remove 10 there too.
+  3. Code: remove `10` from `VALID_NOMINALS` (`src/merchants/merchant.constants.ts`) and delete `test/integration/temp-test-nominal.int-spec.ts`. Nothing to change on the frontend — it reads the list from `GET /api/merchants/options` (frontend `0238b0b`).
   4. Already-paid 10 KGS orders/certificates are history — leave them.
+- [ ] **Return after payment lands in the bot chat with an error instead of the Mini App** (seen on prod). Opening `https://t.me/kuttuk_time_bot/app?startapp=order_<id>` by hand works, so the suspicion is that Finik mangles our `RedirectUrl` on its own `/v1/redirect` hop (that URL answers 403 from outside, so it can't be inspected directly). Plan: a 10 KGS test payment with a screenshot of the address bar at each step. If confirmed: our own `GET /api/payments/return/:orderId` → 302 to `t.me/kuttuk_time_bot/app?startapp=order_<id>`, and send Finik that URL as `RedirectUrl` instead.
+- [ ] **Double webhook on prod:** Finik delivered the same webhook again ~28 s later (its first retry), so our first 200 wasn't counted on Finik's side. Idempotency handled it (`already_paid`). Find out why — Koyeb cold start / response time over Finik's timeout? Check the two rows in `finik_webhook_events` (`receivedAt`) against Koyeb logs.
+- [ ] **Rotate leaked secrets**, and `JWT_SECRET` in any case — it's weak. Rotating `JWT_SECRET` logs everyone out (the frontend re-logs-in on 401, so it's harmless).
 - [ ] Enable `origin: allowedOrigins` in CORS (currently `origin: true`)
-- [ ] **Public routes are still rate-limited by the Koyeb proxy IP.** Authenticated routes are fixed (2026-10-15): `UserThrottlerGuard` (`src/auth/user-throttler.guard.ts`) keys them as `user:<id>`. Routes without a user — `POST /api/auth/log-in` above all, also `GET /:slug` — still use `req.ip`, which is the proxy hop (no `trust proxy` is set), so everyone behind the same Koyeb node shares one counter per route. Seen on prod 2026-09-30: `X-RateLimit-Remaining` went 59→59→58→58→59 for one client, i.e. different proxy nodes, not one counter per client. Chain: client → Cloudflare → Koyeb → app. **Which header carries the real client IP is NOT verified** — it can only be seen server-side on prod; `CF-Connecting-IP` and `X-Forwarded-For` are likely candidates, but that's an assumption. Full fix: temporarily log `cf-connecting-ip`, `x-forwarded-for`, `x-real-ip` and `req.ip` on prod, check in the Koyeb logs which header holds the client IP and can't be set by the client, use it in `UserThrottlerGuard.getTracker` for the no-user case, remove the log. **Don't** just set `trust proxy: true`: Express would take the leftmost `X-Forwarded-For`, which the client controls, so anyone could bypass the limit by spoofing it (the NestJS docs example with `req.ips[0]` has the same problem). Low urgency: log-in happens once per session; the frequent calls (polling) are authenticated.
 - [ ] Set `FINIK_*` on Koyeb, then merge `dev` → `main` (see **Project status**)
-- [ ] `GET /api/certificates/my` has no pagination — fine at current volume (a buyer has a handful); add cursor pagination (`createdAt`, `id`) before it gets long
 - [ ] First real Finik webhook on beta: check it in `finik_webhook_events` (`signatureValid = true`); Bakai/Freedom not started
+
+### Later
+
+- [ ] **Redemption** ("mark as used" by the merchant owner): check `validUntil`, not just `status`; set `usedAt` with `status = 'used'` (CHECK `certificates_used_at_iff_used`); no double redemption — see **Statuses** and **Product decisions**.
+- [ ] **Staging before redemption:** a test bot + Finik beta, so redemption and payments can be tried without prod.
+- [ ] **Bot notifications** (see **Bot — messages and commands**): the code to the buyer (`requestWriteAccess` at the moment of purchase), new sale and redemption to the merchant, a reminder before a certificate expires.
+- [ ] **Merchant cabinet** (stats, active codes, redemption) and **admin for orders** incl. resolving `needs_review` (today it's SQL by hand — see **Resolving `needs_review` by hand**).
+- [ ] **Payouts and weekly reports** — depend on the open money-flow decision (**Product decisions**).
+- [ ] `GET /api/certificates/my` has no pagination — fine at current volume (a buyer has a handful); add cursor pagination (`createdAt`, `id`) before it gets long
+- [ ] **Nest 12** — the remaining `npm audit` highs in prod deps (`multer` inside `@nestjs/platform-express`, `js-yaml`/`lodash` via `@nestjs/swagger`) are only fixed by the major upgrade.
+- [ ] **Category filter via GIN:** switch `:category = ANY(categories)` to `categories @> ARRAY[:id]` so `merchants_categories_idx` is actually used (see **Migrations**).
+- [ ] **Public routes are still rate-limited by the Koyeb proxy IP.** Authenticated routes are fixed (2026-10-15): `UserThrottlerGuard` (`src/auth/user-throttler.guard.ts`) keys them as `user:<id>`. Routes without a user — `POST /api/auth/log-in` above all, also `GET /:slug` — still use `req.ip`, which is the proxy hop (no `trust proxy` is set), so everyone behind the same Koyeb node shares one counter per route. Seen on prod 2026-09-30: `X-RateLimit-Remaining` went 59→59→58→58→59 for one client, i.e. different proxy nodes, not one counter per client. Chain: client → Cloudflare → Koyeb → app. **Which header carries the real client IP is NOT verified** — it can only be seen server-side on prod; `CF-Connecting-IP` and `X-Forwarded-For` are likely candidates, but that's an assumption. Full fix: temporarily log `cf-connecting-ip`, `x-forwarded-for`, `x-real-ip` and `req.ip` on prod, check in the Koyeb logs which header holds the client IP and can't be set by the client, use it in `UserThrottlerGuard.getTracker` for the no-user case, remove the log. **Don't** just set `trust proxy: true`: Express would take the leftmost `X-Forwarded-For`, which the client controls, so anyone could bypass the limit by spoofing it (the NestJS docs example with `req.ips[0]` has the same problem). Low urgency: log-in happens once per session; the frequent calls (polling) are authenticated.
