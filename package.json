@@ -23,6 +23,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "finik:smoke": "node --env-file=.env -r ts-node/register scripts/finik-smoke.ts",
     "report:payouts": "node --env-file-if-exists=.env -r ts-node/register -r tsconfig-paths/register scripts/payouts-report.ts",
+    "orders:resolve-review": "node --env-file-if-exists=.env -r ts-node/register -r tsconfig-paths/register scripts/resolve-review.ts",
     "migration:generate": "node --env-file-if-exists=.env -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate -p -d src/database/data-source.ts",
     "migration:run": "node --env-file-if-exists=.env -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d src/database/data-source.ts",
     "migration:revert": "node --env-file-if-exists=.env -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts",

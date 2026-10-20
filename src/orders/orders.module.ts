@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
 import { Order } from "./entities/order.entity";
+import { OrderResolution } from "./entities/order-resolution.entity";
 import { OrdersController } from "./orders.controller";
 import { OrdersService } from "./orders.service";
 import { FinikWebhookController } from "./finik-webhook.controller";
@@ -16,7 +17,7 @@ import { FinikWebhookEvent } from "@/finik/entities/finik-webhook-event.entity";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, Certificate, Merchant, FinikWebhookEvent]),
+    TypeOrmModule.forFeature([Order, OrderResolution, Certificate, Merchant, FinikWebhookEvent]),
     FinikModule,
     // finik.webhookUrl (public origin) and finik.redirectUrl (Mini App base) for the payment return.
     ConfigModule.forFeature(finikConfig),

@@ -217,6 +217,25 @@ describe("Orders API (integration)", () => {
       });
     });
 
+    it("200 with status refunded as is (no certificate, no payment URL)", async () => {
+      const user = await createUser(t.ds);
+      const merchant = await createMerchant(t.ds);
+      const order = await createOrder(t.ds, {
+        userId: user.id,
+        merchantId: merchant.id,
+        status: OrderStatus.Refunded,
+        paidAt: new Date(),
+        paymentUrl: "https://pay.test/x",
+      });
+
+      const res = await http()
+        .get(`/api/orders/${order.id}`)
+        .auth(t.tokenFor(user), { type: "bearer" })
+        .expect(200);
+
+      expect(res.body).toMatchObject({ status: "refunded", paymentUrl: null, certificate: null });
+    });
+
     it("404 for someone else's order", async () => {
       const owner = await createUser(t.ds);
       const stranger = await createUser(t.ds);

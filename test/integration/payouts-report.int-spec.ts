@@ -116,6 +116,25 @@ describe("payouts report (integration)", () => {
       ]);
     });
 
+    it("refunded is neither paid out nor listed as needs_review", async () => {
+      const merchant = await createMerchant(ds);
+      const inWeek = bishkek("2026-10-21T12:00:00");
+
+      await sale(merchant, 1000, inWeek);
+      await createOrder(ds, {
+        userId: buyer.id,
+        merchantId: merchant.id,
+        amount: 2000,
+        status: OrderStatus.Refunded,
+        paidAt: inWeek,
+      });
+
+      const report = await buildPayoutReport(ds, WEEK);
+
+      expect(report.rows).toEqual([expect.objectContaining({ ordersCount: 1, gross: 1000 })]);
+      expect(report.needsReview).toEqual([]);
+    });
+
     it("lists needs_review orders of the period separately", async () => {
       const merchant = await createMerchant(ds);
       const review = await sale(
