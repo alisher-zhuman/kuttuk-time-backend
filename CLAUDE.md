@@ -157,7 +157,7 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 
 **How the role is enforced:** the role is read from the DB at login time and baked into the JWT payload. `JwtStrategy` verifies the token signature (JWT_SECRET) on every request and puts `{ userId, role, telegramId }` on `request.user`; `RolesGuard` compares it against `@Roles(...)`. The role is a snapshot from login — changing it in the DB requires a fresh `log-in` to take effect. `admin` is only assigned manually via SQL (`UPDATE users SET role='admin' WHERE ...`).
 
-`@Roles(...)` works on a class or a method (method overrides class); it needs `@UseGuards(RolesGuard)` alongside. `log-in` rejects initData older than 24h (`auth_date`) — deliberately not shorter, since Telegram doesn't refresh initData while the Mini App is open and the frontend re-logs-in with it on 401.
+`@Roles(...)` works on a class or a method (method overrides class); it needs `@UseGuards(RolesGuard)` alongside. `log-in` rejects initData older than 24h (`auth_date`) — deliberately not shorter, since Telegram doesn't refresh initData while the Mini App is open and the frontend re-logs-in with it on 401. **`log-in` fails closed without `BOT_TOKEN`** (empty / whitespace / unset → 401 "Log-in is unavailable" + an error log, also logged once at boot): otherwise the HMAC key would be `HMAC("WebAppData", "")`, which anyone can compute, and initData could be forged for any `telegramId` — an admin included. The rest of the app keeps working. Covered by `test/integration/auth.int-spec.ts` (independent signer in `test/helpers/init-data.ts`, the `signature` field, tampering, the 24h/60s window, the `user` field, roles).
 
 ---
 
@@ -284,7 +284,7 @@ The main things not yet implemented:
 - Helpers: `createTestApp()` (`test/helpers/app.ts`: real `AppModule`, `FakeFinikService` recording calls / `failWith`, `tokenFor(user)` via the app's own `JwtService`), factories `createUser`/`createMerchant`/`createOrder`/`createCertificate` (`test/helpers/factories.ts`)
 - Known noise: a `pg` "client.query() when the client is already executing a query" deprecation warning comes from inside TypeORM's schema builder — not our code, but it becomes an error with `pg@9`
 
-**What to cover next (riskiest first):** initData HMAC verification (`auth.service`, real fixtures — the `signature` field bit us once); (redemption is covered: `test/integration/redemption.int-spec.ts`, incl. 10 concurrent redeems → one success).
+**What to cover next (riskiest first):** initData verification is covered (2026-10-20, `auth.int-spec.ts`); (redemption is covered: `test/integration/redemption.int-spec.ts`, incl. 10 concurrent redeems → one success).
 
 Beyond tests, verify changes by exercising the real flow, not by assuming.
 
