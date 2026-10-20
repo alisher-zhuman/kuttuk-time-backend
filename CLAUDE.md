@@ -1,5 +1,7 @@
 # KuttukTime Backend — Context for Claude
 
+> **Прочитай [docs/workflow.md](docs/workflow.md) перед любой задачей** — роль, правила работы с пользователем и продом, окружение, текущее состояние и следующие шаги.
+
 ## Project
 
 **KuttukTime** — a Telegram Mini App (TMA) for quickly buying and gifting gift certificates from local Kyrgyzstan businesses (coffee shops, spas, restaurants, beauty salons).
