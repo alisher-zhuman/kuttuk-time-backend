@@ -56,7 +56,13 @@ describe("OrdersService", () => {
         { provide: getRepositoryToken(Certificate), useValue: certificateRepo },
         { provide: getRepositoryToken(Merchant), useValue: merchantRepo },
         { provide: FinikService, useValue: finikService },
-        { provide: finikConfig.KEY, useValue: { redirectUrl: "https://t.me/kuttuk_time_bot/app" } },
+        {
+          provide: finikConfig.KEY,
+          useValue: {
+            redirectUrl: "https://t.me/kuttuk_time_bot/app",
+            webhookUrl: "https://kuttuk-time.koyeb.app/api/finik/webhook",
+          },
+        },
       ],
     }).compile();
 
@@ -93,7 +99,8 @@ describe("OrdersService", () => {
         description: "Sierra Coffee — 1000 KGS",
         lang: "ru",
         endDate: expiresAt.getTime(),
-        redirectUrl: `https://t.me/kuttuk_time_bot/app?startapp=order_${saved.id}`,
+        // Our own return endpoint (on the webhook URL's origin), not t.me directly.
+        redirectUrl: `https://kuttuk-time.koyeb.app/api/payments/return/${saved.id}`,
       });
       expect(orderRepo.update).toHaveBeenCalledWith(saved.id, {
         paymentUrl: "https://pay.finik.kg/qr/abc",

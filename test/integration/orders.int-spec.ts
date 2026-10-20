@@ -94,7 +94,7 @@ describe("Orders API (integration)", () => {
       ]);
     });
 
-    it("sends Finik a RedirectUrl that opens this order in the Mini App (startapp=order_<id>)", async () => {
+    it("sends Finik our return URL, which redirects to the order in the Mini App (startapp=order_<id>)", async () => {
       const user = await createUser(t.ds);
       const merchant = await createMerchant(t.ds);
 
@@ -109,11 +109,22 @@ describe("Orders API (integration)", () => {
         .send({ merchantId: merchant.id, nominal: 500 })
         .expect(201);
 
-      // FINIK_REDIRECT_URL in globalSetup is https://t.me/kuttuk_time_bot/app.
+      // Our own return endpoint on FINIK_WEBHOOK_URL's origin (http://localhost in globalSetup),
+      // not t.me directly — Finik's intermediate redirect mangled the direct link.
       expect(t.finik.calls.map((call) => call.redirectUrl)).toEqual([
-        `https://t.me/kuttuk_time_bot/app?startapp=order_${first.body.orderId}`,
-        `https://t.me/kuttuk_time_bot/app?startapp=order_${second.body.orderId}`,
+        `http://localhost/api/payments/return/${first.body.orderId}`,
+        `http://localhost/api/payments/return/${second.body.orderId}`,
       ]);
+
+      // Following it lands on the Mini App, straight on the order (FINIK_REDIRECT_URL is t.me).
+      for (const [i, { body }] of [first, second].entries()) {
+        const path = new URL(t.finik.calls[i].redirectUrl).pathname;
+        const res = await http().get(path).expect(302);
+
+        expect(res.headers.location).toBe(
+          `https://t.me/kuttuk_time_bot/app?startapp=order_${body.orderId}`,
+        );
+      }
     });
 
     it("strips extra fields: client amount/status are ignored", async () => {

@@ -18,7 +18,7 @@ import { Certificate } from "@/certificates/entities/certificate.entity";
 import { Merchant } from "@/merchants/entities/merchant.entity";
 import { FinikService } from "@/finik/finik.service";
 import { finikConfig } from "@/finik/finik.config";
-import { paymentRedirectUrl } from "./payment-redirect-url";
+import { paymentReturnUrl } from "./payment-redirect-url";
 import { FinikApiError, FinikNetworkError, FinikTimeoutError } from "@/finik/finik.errors";
 
 export const ORDER_TTL_MS = 30 * 60 * 1000;
@@ -85,7 +85,7 @@ export class OrdersService {
         description: `${merchant.name} — ${order.amount} KGS`,
         lang: "ru",
         endDate: order.expiresAt.getTime(),
-        redirectUrl: paymentRedirectUrl(this.finik.redirectUrl, order.id),
+        redirectUrl: paymentReturnUrl(this.finik.webhookUrl, order.id),
       }));
     } catch (error) {
       // Kept (not deleted): on a timeout Finik may still have created the payment,

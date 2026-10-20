@@ -1,6 +1,6 @@
 export const VALID_NOMINALS = [
-  // TEMP: 10 KGS for testing payments on prod — remove before launch, together with the
-  // frontend's NOMINAL_PRESETS entry and from every merchant's nominals (see CLAUDE.md TODOs).
+  // TEMP: 10 KGS for testing payments on prod — remove before launch, from here and from every
+  // merchant's nominals, data first (see CLAUDE.md TODOs).
   10, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
 ];
 
