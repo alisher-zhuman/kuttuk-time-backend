@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { Injectable, Logger, type OnModuleInit, UnauthorizedException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
@@ -13,8 +13,12 @@ const INIT_DATA_MAX_AGE_SEC = 24 * 60 * 60;
 // Tolerate small clock drift between Telegram and our server.
 const INIT_DATA_MAX_FUTURE_SKEW_SEC = 60;
 
+// With an empty BOT_TOKEN the HMAC key would be HMAC("WebAppData", "") — public knowledge, so
+// anyone could forge initData for any telegramId (incl. an admin). Fail closed instead.
+const botToken = (): string | null => process.env.BOT_TOKEN?.trim() || null;
+
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
@@ -24,6 +28,14 @@ export class AuthService {
     private readonly merchantRepository: Repository<Merchant>,
     private readonly jwtService: JwtService,
   ) {}
+
+  // Doesn't stop the app (public routes and the Finik webhook keep working) — log-in just
+  // refuses — but makes the misconfiguration visible at boot, not at the first login.
+  onModuleInit(): void {
+    if (!botToken()) {
+      this.logger.error("BOT_TOKEN is not set — every log-in will be refused");
+    }
+  }
 
   async logIn(initData: string): Promise<{ accessToken: string; role: string }> {
     const telegramId = this.verifyInitData(initData);
@@ -57,6 +69,14 @@ export class AuthService {
   }
 
   private verifyInitData(initData: string): number {
+    const token = botToken();
+
+    if (!token) {
+      this.logger.error("Log-in refused: BOT_TOKEN is not set");
+
+      throw new UnauthorizedException("Log-in is unavailable");
+    }
+
     const params = new URLSearchParams(initData);
     const hash = params.get("hash");
 
@@ -74,9 +94,7 @@ export class AuthService {
       .map(([k, v]) => `${k}=${v}`)
       .join("\n");
 
-    const secretKey = createHmac("sha256", "WebAppData")
-      .update(process.env.BOT_TOKEN ?? "")
-      .digest();
+    const secretKey = createHmac("sha256", "WebAppData").update(token).digest();
 
     const computedHash = createHmac("sha256", secretKey).update(dataCheckString).digest();
     const receivedHash = Buffer.from(hash, "hex");
