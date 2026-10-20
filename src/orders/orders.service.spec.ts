@@ -10,7 +10,8 @@ import { getRepositoryToken } from "@nestjs/typeorm";
 import { ORDER_TTL_MS, OrdersService } from "./orders.service";
 import { Order, OrderStatus } from "./entities/order.entity";
 import { Certificate } from "@/certificates/entities/certificate.entity";
-import { Merchant } from "@/merchants/entities/merchant.entity";
+import { Venue } from "@/venues/entities/venue.entity";
+import type { Merchant } from "@/merchants/entities/merchant.entity";
 import { FinikService } from "@/finik/finik.service";
 import { finikConfig } from "@/finik/finik.config";
 import { FinikApiError, FinikNetworkError, FinikTimeoutError } from "@/finik/finik.errors";
@@ -18,15 +19,18 @@ import { FinikApiError, FinikNetworkError, FinikTimeoutError } from "@/finik/fin
 const USER_ID = 7;
 const NOW = new Date("2026-10-12T10:00:00.000Z");
 
-const merchant = (overrides: Partial<Merchant> = {}): Merchant =>
+// Venue 9 "Sierra Coffee" owned by merchant 4.
+const venue = (overrides: Partial<Venue> = {}, merchant: Partial<Merchant> = {}): Venue =>
   ({
     id: 9,
+    merchantId: 4,
+    merchant: { id: 4, isActive: true, ...merchant } as Merchant,
     name: "Sierra Coffee",
     nominals: [500, 1000, 2000],
     validityMonths: 12,
     isActive: true,
     ...overrides,
-  }) as Merchant;
+  }) as Venue;
 
 describe("OrdersService", () => {
   let service: OrdersService;
@@ -38,7 +42,7 @@ describe("OrdersService", () => {
     findOne: jest.fn(),
   };
   const certificateRepo = { findOne: jest.fn() };
-  const merchantRepo = { findOne: jest.fn() };
+  const venueRepo = { findOne: jest.fn() };
   const finikService = { createPayment: jest.fn() };
 
   beforeAll(() => {
@@ -54,7 +58,7 @@ describe("OrdersService", () => {
         OrdersService,
         { provide: getRepositoryToken(Order), useValue: orderRepo },
         { provide: getRepositoryToken(Certificate), useValue: certificateRepo },
-        { provide: getRepositoryToken(Merchant), useValue: merchantRepo },
+        { provide: getRepositoryToken(Venue), useValue: venueRepo },
         { provide: FinikService, useValue: finikService },
         {
           provide: finikConfig.KEY,
@@ -75,17 +79,18 @@ describe("OrdersService", () => {
 
   describe("create", () => {
     it("creates a pending order, a Finik payment and returns the payment URL", async () => {
-      merchantRepo.findOne.mockResolvedValue(merchant());
+      venueRepo.findOne.mockResolvedValue(venue());
       finikService.createPayment.mockResolvedValue({ paymentUrl: "https://pay.finik.kg/qr/abc" });
 
-      const result = await service.create(USER_ID, { merchantId: 9, nominal: 1000 });
+      const result = await service.create(USER_ID, { venueId: 9, nominal: 1000 });
 
       const saved = orderRepo.save.mock.calls[0][0] as Order;
       const expiresAt = new Date(NOW.getTime() + ORDER_TTL_MS);
 
       expect(saved).toMatchObject({
         userId: USER_ID,
-        merchantId: 9,
+        venueId: 9,
+        merchantId: 4, // owner snapshot
         amount: 1000,
         status: OrderStatus.Pending,
         expiresAt,
@@ -112,29 +117,32 @@ describe("OrdersService", () => {
       });
     });
 
-    it("rejects a nominal the merchant does not offer, without touching orders or Finik", async () => {
-      merchantRepo.findOne.mockResolvedValue(merchant());
+    it("rejects a nominal the venue does not offer, without touching orders or Finik", async () => {
+      venueRepo.findOne.mockResolvedValue(venue());
 
-      await expect(service.create(USER_ID, { merchantId: 9, nominal: 1500 })).rejects.toThrow(
+      await expect(service.create(USER_ID, { venueId: 9, nominal: 1500 })).rejects.toThrow(
         BadRequestException,
       );
       expect(orderRepo.save).not.toHaveBeenCalled();
       expect(finikService.createPayment).not.toHaveBeenCalled();
     });
 
-    it("rejects an inactive merchant", async () => {
-      merchantRepo.findOne.mockResolvedValue(merchant({ isActive: false }));
+    it.each([
+      ["an inactive venue", venue({ isActive: false })],
+      ["a venue of an inactive merchant", venue({}, { isActive: false })],
+    ])("rejects %s", async (_name, found) => {
+      venueRepo.findOne.mockResolvedValue(found);
 
-      await expect(service.create(USER_ID, { merchantId: 9, nominal: 1000 })).rejects.toThrow(
+      await expect(service.create(USER_ID, { venueId: 9, nominal: 1000 })).rejects.toThrow(
         BadRequestException,
       );
       expect(orderRepo.save).not.toHaveBeenCalled();
     });
 
-    it("rejects a missing merchant", async () => {
-      merchantRepo.findOne.mockResolvedValue(null);
+    it("rejects a missing venue", async () => {
+      venueRepo.findOne.mockResolvedValue(null);
 
-      await expect(service.create(USER_ID, { merchantId: 404, nominal: 1000 })).rejects.toThrow(
+      await expect(service.create(USER_ID, { venueId: 404, nominal: 1000 })).rejects.toThrow(
         BadRequestException,
       );
       expect(orderRepo.save).not.toHaveBeenCalled();
@@ -147,11 +155,11 @@ describe("OrdersService", () => {
     ])(
       "on Finik %s: expires the order and returns 502 without Finik details",
       async (_name, error) => {
-        merchantRepo.findOne.mockResolvedValue(merchant());
+        venueRepo.findOne.mockResolvedValue(venue());
         finikService.createPayment.mockRejectedValue(error);
 
         const thrown = await service
-          .create(USER_ID, { merchantId: 9, nominal: 1000 })
+          .create(USER_ID, { venueId: 9, nominal: 1000 })
           .catch((e: unknown) => e);
 
         const saved = orderRepo.save.mock.calls[0][0] as Order;
@@ -167,10 +175,10 @@ describe("OrdersService", () => {
     );
 
     it("rethrows unexpected errors as-is (a bug, not a provider outage), still expiring the order", async () => {
-      merchantRepo.findOne.mockResolvedValue(merchant());
+      venueRepo.findOne.mockResolvedValue(venue());
       finikService.createPayment.mockRejectedValue(new Error("Finik: nameEn is required"));
 
-      await expect(service.create(USER_ID, { merchantId: 9, nominal: 1000 })).rejects.toThrow(
+      await expect(service.create(USER_ID, { venueId: 9, nominal: 1000 })).rejects.toThrow(
         "Finik: nameEn is required",
       );
       expect(orderRepo.update).toHaveBeenCalledWith(
@@ -185,7 +193,8 @@ describe("OrdersService", () => {
       ({
         id: "5e1c1f5b-0a3c-4c1b-9a59-2a1d7c8a3f10",
         userId: USER_ID,
-        merchantId: 9,
+        venueId: 9,
+        merchantId: 4,
         amount: 1000,
         status: OrderStatus.Pending,
         paymentUrl: "https://pay.finik.kg/qr/abc",

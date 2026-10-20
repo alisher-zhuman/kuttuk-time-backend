@@ -4,11 +4,11 @@ import {
   CertificateStatus,
   type Certificate,
 } from "../../src/certificates/entities/certificate.entity";
-import type { Merchant } from "../../src/merchants/entities/merchant.entity";
+import type { Venue } from "../../src/venues/entities/venue.entity";
 import { OrderStatus } from "../../src/orders/entities/order.entity";
 import type { User } from "../../src/users/entities/user.entity";
 import { createTestApp, type TestApp } from "../helpers/app";
-import { createCertificate, createMerchant, createOrder, createUser } from "../helpers/factories";
+import { createCertificate, createVenue, createOrder, createUser } from "../helpers/factories";
 
 const DAY = 24 * 60 * 60 * 1000;
 const future = () => new Date(Date.now() + 30 * DAY);
@@ -25,19 +25,19 @@ describe("GET /api/certificates/my (integration)", () => {
   // A paid order + its certificate; createdAt is set explicitly so ordering is deterministic.
   const issue = async (
     owner: User,
-    merchant: Merchant,
+    venue: Venue,
     fields: Partial<Certificate> & { createdAt?: Date } = {},
   ): Promise<Certificate> => {
     const order = await createOrder(t.ds, {
       userId: owner.id,
-      merchantId: merchant.id,
+      venueId: venue.id,
       status: OrderStatus.Paid,
       paidAt: new Date(),
     });
     const { createdAt, ...rest } = fields;
     const cert = await createCertificate(t.ds, {
       orderId: order.id,
-      merchantId: merchant.id,
+      venueId: venue.id,
       ownerUserId: owner.id,
       code: `KT-TEST-${String(++codeSeq).padStart(4, "2")}`,
       validUntil: future(),
@@ -78,8 +78,8 @@ describe("GET /api/certificates/my (integration)", () => {
 
   it("returns exactly the contract shape for an active certificate", async () => {
     const user = await createUser(t.ds);
-    const merchant = await createMerchant(t.ds);
-    const cert = await issue(user, merchant, { amount: 2000 });
+    const venue = await createVenue(t.ds);
+    const cert = await issue(user, venue, { amount: 2000 });
 
     const [item] = (await getMine(user)).body;
 
@@ -90,18 +90,18 @@ describe("GET /api/certificates/my (integration)", () => {
       status: "active",
       validUntil: cert.validUntil.toISOString(),
       createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
-      merchant: { id: merchant.id, name: merchant.name, slug: merchant.slug, logo: merchant.logo },
+      venue: { id: venue.id, name: venue.name, slug: venue.slug, logo: venue.logo },
     });
     expect(item).not.toHaveProperty("usedAt");
   });
 
   it("shows only the caller's certificates", async () => {
     const [alice, bob] = [await createUser(t.ds), await createUser(t.ds)];
-    const merchant = await createMerchant(t.ds);
-    const mine = await issue(alice, merchant);
+    const venue = await createVenue(t.ds);
+    const mine = await issue(alice, venue);
 
-    await issue(bob, merchant);
-    await issue(bob, merchant);
+    await issue(bob, venue);
+    await issue(bob, venue);
 
     expect((await getMine(alice)).body.map((c: { id: string }) => c.id)).toEqual([mine.id]);
     expect((await getMine(bob)).body).toHaveLength(2);
@@ -109,17 +109,17 @@ describe("GET /api/certificates/my (integration)", () => {
 
   it("effective status: active past validUntil → expired; used stays used even past validUntil", async () => {
     const user = await createUser(t.ds);
-    const merchant = await createMerchant(t.ds);
+    const venue = await createVenue(t.ds);
     const usedAt = new Date(Date.now() - 2 * DAY);
 
-    const valid = await issue(user, merchant, { validUntil: future() });
-    const lapsed = await issue(user, merchant, { validUntil: past() });
-    const used = await issue(user, merchant, {
+    const valid = await issue(user, venue, { validUntil: future() });
+    const lapsed = await issue(user, venue, { validUntil: past() });
+    const used = await issue(user, venue, {
       status: CertificateStatus.Used,
       usedAt,
       validUntil: past(),
     });
-    const expiredInDb = await issue(user, merchant, { status: CertificateStatus.Expired });
+    const expiredInDb = await issue(user, venue, { status: CertificateStatus.Expired });
 
     const byId = new Map<string, Record<string, unknown>>(
       (await getMine(user)).body.map((c: { id: string }) => [c.id, c]),
@@ -144,18 +144,18 @@ describe("GET /api/certificates/my (integration)", () => {
 
   it("sorts active first (by effective status), each group newest first", async () => {
     const user = await createUser(t.ds);
-    const merchant = await createMerchant(t.ds);
+    const venue = await createVenue(t.ds);
     const at = (daysAgo: number) => new Date(Date.now() - daysAgo * DAY);
 
-    const oldActive = await issue(user, merchant, { createdAt: at(10) });
-    const newActive = await issue(user, merchant, { createdAt: at(1) });
-    const newestLapsed = await issue(user, merchant, { createdAt: at(0.5), validUntil: past() });
-    const oldUsed = await issue(user, merchant, {
+    const oldActive = await issue(user, venue, { createdAt: at(10) });
+    const newActive = await issue(user, venue, { createdAt: at(1) });
+    const newestLapsed = await issue(user, venue, { createdAt: at(0.5), validUntil: past() });
+    const oldUsed = await issue(user, venue, {
       createdAt: at(20),
       status: CertificateStatus.Used,
       usedAt: at(15),
     });
-    const midExpired = await issue(user, merchant, {
+    const midExpired = await issue(user, venue, {
       createdAt: at(5),
       status: CertificateStatus.Expired,
     });
@@ -166,11 +166,11 @@ describe("GET /api/certificates/my (integration)", () => {
     expect(ids).toEqual([newActive.id, oldActive.id, newestLapsed.id, midExpired.id, oldUsed.id]);
   });
 
-  it("includes certificates of a merchant that was deactivated later", async () => {
+  it("includes certificates of a venue that was deactivated later", async () => {
     const user = await createUser(t.ds);
-    const merchant = await createMerchant(t.ds, { isActive: false });
+    const venue = await createVenue(t.ds, { isActive: false });
 
-    await issue(user, merchant);
+    await issue(user, venue);
 
     expect((await getMine(user)).body).toHaveLength(1);
   });

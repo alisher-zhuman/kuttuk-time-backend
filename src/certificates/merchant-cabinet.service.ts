@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
-import type { DataSource } from "typeorm";
+import type { DataSource, EntityManager } from "typeorm";
 
 import { ownMerchantId } from "./own-merchant";
 import type { EffectiveCertificateStatus } from "./certificates.service";
@@ -51,14 +51,40 @@ const decodeCursor = (cursor: string): { createdAt: Date; id: string } => {
   return { createdAt, id };
 };
 
+// ?venueId= must be one of the caller's venues; another merchant's looks like a missing one.
+const assertOwnVenue = async (
+  db: DataSource | EntityManager,
+  merchantId: number,
+  venueId: number,
+): Promise<void> => {
+  const [venue]: Array<{ id: number }> = await db.query(
+    `SELECT "id" FROM "venues" WHERE "id" = $1 AND "merchantId" = $2`,
+    [venueId, merchantId],
+  );
+
+  if (!venue) {
+    throw new NotFoundException("Venue not found");
+  }
+};
+
 @Injectable()
 export class MerchantCabinetService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
   // The Mon–Sun week (Bishkek) containing `week`, or the current one. "Sold" and "payout" come
   // from paidSales() — the same code as the payout report, so the numbers can't drift apart.
-  async summary(merchantTelegramId: number, week?: string): Promise<MerchantWeekSummary> {
+  // venueId narrows everything to one of the merchant's venues.
+  async summary(
+    merchantTelegramId: number,
+    opts: { week?: string; venueId?: number } = {},
+  ): Promise<MerchantWeekSummary> {
+    const { week, venueId } = opts;
     const merchantId = await ownMerchantId(this.dataSource, merchantTelegramId);
+
+    if (venueId !== undefined) {
+      await assertOwnVenue(this.dataSource, merchantId, venueId);
+    }
+
     let period: PayoutPeriod;
 
     try {
@@ -68,12 +94,15 @@ export class MerchantCabinetService {
     }
 
     return readOnly(this.dataSource, async (em) => {
-      const [sales] = await paidSales(em, period, merchantId);
+      const [sales] = await paidSales(em, period, { merchantId, venueId });
+      // Redeemed = by the venues the merchant owns now (the same scope as redemption).
       const [redeemed]: Array<{ count: number; amount: string }> = await em.query(
         `SELECT count(*)::int AS "count", coalesce(sum(c."amount"), 0)::bigint AS "amount"
            FROM "certificates" c
-          WHERE c."merchantId" = $3 AND c."status" = 'used' AND ${IN_PERIOD('c."usedAt"')}`,
-        [period.from, period.to, merchantId],
+           JOIN "venues" v ON v."id" = c."venueId" AND v."merchantId" = $3
+          WHERE ($4::int IS NULL OR c."venueId" = $4::int)
+            AND c."status" = 'used' AND ${IN_PERIOD('c."usedAt"')}`,
+        [period.from, period.to, merchantId, venueId ?? null],
       );
 
       return {
@@ -87,10 +116,11 @@ export class MerchantCabinetService {
     });
   }
 
-  // Own certificates, newest first, optionally by effective status. Keyset-paginated.
+  // Certificates of the merchant's venues, newest first, optionally by effective status and
+  // one venue. Keyset-paginated.
   async list(
     merchantTelegramId: number,
-    opts: { status?: string; limit?: number; cursor?: string },
+    opts: { status?: string; limit?: number; cursor?: string; venueId?: number },
   ): Promise<MerchantCertificatePage> {
     if (opts.status !== undefined && !CABINET_STATUSES.includes(opts.status as never)) {
       throw new BadRequestException(`status must be one of: ${CABINET_STATUSES.join(", ")}`);
@@ -105,6 +135,10 @@ export class MerchantCabinetService {
     const after = opts.cursor ? decodeCursor(opts.cursor) : null;
     const merchantId = await ownMerchantId(this.dataSource, merchantTelegramId);
 
+    if (opts.venueId !== undefined) {
+      await assertOwnVenue(this.dataSource, merchantId, opts.venueId);
+    }
+
     const rows: Array<{
       id: string;
       code: string;
@@ -113,18 +147,29 @@ export class MerchantCabinetService {
       validUntil: Date;
       usedAt: Date | null;
       createdAt: Date;
+      venueId: number;
+      venueName: string;
     }> = await this.dataSource.query(
       `SELECT * FROM (
          SELECT c."id", c."code", c."amount", ${EFFECTIVE_STATUS} AS "status",
-                c."validUntil", c."usedAt", c."createdAt"
+                c."validUntil", c."usedAt", c."createdAt",
+                v."id" AS "venueId", v."name" AS "venueName"
            FROM "certificates" c
-          WHERE c."merchantId" = $1
+           JOIN "venues" v ON v."id" = c."venueId" AND v."merchantId" = $1
+          WHERE ($6::int IS NULL OR c."venueId" = $6::int)
             AND ($2::timestamptz IS NULL OR (c."createdAt", c."id") < ($2::timestamptz, $3::uuid))
        ) own
        WHERE ($4::text IS NULL OR own."status" = $4::text)
        ORDER BY own."createdAt" DESC, own."id" DESC
        LIMIT $5`,
-      [merchantId, after?.createdAt ?? null, after?.id ?? null, opts.status ?? null, limit + 1],
+      [
+        merchantId,
+        after?.createdAt ?? null,
+        after?.id ?? null,
+        opts.status ?? null,
+        limit + 1,
+        opts.venueId ?? null,
+      ],
     );
 
     const page = rows.slice(0, limit);
@@ -138,6 +183,7 @@ export class MerchantCabinetService {
         validUntil: row.validUntil,
         ...(row.status === "used" && row.usedAt ? { usedAt: row.usedAt } : {}),
         createdAt: row.createdAt,
+        venue: { id: row.venueId, name: row.venueName },
       })),
       nextCursor: rows.length > limit && last ? encodeCursor(last.createdAt, last.id) : null,
     };

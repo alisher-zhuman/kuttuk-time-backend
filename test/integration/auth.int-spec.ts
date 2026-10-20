@@ -164,7 +164,7 @@ describe("POST /api/auth/log-in — Telegram initData (integration)", () => {
 
   describe("roles", () => {
     it("first log-in of an active merchant's owner → merchant", async () => {
-      await createMerchant(t.ds, { merchantTelegramId: 555 });
+      await createMerchant(t.ds, { telegramId: 555 });
 
       const res = await logIn(signed(555)).expect(200);
 
@@ -174,28 +174,28 @@ describe("POST /api/auth/log-in — Telegram initData (integration)", () => {
 
     it("an existing user becomes merchant once their merchant exists and is active", async () => {
       await createUser(t.ds, { telegramId: 555, role: "user" });
-      await createMerchant(t.ds, { merchantTelegramId: 555 });
+      await createMerchant(t.ds, { telegramId: 555 });
 
       expect((await logIn(signed(555)).expect(200)).body.role).toBe("merchant");
       expect((await users().findOneByOrFail({ telegramId: 555 })).role).toBe("merchant");
     });
 
     it("an inactive merchant's owner logging in for the first time → user", async () => {
-      await createMerchant(t.ds, { merchantTelegramId: 555, isActive: false });
+      await createMerchant(t.ds, { telegramId: 555, isActive: false });
 
       expect((await logIn(signed(555)).expect(200)).body.role).toBe("user");
     });
 
     it("admin stays admin, even if they also own a merchant", async () => {
       await createUser(t.ds, { telegramId: 1, role: "admin" });
-      await createMerchant(t.ds, { merchantTelegramId: 1 });
+      await createMerchant(t.ds, { telegramId: 1 });
 
       expect((await logIn(signed(1)).expect(200)).body.role).toBe("admin");
     });
 
     it("current behaviour: a merchant whose merchant got deactivated keeps the merchant role", async () => {
       await createUser(t.ds, { telegramId: 555, role: "merchant" });
-      await createMerchant(t.ds, { merchantTelegramId: 555, isActive: false });
+      await createMerchant(t.ds, { telegramId: 555, isActive: false });
 
       // Deliberate: a deactivated merchant still sees its cabinet and redeems what it sold.
       expect((await logIn(signed(555)).expect(200)).body.role).toBe("merchant");
@@ -234,7 +234,7 @@ describe("POST /api/auth/log-in — Telegram initData (integration)", () => {
     it("the rest of the app keeps working (public routes answer)", async () => {
       delete process.env.BOT_TOKEN;
 
-      await request(t.app.getHttpServer()).get("/api/merchants/options").expect(200);
+      await request(t.app.getHttpServer()).get("/api/venues/options").expect(200);
     });
 
     it("an admin can't be impersonated with an empty token either", async () => {

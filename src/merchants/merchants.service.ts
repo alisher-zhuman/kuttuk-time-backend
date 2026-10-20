@@ -4,227 +4,106 @@ import { Repository } from "typeorm";
 
 import { Merchant } from "./entities/merchant.entity";
 import { CreateMerchantDto } from "./dto/create-merchant.dto";
-import { UpdateMerchantDto } from "./dto/update-merchant.dto";
 import { AdminUpdateMerchantDto } from "./dto/admin-update-merchant.dto";
-import { CloudinaryService } from "@/cloudinary/cloudinary.service";
-import { resolveTranslation } from "@/common/utils/resolve-translation";
+import { UpdateVenueDto } from "@/venues/dto/update-venue.dto";
+import { definedFields } from "@/common/utils/defined-fields";
+import { VenuesService, type VenueDetail } from "@/venues/venues.service";
+
+type MerchantAccount = Pick<Merchant, "id" | "name" | "telegramId" | "isActive" | "createdAt">;
+
+const toAccount = ({ id, name, telegramId, isActive, createdAt }: Merchant): MerchantAccount => ({
+  id,
+  name,
+  telegramId,
+  isActive,
+  createdAt,
+});
 
 @Injectable()
 export class MerchantsService {
   private readonly logger = new Logger(MerchantsService.name);
 
   constructor(
-    @InjectRepository(Merchant)
-    private readonly merchantRepo: Repository<Merchant>,
-    private readonly cloudinaryService: CloudinaryService,
+    @InjectRepository(Merchant) private readonly merchantRepo: Repository<Merchant>,
+    private readonly venuesService: VenuesService,
   ) {}
 
-  async findAll(
-    lang: string,
-    search?: string,
-    category?: number,
-  ): Promise<
-    {
-      id: number;
-      name: string;
-      description: string;
-      logo: string;
-      minNominal: number;
-    }[]
-  > {
-    const qb = this.merchantRepo
-      .createQueryBuilder("merchant")
-      .select([
-        "merchant.id",
-        "merchant.name",
-        "merchant.description",
-        "merchant.logo",
-        "merchant.nominals",
-      ])
-      .where("merchant.isActive = true")
-      .orderBy("merchant.id", "ASC");
-
-    if (category) {
-      qb.andWhere(":category = ANY(merchant.categories)", { category });
-    }
-
-    if (search) {
-      qb.andWhere("merchant.name ILIKE :search", { search: `%${search}%` });
-    }
-
-    const merchants = await qb.getMany();
-
-    return merchants.map(({ id, name, description, logo, nominals }) => ({
-      id,
-      name,
-      description: resolveTranslation(description, lang),
-      logo,
-      minNominal: Math.min(...nominals),
-    }));
-  }
-
-  async findAllAdmin(
-    search?: string,
-    category?: number,
-    isActive?: boolean,
-  ): Promise<
-    {
-      id: number;
-      name: string;
-      logo: string;
-      isActive: boolean;
-    }[]
-  > {
-    const qb = this.merchantRepo
-      .createQueryBuilder("merchant")
-      .select(["merchant.id", "merchant.name", "merchant.logo", "merchant.isActive"])
-      .orderBy("merchant.id", "ASC");
-
-    if (isActive !== undefined) {
-      qb.andWhere("merchant.isActive = :isActive", { isActive });
-    }
-
-    if (category) {
-      qb.andWhere(":category = ANY(merchant.categories)", { category });
-    }
-
-    if (search) {
-      qb.andWhere("merchant.name ILIKE :search", { search: `%${search}%` });
-    }
-
-    return qb.getMany();
-  }
-
-  private readonly detailSelect = [
-    "merchant.id",
-    "merchant.name",
-    "merchant.description",
-    "merchant.categories",
-    "merchant.nominals",
-    "merchant.validityMonths",
-    "merchant.merchantTelegramId",
-    "merchant.logo",
-    "merchant.slug",
-    "merchant.isActive",
-    "merchant.createdAt",
-  ];
-
-  async findOneAdmin(id: number): Promise<Omit<Merchant, "updatedAt">> {
-    const merchant = await this.merchantRepo
-      .createQueryBuilder("merchant")
-      .select(this.detailSelect)
-      .where("merchant.id = :id", { id })
-      .getOne();
-
-    if (!merchant) {
-      throw new NotFoundException("Merchant not found");
-    }
-
-    return merchant;
-  }
-
-  async getOwn(telegramId: number): Promise<Omit<Merchant, "updatedAt">> {
-    const merchant = await this.merchantRepo
-      .createQueryBuilder("merchant")
-      .select(this.detailSelect)
-      .where("merchant.merchantTelegramId = :telegramId", { telegramId })
-      .getOne();
-
-    if (!merchant) {
-      throw new NotFoundException("Merchant not found");
-    }
-
-    return merchant;
-  }
-
-  async findOne(
-    idOrSlug: string,
-    lang: string,
-  ): Promise<{
-    id: number;
-    name: string;
-    description: string;
-    logo: string;
-    nominals: number[];
-    validityMonths: number;
-  }> {
-    const numericId = Number(idOrSlug);
-    const where = isNaN(numericId) ? { slug: idOrSlug } : { id: numericId };
-
-    // Deactivated merchants are hidden from buyers, same as in findAll()
-    const merchant = await this.merchantRepo.findOne({ where: { ...where, isActive: true } });
-
-    if (!merchant) {
-      throw new NotFoundException("Merchant not found");
-    }
+  async getOwn(
+    telegramId: number,
+  ): Promise<{ id: number; name: string; isActive: boolean; venues: VenueDetail[] }> {
+    const merchant = await this.findByTelegramId(telegramId);
 
     return {
       id: merchant.id,
       name: merchant.name,
-      description: resolveTranslation(merchant.description, lang),
-      logo: merchant.logo,
-      nominals: merchant.nominals,
-      validityMonths: merchant.validityMonths,
+      isActive: merchant.isActive,
+      venues: await this.venuesService.listForMerchant(merchant.id),
     };
   }
 
-  async create(dto: CreateMerchantDto): Promise<Merchant> {
-    const merchant = this.merchantRepo.create(dto);
-    const saved = await this.merchantRepo.save(merchant);
-
-    this.logger.log(`Merchant created: id=${saved.id} name="${saved.name}"`);
-
-    return saved;
-  }
-
-  async updateOwn(telegramId: number, dto: UpdateMerchantDto): Promise<Merchant> {
-    const merchant = await this.merchantRepo.findOne({ where: { merchantTelegramId: telegramId } });
-
-    if (!merchant) {
-      throw new NotFoundException("Merchant not found");
-    }
+  async updateOwnVenue(
+    telegramId: number,
+    venueId: number,
+    dto: UpdateVenueDto,
+  ): Promise<VenueDetail> {
+    const merchant = await this.findByTelegramId(telegramId);
 
     // GET /me still works so the frontend can show a "deactivated" notice
     if (!merchant.isActive) {
       throw new ForbiddenException("Merchant is deactivated");
     }
 
-    return this.applyUpdate(merchant, dto);
+    return this.venuesService.updateOwn(merchant.id, venueId, dto);
   }
 
-  async updateAdmin(id: number, dto: AdminUpdateMerchantDto): Promise<Merchant> {
+  async findAllAdmin(search?: string, isActive?: boolean): Promise<MerchantAccount[]> {
+    const qb = this.merchantRepo.createQueryBuilder("merchant").orderBy("merchant.id", "ASC");
+
+    if (isActive !== undefined) {
+      qb.andWhere("merchant.isActive = :isActive", { isActive });
+    }
+
+    if (search) {
+      qb.andWhere("merchant.name ILIKE :search", { search: `%${search}%` });
+    }
+
+    return (await qb.getMany()).map(toAccount);
+  }
+
+  async findOneAdmin(id: number): Promise<MerchantAccount & { venues: VenueDetail[] }> {
     const merchant = await this.findEntity(id);
-    return this.applyUpdate(merchant, dto);
+
+    return { ...toAccount(merchant), venues: await this.venuesService.listForMerchant(id) };
   }
 
-  private async applyUpdate(
-    merchant: Merchant,
-    dto: UpdateMerchantDto | AdminUpdateMerchantDto,
-  ): Promise<Merchant> {
-    const oldLogo = merchant.logo;
+  async create(dto: CreateMerchantDto): Promise<MerchantAccount> {
+    const saved = await this.merchantRepo.save(this.merchantRepo.create(dto));
 
-    Object.assign(merchant, dto);
+    this.logger.log(`Merchant created: id=${saved.id} name="${saved.name}"`);
+
+    return toAccount(saved);
+  }
+
+  async updateAdmin(id: number, dto: AdminUpdateMerchantDto): Promise<MerchantAccount> {
+    const merchant = await this.findEntity(id);
+
+    Object.assign(merchant, definedFields(dto));
 
     const saved = await this.merchantRepo.save(merchant);
 
-    this.logger.log(`Merchant updated: id=${merchant.id}`);
+    this.logger.log(`Merchant updated: id=${id}`);
 
-    // Delete the old logo only after the save succeeded — otherwise a failed
-    // save (e.g. 409 on slug) would leave the DB pointing at a deleted image.
-    if (dto.logo && oldLogo && oldLogo !== dto.logo) {
-      const publicId = this.extractCloudinaryPublicId(oldLogo);
+    return toAccount(saved);
+  }
 
-      if (publicId) {
-        // The update is already saved; a leftover file is harmless, so don't fail the request
-        await this.cloudinaryService
-          .deleteFile(publicId)
-          .catch((err: Error) =>
-            this.logger.warn(`Old logo cleanup failed: ${publicId} (${err.message})`),
-          );
-      }
+  private async findByTelegramId(telegramId: number): Promise<Merchant> {
+    const merchant = await this.merchantRepo.findOne({ where: { telegramId } });
+
+    if (!merchant) {
+      throw new NotFoundException("Merchant not found");
     }
 
-    return saved;
+    return merchant;
   }
 
   private async findEntity(id: number): Promise<Merchant> {
@@ -235,10 +114,5 @@ export class MerchantsService {
     }
 
     return merchant;
-  }
-
-  private extractCloudinaryPublicId(url: string): string | null {
-    const match = url.match(/\/upload\/v\d+\/(.+)\.[a-z]+$/);
-    return match ? match[1] : null;
   }
 }

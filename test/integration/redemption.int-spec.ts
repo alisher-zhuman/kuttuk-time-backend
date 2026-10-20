@@ -2,10 +2,17 @@ import * as request from "supertest";
 
 import { Certificate, CertificateStatus } from "../../src/certificates/entities/certificate.entity";
 import type { Merchant } from "../../src/merchants/entities/merchant.entity";
+import type { Venue } from "../../src/venues/entities/venue.entity";
 import { OrderStatus } from "../../src/orders/entities/order.entity";
 import type { User } from "../../src/users/entities/user.entity";
 import { createTestApp, type TestApp } from "../helpers/app";
-import { createCertificate, createMerchant, createOrder, createUser } from "../helpers/factories";
+import {
+  createCertificate,
+  createMerchant,
+  createOrder,
+  createUser,
+  createVenue,
+} from "../helpers/factories";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -13,6 +20,7 @@ describe("merchant redemption (integration)", () => {
   let t: TestApp;
   let owner: User;
   let merchant: Merchant;
+  let venue: Venue;
   let buyer: User;
 
   const http = () => request(t.app.getHttpServer());
@@ -24,18 +32,18 @@ describe("merchant redemption (integration)", () => {
 
   const issue = async (
     fields: Partial<Certificate> & { code: string },
-    forMerchant: Merchant = merchant,
+    forVenue: Venue = venue,
   ): Promise<Certificate> => {
     const order = await createOrder(t.ds, {
       userId: buyer.id,
-      merchantId: forMerchant.id,
+      venueId: forVenue.id,
       status: OrderStatus.Paid,
       paidAt: new Date(),
     });
 
     return createCertificate(t.ds, {
       orderId: order.id,
-      merchantId: forMerchant.id,
+      venueId: forVenue.id,
       ownerUserId: buyer.id,
       ...fields,
     });
@@ -50,7 +58,8 @@ describe("merchant redemption (integration)", () => {
   beforeEach(async () => {
     await t.reset();
     owner = await createUser(t.ds, { role: "merchant" });
-    merchant = await createMerchant(t.ds, { merchantTelegramId: owner.telegramId });
+    merchant = await createMerchant(t.ds, { telegramId: owner.telegramId });
+    venue = await createVenue(t.ds, { merchantId: merchant.id });
     buyer = await createUser(t.ds);
   });
 
@@ -70,6 +79,7 @@ describe("merchant redemption (integration)", () => {
         status: "active",
         validUntil: cert.validUntil.toISOString(),
         createdAt: expect.any(String),
+        venue: { id: venue.id, name: venue.name },
       });
       expect(res.body).not.toHaveProperty("usedAt");
     });
@@ -99,8 +109,7 @@ describe("merchant redemption (integration)", () => {
     });
 
     it("another merchant's certificate is a plain 404, same as a missing one", async () => {
-      const otherOwner = await createUser(t.ds, { role: "merchant" });
-      const other = await createMerchant(t.ds, { merchantTelegramId: otherOwner.telegramId });
+      const other = await createVenue(t.ds); // another merchant's venue
 
       await issue({ code: "KT-OTHR-2345".replace("O", "Q") }, other);
 
@@ -175,13 +184,38 @@ describe("merchant redemption (integration)", () => {
     });
 
     it("another merchant's certificate → 404 and it is NOT redeemed", async () => {
-      const otherOwner = await createUser(t.ds, { role: "merchant" });
-      const other = await createMerchant(t.ds, { merchantTelegramId: otherOwner.telegramId });
+      const other = await createVenue(t.ds); // another merchant's venue
 
       await issue({ code: "KT-ABCD-2345" }, other);
 
       await redeem("KT-ABCD-2345").expect(404);
       expect((await stored("KT-ABCD-2345")).status).toBe(CertificateStatus.Active);
+    });
+
+    it("any of the merchant's venues: a certificate of its second venue, venue in the answer", async () => {
+      const second = await createVenue(t.ds, { merchantId: merchant.id, name: "Second Shop" });
+
+      await issue({ code: "KT-ABCD-2345" }, second);
+
+      expect((await redeem("KT-ABCD-2345").expect(200)).body).toMatchObject({
+        status: "used",
+        venue: { id: second.id, name: "Second Shop" },
+      });
+    });
+
+    it("a venue moved to another merchant: the new owner redeems what was sold before, the old one can't", async () => {
+      const oldOwner = await createUser(t.ds, { role: "merchant" });
+      const oldMerchant = await createMerchant(t.ds, { telegramId: oldOwner.telegramId });
+      const moved = await createVenue(t.ds, { merchantId: oldMerchant.id });
+
+      await issue({ code: "KT-ABCD-2345" }, moved);
+      await t.ds.query(`UPDATE venues SET "merchantId" = $1 WHERE id = $2`, [
+        merchant.id,
+        moved.id,
+      ]);
+
+      await redeem("KT-ABCD-2345", oldOwner).expect(404);
+      await redeem("KT-ABCD-2345").expect(200);
     });
 
     it("a deactivated merchant can still redeem what it sold", async () => {

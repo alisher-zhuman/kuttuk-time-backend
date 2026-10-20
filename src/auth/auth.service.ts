@@ -43,7 +43,7 @@ export class AuthService implements OnModuleInit {
     let user = await this.userRepository.findOne({ where: { telegramId } });
 
     const merchant = await this.merchantRepository.findOne({
-      where: { merchantTelegramId: telegramId, isActive: true },
+      where: { telegramId, isActive: true },
     });
 
     if (!user) {

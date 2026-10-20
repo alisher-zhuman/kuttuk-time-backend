@@ -64,7 +64,7 @@ const main = async () => {
 
       for (const o of report.needsReview) {
         process.stdout.write(
-          `  ${o.orderId}  merchant ${o.merchantId} "${o.merchantName}"  ${o.amount} KGS  paidAt=${o.paidAt?.toISOString() ?? "-"}  finik=${o.finikTransactionId ?? "-"}\n`,
+          `  ${o.orderId}  merchant ${o.merchantId} "${o.merchantName}" venue "${o.venueName}"  ${o.amount} KGS  paidAt=${o.paidAt?.toISOString() ?? "-"}  finik=${o.finikTransactionId ?? "-"}\n`,
         );
       }
     }

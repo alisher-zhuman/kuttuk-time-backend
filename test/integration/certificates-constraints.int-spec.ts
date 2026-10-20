@@ -3,7 +3,7 @@ import { QueryFailedError } from "typeorm";
 
 import { openTestDataSource, truncateAll } from "../helpers/db";
 import { CertificateStatus } from "../../src/certificates/entities/certificate.entity";
-import { createCertificate, createMerchant, createOrder, createUser } from "../helpers/factories";
+import { createCertificate, createVenue, createOrder, createUser } from "../helpers/factories";
 
 const uniqueViolation = (constraint: string) =>
   expect.objectContaining({
@@ -12,7 +12,7 @@ const uniqueViolation = (constraint: string) =>
 
 describe("certificates DB constraints (integration)", () => {
   let ds: DataSource;
-  let base: { merchantId: number; ownerUserId: number };
+  let base: { venueId: number; ownerUserId: number };
   let orderIds: [string, string];
 
   beforeAll(async () => {
@@ -23,13 +23,13 @@ describe("certificates DB constraints (integration)", () => {
     await truncateAll(ds);
 
     const user = await createUser(ds);
-    const merchant = await createMerchant(ds);
+    const venue = await createVenue(ds);
     const orders = await Promise.all([
-      createOrder(ds, { userId: user.id, merchantId: merchant.id }),
-      createOrder(ds, { userId: user.id, merchantId: merchant.id }),
+      createOrder(ds, { userId: user.id, venueId: venue.id }),
+      createOrder(ds, { userId: user.id, venueId: venue.id }),
     ]);
 
-    base = { merchantId: merchant.id, ownerUserId: user.id };
+    base = { venueId: venue.id, ownerUserId: user.id };
     orderIds = [orders[0].id, orders[1].id];
   });
 

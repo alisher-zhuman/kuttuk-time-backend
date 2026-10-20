@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { EntityManager } from "typeorm";
 
 import { Order, OrderStatus } from "./entities/order.entity";
-import { Merchant } from "@/merchants/entities/merchant.entity";
+import { Venue } from "@/venues/entities/venue.entity";
 import { generateCertificateCode } from "@/certificates/certificate-code";
 import { addMonths } from "@/common/utils/add-months";
 
@@ -26,7 +26,7 @@ export interface IssuedCertificate {
   validUntil: Date;
 }
 
-// Order → paid, plus its certificate: validUntil = paidAt + merchant.validityMonths.
+// Order → paid, plus its certificate: validUntil = paidAt + venue.validityMonths.
 // finikTransactionId: undefined leaves the stored value as is.
 export const payAndIssueCertificate = async (
   em: EntityManager,
@@ -39,13 +39,13 @@ export const payAndIssueCertificate = async (
     ...(finikTransactionId !== undefined ? { finikTransactionId } : {}),
   });
 
-  const merchant = await em.findOneByOrFail(Merchant, { id: order.merchantId });
-  const validUntil = addMonths(paidAt, merchant.validityMonths);
+  const venue = await em.findOneByOrFail(Venue, { id: order.venueId });
+  const validUntil = addMonths(paidAt, venue.validityMonths);
 
   // ON CONFLICT instead of catching the unique violation: an error would abort the transaction.
   for (let attempt = 1; attempt <= CERTIFICATE_CODE_ATTEMPTS; attempt++) {
     const inserted: Array<{ code: string }> = await em.query(
-      `INSERT INTO "certificates" ("id", "code", "orderId", "merchantId", "ownerUserId", "amount", "validUntil")
+      `INSERT INTO "certificates" ("id", "code", "orderId", "venueId", "ownerUserId", "amount", "validUntil")
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT ("code") DO NOTHING
        RETURNING "code"`,
@@ -53,7 +53,7 @@ export const payAndIssueCertificate = async (
         randomUUID(),
         generateCertificateCode(),
         order.id,
-        order.merchantId,
+        order.venueId,
         order.userId,
         order.amount,
         validUntil,

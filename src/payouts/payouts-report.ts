@@ -26,6 +26,7 @@ export interface NeedsReviewOrder {
   orderId: string;
   merchantId: number;
   merchantName: string;
+  venueName: string;
   amount: number;
   paidAt: Date | null;
   finikTransactionId: string | null;
@@ -105,7 +106,9 @@ const assertPeriod = (period: PayoutPeriod): PayoutPeriod => {
 };
 
 // Paid sales per merchant — the single place that decides what counts and how money splits,
-// shared by the payout report (all merchants) and the merchant cabinet (one merchant).
+// shared by the payout report (all merchants) and the merchant cabinet (one merchant, optionally
+// one of its venues). A sale belongs to orders.merchantId — the venue's owner at the moment of
+// the sale — so moving a venue to another merchant never rewrites past periods.
 // Paid only, by paidAt. The payout is floored on the merchant's total for the period
 // (integer division), the commission is the rest — so payout + commission = gross exactly,
 // and the merchant loses less than 1 KGS per period instead of up to 1 KGS per order.
@@ -113,7 +116,7 @@ const assertPeriod = (period: PayoutPeriod): PayoutPeriod => {
 export const paidSales = async (
   em: EntityManager,
   period: PayoutPeriod,
-  merchantId?: number,
+  { merchantId, venueId }: { merchantId?: number; venueId?: number } = {},
 ): Promise<MerchantPayout[]> => {
   const { from, to } = assertPeriod(period);
   const raw: Array<Record<keyof MerchantPayout, string | number>> = await em.query(
@@ -127,9 +130,10 @@ export const paidSales = async (
                JOIN "merchants" m ON m."id" = o."merchantId"
               WHERE o."status" = 'paid' AND ${IN_PERIOD('o."paidAt"')}
                 AND ($4::int IS NULL OR m."id" = $4::int)
+                AND ($5::int IS NULL OR o."venueId" = $5::int)
               GROUP BY m."id", m."name") per_merchant
       ORDER BY "merchantId"`,
-    [from, to, PLATFORM_COMMISSION_PERCENT, merchantId ?? null],
+    [from, to, PLATFORM_COMMISSION_PERCENT, merchantId ?? null, venueId ?? null],
   );
 
   // pg returns bigint as a string; KGS totals are far below 2^53.
@@ -155,9 +159,10 @@ export const buildPayoutReport = async (
     // Not paid out until resolved by hand. paidAt is set on needs_review; older rows may lack it.
     const needsReview: NeedsReviewOrder[] = await em.query(
       `SELECT o."id" AS "orderId", m."id" AS "merchantId", m."name" AS "merchantName",
-              o."amount", o."paidAt", o."finikTransactionId"
+              v."name" AS "venueName", o."amount", o."paidAt", o."finikTransactionId"
          FROM "orders" o
          JOIN "merchants" m ON m."id" = o."merchantId"
+         JOIN "venues" v ON v."id" = o."venueId"
         WHERE o."status" = 'needs_review' AND ${IN_PERIOD('coalesce(o."paidAt", o."createdAt")')}
         ORDER BY coalesce(o."paidAt", o."createdAt")`,
       [from, to],

@@ -3,7 +3,7 @@ import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
 
 import { Category } from "./entities/category.entity";
-import { Merchant } from "@/merchants/entities/merchant.entity";
+import { Venue } from "@/venues/entities/venue.entity";
 import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { ReorderCategoriesDto } from "./dto/reorder-categories.dto";
@@ -16,8 +16,6 @@ export class CategoriesService {
   constructor(
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
-    @InjectRepository(Merchant)
-    private readonly merchantRepo: Repository<Merchant>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
@@ -73,7 +71,7 @@ export class CategoriesService {
     const affected = await this.dataSource.transaction(async (manager) => {
       const result = await manager
         .createQueryBuilder()
-        .update(Merchant)
+        .update(Venue)
         .set({ categories: () => "array_remove(categories, :id)" })
         .where(":id = ANY(categories)", { id })
         .execute();
@@ -83,7 +81,7 @@ export class CategoriesService {
       return result.affected ?? 0;
     });
 
-    this.logger.log(`Category deleted: id=${id}, removed from ${affected} merchant(s)`);
+    this.logger.log(`Category deleted: id=${id}, removed from ${affected} venue(s)`);
   }
 
   private async nextOrder(): Promise<number> {

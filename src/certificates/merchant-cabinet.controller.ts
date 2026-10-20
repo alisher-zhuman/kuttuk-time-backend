@@ -3,6 +3,7 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
@@ -15,7 +16,8 @@ import { CurrentUser } from "@/auth/interfaces/current-user.interface";
 import { Roles } from "@/auth/roles.decorator";
 import { RolesGuard } from "@/auth/roles.guard";
 
-// The merchant owner's cabinet: weekly summary and the list of own certificates.
+// The merchant owner's cabinet: weekly summary and the list of certificates — for the whole
+// merchant (all its venues: payouts are per merchant), optionally narrowed with ?venueId=.
 // Lookup/redeem by code live in MerchantCertificatesController. Default rate limit, per user.
 @ApiTags("Merchant cabinet")
 @ApiBearerAuth()
@@ -32,6 +34,7 @@ export class MerchantCabinetController {
       "**Roles:** `merchant`. `week` = any date inside the week (YYYY-MM-DD), default — the current week. Sold/payout use the same rules as the payout report (paid orders by paidAt, 90/10, floored on the total); redeemed = certificates used in that week.",
   })
   @ApiQuery({ name: "week", required: false, example: "2026-10-20" })
+  @ApiQuery({ name: "venueId", required: false, example: 9, description: "One of your venues" })
   @ApiOkResponse({
     schema: {
       example: {
@@ -46,19 +49,25 @@ export class MerchantCabinetController {
   })
   @ApiBadRequestResponse({ description: "week is not a date" })
   @ApiForbiddenResponse({ description: "Not a merchant" })
-  summary(@GetUser() user: CurrentUser, @Query("week") week?: string) {
-    return this.cabinet.summary(user.telegramId, week);
+  @ApiNotFoundResponse({ description: "venueId isn't one of your venues" })
+  summary(
+    @GetUser() user: CurrentUser,
+    @Query("week") week?: string,
+    @Query("venueId", new ParseIntPipe({ optional: true })) venueId?: number,
+  ) {
+    return this.cabinet.summary(user.telegramId, { week, venueId });
   }
 
   @Get("certificates")
   @ApiOperation({
     summary: "Own certificates, newest first",
     description:
-      "**Roles:** `merchant`. Optional `status` (effective: active | used | expired). Keyset pagination: pass `nextCursor` back as `cursor`; `null` = last page. `usedAt` only for `used`.",
+      "**Roles:** `merchant`. Certificates of all your venues; optional `venueId`, `status` (effective: active | used | expired). Keyset pagination: pass `nextCursor` back as `cursor`; `null` = last page. `usedAt` only for `used`.",
   })
   @ApiQuery({ name: "status", required: false, enum: ["active", "used", "expired"] })
   @ApiQuery({ name: "limit", required: false, example: 50 })
   @ApiQuery({ name: "cursor", required: false })
+  @ApiQuery({ name: "venueId", required: false, example: 9, description: "One of your venues" })
   @ApiOkResponse({
     schema: {
       example: {
@@ -69,6 +78,7 @@ export class MerchantCabinetController {
             status: "active",
             validUntil: "2027-10-20T10:05:12.000Z",
             createdAt: "2026-10-20T10:05:12.000Z",
+            venue: { id: 9, name: "Sierra Coffee" },
           },
         ],
         nextCursor: null,
@@ -77,12 +87,14 @@ export class MerchantCabinetController {
   })
   @ApiBadRequestResponse({ description: "Bad status / limit / cursor" })
   @ApiForbiddenResponse({ description: "Not a merchant" })
+  @ApiNotFoundResponse({ description: "venueId isn't one of your venues" })
   list(
     @GetUser() user: CurrentUser,
     @Query("status") status?: string,
     @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
     @Query("cursor") cursor?: string,
+    @Query("venueId", new ParseIntPipe({ optional: true })) venueId?: number,
   ) {
-    return this.cabinet.list(user.telegramId, { status, limit, cursor });
+    return this.cabinet.list(user.telegramId, { status, limit, cursor, venueId });
   }
 }
