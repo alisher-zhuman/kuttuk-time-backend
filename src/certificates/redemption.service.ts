@@ -9,6 +9,7 @@ import { InjectDataSource } from "@nestjs/typeorm";
 import type { DataSource } from "typeorm";
 
 import { normalizeCertificateCode } from "./certificate-code";
+import { ownMerchantId } from "./own-merchant";
 import type { EffectiveCertificateStatus } from "./certificates.service";
 
 export interface MerchantCertificate {
@@ -55,7 +56,7 @@ export class RedemptionService {
 
   async lookup(merchantTelegramId: number, rawCode: string): Promise<MerchantCertificate> {
     const code = this.parse(rawCode);
-    const merchantId = await this.merchantId(merchantTelegramId);
+    const merchantId = await ownMerchantId(this.dataSource, merchantTelegramId);
     const row = await this.find(merchantId, code);
 
     if (!row) {
@@ -67,7 +68,7 @@ export class RedemptionService {
 
   async redeem(merchantTelegramId: number, rawCode: string): Promise<MerchantCertificate> {
     const code = this.parse(rawCode);
-    const merchantId = await this.merchantId(merchantTelegramId);
+    const merchantId = await ownMerchantId(this.dataSource, merchantTelegramId);
 
     // One atomic statement: only an active, unexpired certificate of this merchant flips to
     // used. Two simultaneous taps → one UPDATE matches, the other matches nothing.
@@ -108,21 +109,6 @@ export class RedemptionService {
     }
 
     return code;
-  }
-
-  // A deactivated merchant still redeems: deactivation hides it from buyers, but certificates
-  // it already sold must be honoured.
-  private async merchantId(merchantTelegramId: number): Promise<number> {
-    const [merchant]: Array<{ id: number }> = await this.dataSource.query(
-      `SELECT "id" FROM "merchants" WHERE "merchantTelegramId" = $1`,
-      [merchantTelegramId],
-    );
-
-    if (!merchant) {
-      throw new NotFoundException("Merchant not found");
-    }
-
-    return merchant.id;
   }
 
   private async find(merchantId: number, code: string): Promise<Row | undefined> {

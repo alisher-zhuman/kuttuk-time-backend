@@ -76,16 +76,24 @@ export const weekOf = (ds: DataSource, date: string): Promise<PayoutPeriod> =>
     return row;
   });
 
+// The week that contains today in Bishkek.
+export const currentWeek = (ds: DataSource): Promise<PayoutPeriod> =>
+  readOnly(ds, async (em) => {
+    const [row]: Array<{ from: string; to: string }> = await em.query(
+      `SELECT to_char(date_trunc('week', (now() AT TIME ZONE '${PAYOUT_TIMEZONE}')::date), 'YYYY-MM-DD') AS "from",
+              to_char(date_trunc('week', (now() AT TIME ZONE '${PAYOUT_TIMEZONE}')::date) + interval '6 days', 'YYYY-MM-DD') AS "to"`,
+    );
+
+    return row;
+  });
+
 // [from 00:00, to + 1 day 00:00) in Bishkek, as timestamptz — `timestamp AT TIME ZONE zone`
-// reads a wall-clock time in that zone.
-const IN_PERIOD = (column: string) =>
+// reads a wall-clock time in that zone. $1 = from, $2 = to.
+export const IN_PERIOD = (column: string) =>
   `${column} >= ($1::date)::timestamp AT TIME ZONE '${PAYOUT_TIMEZONE}'
    AND ${column} < ($2::date + 1)::timestamp AT TIME ZONE '${PAYOUT_TIMEZONE}'`;
 
-export const buildPayoutReport = async (
-  ds: DataSource,
-  period: PayoutPeriod,
-): Promise<PayoutReport> => {
+const assertPeriod = (period: PayoutPeriod): PayoutPeriod => {
   const from = assertDate(period.from, "from");
   const to = assertDate(period.to, "to");
 
@@ -93,35 +101,56 @@ export const buildPayoutReport = async (
     throw new Error(`from (${from}) must not be after to (${to})`);
   }
 
-  return readOnly(ds, async (em) => {
-    // Paid sales only, by paidAt. The payout is floored on the merchant's total for the period
-    // (integer division), the commission is the rest — so payout + commission = gross exactly,
-    // and the merchant loses less than 1 KGS per period instead of up to 1 KGS per order.
-    // bigint integer division floors for positive values.
-    const raw: Array<Record<keyof MerchantPayout, string | number>> = await em.query(
-      `SELECT "merchantId", "merchantName", "ordersCount", "gross",
-              "gross" - "payout" AS "commission", "payout"
-         FROM (SELECT m."id" AS "merchantId", m."name" AS "merchantName",
-                      count(*)::int AS "ordersCount",
-                      sum(o."amount")::bigint AS "gross",
-                      sum(o."amount")::bigint * (100 - $3::int) / 100 AS "payout"
-                 FROM "orders" o
-                 JOIN "merchants" m ON m."id" = o."merchantId"
-                WHERE o."status" = 'paid' AND ${IN_PERIOD('o."paidAt"')}
-                GROUP BY m."id", m."name") per_merchant
-        ORDER BY "merchantId"`,
-      [from, to, PLATFORM_COMMISSION_PERCENT],
-    );
+  return { from, to };
+};
 
-    // pg returns bigint as a string; KGS totals are far below 2^53.
-    const rows: MerchantPayout[] = raw.map((row) => ({
-      merchantId: Number(row.merchantId),
-      merchantName: String(row.merchantName),
-      ordersCount: Number(row.ordersCount),
-      gross: Number(row.gross),
-      commission: Number(row.commission),
-      payout: Number(row.payout),
-    }));
+// Paid sales per merchant — the single place that decides what counts and how money splits,
+// shared by the payout report (all merchants) and the merchant cabinet (one merchant).
+// Paid only, by paidAt. The payout is floored on the merchant's total for the period
+// (integer division), the commission is the rest — so payout + commission = gross exactly,
+// and the merchant loses less than 1 KGS per period instead of up to 1 KGS per order.
+// bigint integer division floors for positive values.
+export const paidSales = async (
+  em: EntityManager,
+  period: PayoutPeriod,
+  merchantId?: number,
+): Promise<MerchantPayout[]> => {
+  const { from, to } = assertPeriod(period);
+  const raw: Array<Record<keyof MerchantPayout, string | number>> = await em.query(
+    `SELECT "merchantId", "merchantName", "ordersCount", "gross",
+            "gross" - "payout" AS "commission", "payout"
+       FROM (SELECT m."id" AS "merchantId", m."name" AS "merchantName",
+                    count(*)::int AS "ordersCount",
+                    sum(o."amount")::bigint AS "gross",
+                    sum(o."amount")::bigint * (100 - $3::int) / 100 AS "payout"
+               FROM "orders" o
+               JOIN "merchants" m ON m."id" = o."merchantId"
+              WHERE o."status" = 'paid' AND ${IN_PERIOD('o."paidAt"')}
+                AND ($4::int IS NULL OR m."id" = $4::int)
+              GROUP BY m."id", m."name") per_merchant
+      ORDER BY "merchantId"`,
+    [from, to, PLATFORM_COMMISSION_PERCENT, merchantId ?? null],
+  );
+
+  // pg returns bigint as a string; KGS totals are far below 2^53.
+  return raw.map((row) => ({
+    merchantId: Number(row.merchantId),
+    merchantName: String(row.merchantName),
+    ordersCount: Number(row.ordersCount),
+    gross: Number(row.gross),
+    commission: Number(row.commission),
+    payout: Number(row.payout),
+  }));
+};
+
+export const buildPayoutReport = async (
+  ds: DataSource,
+  period: PayoutPeriod,
+): Promise<PayoutReport> => {
+  const { from, to } = assertPeriod(period);
+
+  return readOnly(ds, async (em) => {
+    const rows = await paidSales(em, { from, to });
 
     // Not paid out until resolved by hand. paidAt is set on needs_review; older rows may lack it.
     const needsReview: NeedsReviewOrder[] = await em.query(
