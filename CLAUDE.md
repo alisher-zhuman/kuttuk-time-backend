@@ -22,7 +22,7 @@ Merchant payout:       -900 KGS (90%)
 Our net revenue:        +80 KGS (~8% net)
 ```
 
-**Merchant payouts:** every Monday, automatically, via Finik / Bakai / Freedom.
+**Merchant payouts:** weekly (Mon–Sun, Bishkek time). Today by hand, from `npm run report:payouts` (see **Product decisions → Payouts**); automatic payouts depend on the open money-flow question.
 
 **Forecast:**
 | Period | Merchants | Orders/week | Revenue/month |
@@ -63,6 +63,11 @@ Our net revenue:        +80 KGS (~8% net)
 - **Roles are only `user` / `merchant` / `admin`.** No separate roles (cashier, staff) — the merchant owner redeems certificates.
 - **Redemption is all-or-nothing.** No partial redemption.
 - **The merchant is paid for the sale, not for the redemption.** If the customer spends more than the nominal, they pay the difference to the merchant directly.
+- **Payouts** (decided 2026-10-20, implemented as `npm run report:payouts`, `src/payouts/payouts-report.ts`):
+  - only orders with `status = 'paid'` count, by `paidAt`; `needs_review` is **not** paid out until resolved by hand (the report lists them separately); `pending`/`expired` never count;
+  - the merchant gets **90%** of the order amount, the platform keeps a **10%** commission — one constant for everyone (`PLATFORM_COMMISSION_PERCENT`; a per-merchant rate may be needed later, see TODOs). Finik's ~2% fee comes out of the platform's share and isn't part of the merchant report;
+  - the period is a week, **Monday 00:00 – Sunday 23:59:59 in Asia/Bishkek**;
+  - money is whole KGS; the payout is **floored on the merchant's total for the period** and the commission is the rest, so `payout + commission = gross` exactly and the merchant loses less than 1 KGS per period (flooring each order would lose up to 1 KGS per order). With today's nominals (multiples of 10) there are no fractions at all.
 
 **Open — not decided, don't implement without discussing:**
 - Undoing a mistaken redemption.
@@ -88,6 +93,7 @@ Our net revenue:        +80 KGS (~8% net)
 - `npm test` · `npm run test:int` (needs Docker) · `npm run test:all` — see **Testing**
 - `npm run migration:generate | migration:run | migration:revert | migration:show` — TypeORM CLI (see **Migrations**)
 - `npm run finik:smoke` — manual: creates a real 1 KGS Finik payment from `.env` and prints the URL. Not for CI
+- `npm run report:payouts -- --week 2026-10-19` (any date inside the week → that whole Mon–Sun week) or `-- --from 2026-10-19 --to 2026-10-25` (Bishkek dates, inclusive) — merchant payout report. Reads `DATABASE_*` from the env (point it at prod to get real numbers), **read-only**: every query runs in a `READ ONLY` transaction and it forces `synchronize`/migrations off whatever `DB_SYNC` says. Aggregation and week boundaries are in SQL (`date_trunc('week')`, `AT TIME ZONE 'Asia/Bishkek'`). stdout: the CSV (`merchantId,merchantName,ordersCount,gross,commission,payout` + a `TOTAL` line), then the period, the file path and the `needs_review` orders to resolve first; the CSV is also saved to `./reports/payouts-<from>_<to>.csv` (`reports/` is gitignored — it holds merchants' money)
 - `@/` path alias = `src/`
 - **Every route requires a JWT** (global `JwtGuard` + `UserThrottlerGuard` in `app.module.ts`); opt out with `@Public()`. **Guard order matters:** global guards run in registration order, and `JwtGuard` must come first so `req.user` is set when the throttler picks its key (`test/integration/rate-limit.int-spec.ts` fails if the order flips). Side effect: requests with a missing/invalid token get 401 before the throttler and aren't counted
 - Admin endpoints live in separate `admin-*.controller.ts` files under `/api/admin/*`, class-level `@UseGuards(RolesGuard) @Roles("admin")`
@@ -433,7 +439,8 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 - [ ] **Staging before redemption:** a test bot + Finik beta, so redemption and payments can be tried without prod.
 - [ ] **Bot notifications** (see **Bot — messages and commands**): the code to the buyer (`requestWriteAccess` at the moment of purchase), new sale and redemption to the merchant, a reminder before a certificate expires.
 - [ ] **Merchant cabinet** (stats, active codes, redemption) and **admin for orders** incl. resolving `needs_review` (today it's SQL by hand — see **Resolving `needs_review` by hand**).
-- [ ] **Payouts and weekly reports** — depend on the open money-flow decision (**Product decisions**).
+- [ ] **Payouts:** the weekly report exists (`npm run report:payouts`); actually paying out stays manual until the money-flow decision (**Product decisions**). Next: merchant notification of the weekly sum, an admin view instead of the CLI, and recording what was paid (today nothing marks an order as paid out).
+- [ ] **Per-merchant commission rate** — today one `PLATFORM_COMMISSION_PERCENT = 10` for everyone (the risk table already says it may drop to 7–8%). Would need a `merchants.commissionPercent` column (with the rate as of the sale, so past reports don't change).
 - [ ] `GET /api/certificates/my` has no pagination — fine at current volume (a buyer has a handful); add cursor pagination (`createdAt`, `id`) before it gets long
 - [ ] **Nest 12** — the remaining `npm audit` highs in prod deps (`multer` inside `@nestjs/platform-express`, `js-yaml`/`lodash` via `@nestjs/swagger`) are only fixed by the major upgrade.
 - [ ] **Category filter via GIN:** switch `:category = ANY(categories)` to `categories @> ARRAY[:id]` so `merchants_categories_idx` is actually used (see **Migrations**).

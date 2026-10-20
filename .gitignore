@@ -9,3 +9,6 @@ node_modules/
 [._]sw[a-p]
 
 *.pem
+
+# Payout reports (CSV with merchant money) — never commit
+reports/
