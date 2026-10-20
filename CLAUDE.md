@@ -64,6 +64,7 @@ Our net revenue:        +80 KGS (~8% net)
 **Decided:**
 - **Roles are only `user` / `merchant` / `admin`.** No separate roles (cashier, staff) — the merchant owner redeems certificates.
 - **Redemption is all-or-nothing.** No partial redemption.
+- **Redemption is by code, and final** (decided 2026-10-20): the merchant owner types the code (any case/spacing, `KT` optional, Cyrillic look-alikes accepted) → sees amount / status / validity → taps "Redeem". No undo in the app — a mistaken redemption is fixed by hand (a script like `orders:resolve-review`, if it's ever needed); there's no money motive to undo, since payouts are per sale. QR scanning comes later and needs no backend change (it just fills the same code).
 - **The merchant is paid for the sale, not for the redemption.** If the customer spends more than the nominal, they pay the difference to the merchant directly.
 - **Payouts** (decided 2026-10-20, implemented as `npm run report:payouts`, `src/payouts/payouts-report.ts`):
   - only orders with `status = 'paid'` count, by `paidAt`; `needs_review` is **not** paid out until resolved by hand (the report lists them separately); `pending`/`expired`/`refunded` never count (`refunded` isn't listed either);
@@ -174,6 +175,8 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 
 **Merchants — self-service (role: merchant):**
 - `GET /api/merchants/me` — own full profile, looked up by `merchantTelegramId`
+- `GET /api/merchants/me/certificates/:code` — look up **own** certificate by code before redeeming → `{ code, amount, status, validUntil, createdAt, usedAt? }` (effective status, `usedAt` only for `used` — same rules as `/certificates/my`). Code normalized by `normalizeCertificateCode` (`src/certificates/certificate-code.ts`). Not a code → 400; another merchant's or unknown → the same 404 (nothing leaks)
+- `POST /api/merchants/me/certificates/:code/redeem` → 200 + the certificate with `usedAt`. **One atomic `UPDATE … WHERE code AND merchantId AND status = 'active' AND validUntil > now()`** (`src/certificates/redemption.service.ts`) — concurrent taps redeem once. Otherwise **409** with `error: "already_used"` or `error: "expired"` (re-fetch the `GET` for `usedAt`), 404 as above. A **deactivated** merchant can still redeem what it sold. Only the `merchant` role (admin → 403). Default rate limit, per user
 - `PATCH /api/merchants/me` — update own profile (no `isActive`/`slug`/`merchantTelegramId`); 403 if deactivated (`GET /me` still works and returns `isActive`)
 
 **Merchants — admin (role: admin), raw shape, under `/api/admin/merchants`:**
@@ -204,7 +207,7 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 
 **Statuses:**
 - Order: `pending → paid | expired | needs_review`, and `expired → paid | needs_review` (a payment can land after the QR expired — the money is taken, so it's honoured); then, by hand only (`orders:resolve-review`), `needs_review → paid` (+ certificate) or `needs_review → refunded`. **Terminal:** `paid` and `refunded` — the cron moves only `pending` with `expiresAt < now` to `expired` (every minute, `OrdersService.expireStale`), and the webhook never changes `paid`/`needs_review`/`refunded` (a retry → `already_<status>`). `paid`/`needs_review` come from the Finik webhook, `refunded` only from the script. `GET /api/orders/:id` returns every status as is
-- Certificate: `active → used | expired`. **Effective status is computed on read:** `active` in the DB with `validUntil < now()` is returned as `expired` — there's no cron for certificates, so the stored `active` may already be expired. **Redemption ("mark as used", not built yet) must check `validUntil`, not just `status = 'active'`**, and must set `usedAt` together with `status = 'used'` — the frontend parses the whole list with a schema that requires `usedAt` on `used`, so one `used` row without it breaks the user's entire list — the DB enforces it: CHECK `certificates_used_at_iff_used` = `(status = 'used') = ("usedAt" IS NOT NULL)`, i.e. `used` ⇔ `usedAt` set, both ways. Created only by the webhook, in the same transaction that marks the order `paid`. `validUntil = addMonths(paidAt, merchant.validityMonths)` — calendar months in UTC, clamped to the month's last day (Jan 31 + 1 → Feb 28/29; `src/common/utils/add-months.ts`). Code `KT-XXXX-XXXX` from a 32-symbol alphabet without `0/O/1/I`, `crypto.randomInt` (`src/certificates/certificate-code.ts`)
+- Certificate: `active → used | expired`. **Effective status is computed on read:** `active` in the DB with `validUntil < now()` is returned as `expired` — there's no cron for certificates, so the stored `active` may already be expired. **Redemption (`POST /api/merchants/me/certificates/:code/redeem`) checks `validUntil`, not just `status = 'active'`**, and sets `usedAt` together with `status = 'used'` — the frontend parses the whole list with a schema that requires `usedAt` on `used`, so one `used` row without it breaks the user's entire list — the DB enforces it: CHECK `certificates_used_at_iff_used` = `(status = 'used') = ("usedAt" IS NOT NULL)`, i.e. `used` ⇔ `usedAt` set, both ways. Created only by the webhook, in the same transaction that marks the order `paid`. `validUntil = addMonths(paidAt, merchant.validityMonths)` — calendar months in UTC, clamped to the month's last day (Jan 31 + 1 → Feb 28/29; `src/common/utils/add-months.ts`). Code `KT-XXXX-XXXX` from a 32-symbol alphabet without `0/O/1/I`, `crypto.randomInt` (`src/certificates/certificate-code.ts`)
 
 **Finik webhook — `POST /api/finik/webhook`** (`src/orders/finik-webhook.{controller,service}.ts`, signature check in `src/finik/finik-webhook.verifier.ts`). Public (`@Public`), not throttled (`@SkipThrottle`), hidden from Swagger. Answers **200** = "don't retry", **401** = bad signature, **5xx** = Finik retries (up to a day).
 - **Signature:** our `finik-signer` + Finik's public key (`FINIK_PUBLIC_KEY_B64`). Host and path come from **`FINIK_WEBHOOK_URL`**, not from the request (behind Koyeb's proxy they differ) — so it must be **exactly** the public URL Finik calls, with `/api`: `https://kuttuk-time.koyeb.app/api/finik/webhook`; anything else and every webhook gets 401. `x-api-*` headers and the query come from the request, the body is the parsed JSON as is (key order preserved), the signature from the lower-case `signature` header. No timestamp-freshness check on purpose: Finik retries for up to 24h; idempotency protects against replays. Retries **are re-signed** (seen on prod: the retry carried a new `x-api-timestamp`).
@@ -253,9 +256,9 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 
 The main things not yet implemented:
 
-1. **Orders module** — ✅ orders, certificates issued on payment (webhook); still missing: redemption
+1. **Orders module** — ✅ orders, certificates issued on payment (webhook); ✅ redemption by code (merchant API); still missing: the merchant cabinet UI
 2. **Payment integration** — Finik: ✅ payment creation + webhook (not yet tried with a real Finik webhook). Bakai / Freedom: not started
-3. **Merchant cabinet** — weekly stats, list of active codes, "mark as used"
+3. **Merchant cabinet** — backend for "mark as used" ✅ (by code); still missing: the cabinet screen (frontend), weekly stats, list of active codes, QR scanning
 4. **Weekly reports** — automatic calculation and merchant notification every Monday
 
 ---
@@ -281,7 +284,7 @@ The main things not yet implemented:
 - Helpers: `createTestApp()` (`test/helpers/app.ts`: real `AppModule`, `FakeFinikService` recording calls / `failWith`, `tokenFor(user)` via the app's own `JwtService`), factories `createUser`/`createMerchant`/`createOrder`/`createCertificate` (`test/helpers/factories.ts`)
 - Known noise: a `pg` "client.query() when the client is already executing a query" deprecation warning comes from inside TypeORM's schema builder — not our code, but it becomes an error with `pg@9`
 
-**What to cover next (riskiest first):** initData HMAC verification (`auth.service`, real fixtures — the `signature` field bit us once); redemption (`active → used`, no double redemption).
+**What to cover next (riskiest first):** initData HMAC verification (`auth.service`, real fixtures — the `signature` field bit us once); (redemption is covered: `test/integration/redemption.int-spec.ts`, incl. 10 concurrent redeems → one success).
 
 Beyond tests, verify changes by exercising the real flow, not by assuming.
 
@@ -442,8 +445,8 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 ### Later
 
-- [ ] **Redemption** ("mark as used" by the merchant owner): check `validUntil`, not just `status`; set `usedAt` with `status = 'used'` (CHECK `certificates_used_at_iff_used`); no double redemption — see **Statuses** and **Product decisions**.
-- [ ] **Staging before redemption:** a test bot + Finik beta, so redemption and payments can be tried without prod.
+- [ ] **Redemption — the rest:** backend by code is done (2026-10-20). Next: the cabinet screen on the frontend; QR scanning (Telegram `qrScanner` fills the same code — no backend change); a list of the merchant's active codes; undoing a mistaken redemption stays an open question (a manual script if needed).
+- [ ] **Staging:** a test bot + Finik beta. Redemption was built without it — the user decided to test on prod (only he uses it; all merchants are test ones). Return to it before launch.
 - [ ] **Bot notifications** (see **Bot — messages and commands**): the code to the buyer (`requestWriteAccess` at the moment of purchase), new sale and redemption to the merchant, a reminder before a certificate expires.
 - [ ] **Merchant cabinet** (stats, active codes, redemption) and **admin for orders** incl. resolving `needs_review` (today it's the `orders:resolve-review` CLI — see the **needs_review runbook**).
 - [ ] **Payouts:** the weekly report exists (`npm run report:payouts`); actually paying out stays manual until the money-flow decision (**Product decisions**). Next: merchant notification of the weekly sum, an admin view instead of the CLI, and recording what was paid (today nothing marks an order as paid out).

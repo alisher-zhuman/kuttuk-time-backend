@@ -1,4 +1,8 @@
-import { CERTIFICATE_CODE_ALPHABET, generateCertificateCode } from "./certificate-code";
+import {
+  CERTIFICATE_CODE_ALPHABET,
+  generateCertificateCode,
+  normalizeCertificateCode,
+} from "./certificate-code";
 
 describe("generateCertificateCode", () => {
   const codes = Array.from({ length: 5000 }, generateCertificateCode);
@@ -27,5 +31,49 @@ describe("generateCertificateCode", () => {
 
   it("does not repeat on a sample of 5000", () => {
     expect(new Set(codes).size).toBe(codes.length);
+  });
+});
+
+describe("normalizeCertificateCode", () => {
+  it.each([
+    ["KT-ABCD-2345", "KT-ABCD-2345"],
+    ["kt-abcd-2345", "KT-ABCD-2345"],
+    ["  KT ABCD 2345 ", "KT-ABCD-2345"],
+    ["ABCD2345", "KT-ABCD-2345"],
+    ["abcd-2345", "KT-ABCD-2345"],
+    ["KTABCD2345", "KT-ABCD-2345"],
+    // A body that itself starts with KT: 8 chars → no prefix to strip.
+    ["KTAB2345", "KT-KTAB-2345"],
+    ["KT-KTAB-2345", "KT-KTAB-2345"],
+    // Russian keyboard: Cyrillic К Т А В С Е Н Р М Х look exactly like Latin.
+    ["кт-авсе-2345", "KT-ABCE-2345"],
+    ["КТ-НРМХ-2345", "KT-HPMX-2345"],
+    ["Кт-Abce-2345", "KT-ABCE-2345"],
+  ])("%p → %p", (input, expected) => {
+    expect(normalizeCertificateCode(input)).toBe(expected);
+  });
+
+  it.each([
+    "",
+    "KT-ABCD",
+    "KT-ABCD-23456",
+    "KT-ABC0-2345",
+    "KT-ABCO-2345",
+    "KT-ABC1-2345",
+    "KT-ABCI-2345",
+    "XX-ABCD-2345",
+    "KT_ABCD_2345",
+    "кт-абвг-2345", // б, г have no Latin look-alike
+  ])("rejects %p", (input) => {
+    expect(normalizeCertificateCode(input)).toBeNull();
+  });
+
+  it("is idempotent on every generated code", () => {
+    for (let i = 0; i < 1000; i++) {
+      const code = generateCertificateCode();
+
+      expect(normalizeCertificateCode(code)).toBe(code);
+      expect(normalizeCertificateCode(code.toLowerCase().replace(/-/g, " "))).toBe(code);
+    }
   });
 });
