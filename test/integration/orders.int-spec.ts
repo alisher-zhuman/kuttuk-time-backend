@@ -4,7 +4,13 @@ import { Order, OrderStatus } from "../../src/orders/entities/order.entity";
 import { OrdersService } from "../../src/orders/orders.service";
 import { FinikNetworkError } from "../../src/finik/finik.errors";
 import { createTestApp, type TestApp } from "../helpers/app";
-import { createCertificate, createMerchant, createOrder, createUser } from "../helpers/factories";
+import {
+  createCertificate,
+  createMerchant,
+  createOrder,
+  createUser,
+  createVenue,
+} from "../helpers/factories";
 
 const MINUTE = 60 * 1000;
 
@@ -28,55 +34,61 @@ describe("Orders API (integration)", () => {
 
   describe("POST /api/orders", () => {
     it("401 without a JWT", async () => {
-      await http().post("/api/orders").send({ merchantId: 1, nominal: 1000 }).expect(401);
+      await http().post("/api/orders").send({ venueId: 1, nominal: 1000 }).expect(401);
     });
 
-    it("400 on a nominal the merchant doesn't offer (another merchant's nominal)", async () => {
+    it("400 on a nominal the venue doesn't offer (another venue's nominal)", async () => {
       const user = await createUser(t.ds);
-      const merchant = await createMerchant(t.ds, { nominals: [500, 1000] });
+      const venue = await createVenue(t.ds, { nominals: [500, 1000] });
 
-      await createMerchant(t.ds, { nominals: [3000] });
+      await createVenue(t.ds, { nominals: [3000] });
 
       const res = await http()
         .post("/api/orders")
         .auth(t.tokenFor(user), { type: "bearer" })
-        .send({ merchantId: merchant.id, nominal: 3000 })
+        .send({ venueId: venue.id, nominal: 3000 })
         .expect(400);
 
-      expect(res.body.message).toBe("Nominal is not available for this merchant");
+      expect(res.body.message).toBe("Nominal is not available for this venue");
       expect(await orders().count()).toBe(0);
       expect(t.finik.calls).toHaveLength(0);
     });
 
-    it("400 on an inactive merchant", async () => {
+    it.each([
+      ["an inactive venue", { isActive: false }, true],
+      ["an active venue of an inactive merchant", {}, false],
+    ])("400 on %s", async (_name, venueFields, merchantActive) => {
       const user = await createUser(t.ds);
-      const merchant = await createMerchant(t.ds, { isActive: false });
+      const owner = await createMerchant(t.ds, { isActive: merchantActive });
+      const venue = await createVenue(t.ds, { ...venueFields, merchantId: owner.id });
 
-      await http()
+      const res = await http()
         .post("/api/orders")
         .auth(t.tokenFor(user), { type: "bearer" })
-        .send({ merchantId: merchant.id, nominal: 1000 })
+        .send({ venueId: venue.id, nominal: 1000 })
         .expect(400);
 
+      expect(res.body.message).toBe("Venue is not available");
       expect(await orders().count()).toBe(0);
     });
 
     it("201 → a pending order row with the payment URL, 30 min TTL, Finik called with its id", async () => {
       const user = await createUser(t.ds);
-      const merchant = await createMerchant(t.ds);
+      const venue = await createVenue(t.ds);
       const before = Date.now();
 
       const res = await http()
         .post("/api/orders")
         .auth(t.tokenFor(user), { type: "bearer" })
-        .send({ merchantId: merchant.id, nominal: 1000 })
+        .send({ venueId: venue.id, nominal: 1000 })
         .expect(201);
 
       const row = await orders().findOneByOrFail({ id: res.body.orderId });
 
       expect(row).toMatchObject({
         userId: user.id,
-        merchantId: merchant.id,
+        venueId: venue.id,
+        merchantId: venue.merchantId, // the owner at the moment of the sale
         amount: 1000,
         status: OrderStatus.Pending,
         paymentUrl: `https://pay.test/${row.id}`,
@@ -90,23 +102,23 @@ describe("Orders API (integration)", () => {
         expiresAt: row.expiresAt.toISOString(),
       });
       expect(t.finik.calls).toEqual([
-        expect.objectContaining({ paymentId: row.id, amount: 1000, nameEn: merchant.name }),
+        expect.objectContaining({ paymentId: row.id, amount: 1000, nameEn: venue.name }),
       ]);
     });
 
     it("sends Finik our return URL, which redirects to the order in the Mini App (startapp=order_<id>)", async () => {
       const user = await createUser(t.ds);
-      const merchant = await createMerchant(t.ds);
+      const venue = await createVenue(t.ds);
 
       const first = await http()
         .post("/api/orders")
         .auth(t.tokenFor(user), { type: "bearer" })
-        .send({ merchantId: merchant.id, nominal: 1000 })
+        .send({ venueId: venue.id, nominal: 1000 })
         .expect(201);
       const second = await http()
         .post("/api/orders")
         .auth(t.tokenFor(user), { type: "bearer" })
-        .send({ merchantId: merchant.id, nominal: 500 })
+        .send({ venueId: venue.id, nominal: 500 })
         .expect(201);
 
       // Our own return endpoint on FINIK_WEBHOOK_URL's origin (http://localhost in globalSetup),
@@ -129,12 +141,12 @@ describe("Orders API (integration)", () => {
 
     it("strips extra fields: client amount/status are ignored", async () => {
       const user = await createUser(t.ds);
-      const merchant = await createMerchant(t.ds);
+      const venue = await createVenue(t.ds);
 
       const res = await http()
         .post("/api/orders")
         .auth(t.tokenFor(user), { type: "bearer" })
-        .send({ merchantId: merchant.id, nominal: 1000, amount: 1, status: "paid", userId: 999 })
+        .send({ venueId: venue.id, nominal: 1000, amount: 1, status: "paid", userId: 999 })
         .expect(201);
 
       const row = await orders().findOneByOrFail({ id: res.body.orderId });
@@ -145,14 +157,14 @@ describe("Orders API (integration)", () => {
 
     it("502 when Finik fails; the order is kept as expired", async () => {
       const user = await createUser(t.ds);
-      const merchant = await createMerchant(t.ds);
+      const venue = await createVenue(t.ds);
 
       t.finik.failWith = new FinikNetworkError("Finik request failed: fetch failed");
 
       const res = await http()
         .post("/api/orders")
         .auth(t.tokenFor(user), { type: "bearer" })
-        .send({ merchantId: merchant.id, nominal: 1000 })
+        .send({ venueId: venue.id, nominal: 1000 })
         .expect(502);
 
       expect(res.body.message).not.toContain("fetch failed");
@@ -167,10 +179,10 @@ describe("Orders API (integration)", () => {
   describe("GET /api/orders/:id", () => {
     it("200 for the owner", async () => {
       const user = await createUser(t.ds);
-      const merchant = await createMerchant(t.ds);
+      const venue = await createVenue(t.ds);
       const order = await createOrder(t.ds, {
         userId: user.id,
-        merchantId: merchant.id,
+        venueId: venue.id,
         paymentUrl: "https://pay.test/x",
       });
 
@@ -183,6 +195,7 @@ describe("Orders API (integration)", () => {
         orderId: order.id,
         status: "pending",
         amount: 1000,
+        venueId: venue.id,
         paymentUrl: "https://pay.test/x",
         certificate: null,
       });
@@ -190,17 +203,17 @@ describe("Orders API (integration)", () => {
 
     it("200 with the certificate code once paid", async () => {
       const user = await createUser(t.ds);
-      const merchant = await createMerchant(t.ds);
+      const venue = await createVenue(t.ds);
       const order = await createOrder(t.ds, {
         userId: user.id,
-        merchantId: merchant.id,
+        venueId: venue.id,
         status: OrderStatus.Paid,
         paidAt: new Date(),
       });
 
       await createCertificate(t.ds, {
         orderId: order.id,
-        merchantId: merchant.id,
+        venueId: venue.id,
         ownerUserId: user.id,
         code: "KT-ABCD-2345",
       });
@@ -219,10 +232,10 @@ describe("Orders API (integration)", () => {
 
     it("200 with status refunded as is (no certificate, no payment URL)", async () => {
       const user = await createUser(t.ds);
-      const merchant = await createMerchant(t.ds);
+      const venue = await createVenue(t.ds);
       const order = await createOrder(t.ds, {
         userId: user.id,
-        merchantId: merchant.id,
+        venueId: venue.id,
         status: OrderStatus.Refunded,
         paidAt: new Date(),
         paymentUrl: "https://pay.test/x",
@@ -239,8 +252,8 @@ describe("Orders API (integration)", () => {
     it("404 for someone else's order", async () => {
       const owner = await createUser(t.ds);
       const stranger = await createUser(t.ds);
-      const merchant = await createMerchant(t.ds);
-      const order = await createOrder(t.ds, { userId: owner.id, merchantId: merchant.id });
+      const venue = await createVenue(t.ds);
+      const order = await createOrder(t.ds, { userId: owner.id, venueId: venue.id });
 
       await http()
         .get(`/api/orders/${order.id}`)
@@ -261,8 +274,8 @@ describe("Orders API (integration)", () => {
   describe("expiry cron (called directly; the scheduler is off in tests)", () => {
     it("expires pending orders past expiresAt and leaves the rest alone", async () => {
       const user = await createUser(t.ds);
-      const merchant = await createMerchant(t.ds);
-      const base = { userId: user.id, merchantId: merchant.id };
+      const venue = await createVenue(t.ds);
+      const base = { userId: user.id, venueId: venue.id };
 
       const stale = await createOrder(t.ds, { ...base, expiresAt: new Date(Date.now() - MINUTE) });
       const fresh = await createOrder(t.ds, { ...base, expiresAt: new Date(Date.now() + MINUTE) });

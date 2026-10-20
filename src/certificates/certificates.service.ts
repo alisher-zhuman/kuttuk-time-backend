@@ -13,7 +13,7 @@ export interface MyCertificate {
   // Present only for "used" — the key is absent otherwise (frontend contract).
   usedAt?: Date;
   createdAt: Date;
-  merchant: { id: number; name: string; slug: string; logo: string };
+  venue: { id: number; name: string; slug: string; logo: string };
 }
 
 interface Row {
@@ -24,10 +24,10 @@ interface Row {
   validUntil: Date;
   usedAt: Date | null;
   createdAt: Date;
-  merchantId: number;
-  merchantName: string;
-  merchantSlug: string;
-  merchantLogo: string;
+  venueId: number;
+  venueName: string;
+  venueSlug: string;
+  venueLogo: string;
 }
 
 // "active" in the DB isn't necessarily valid: past validUntil it is expired. There's no cron
@@ -39,15 +39,15 @@ export class CertificatesService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
   async findMine(userId: number): Promise<MyCertificate[]> {
-    // One query with the merchant joined (no N+1); sorted in SQL: active first, newest first.
-    // Inactive merchants are included on purpose — the buyer still owns those certificates.
+    // One query with the venue joined (no N+1); sorted in SQL: active first, newest first.
+    // Inactive venues / merchants are included on purpose — the buyer still owns those certificates.
     const rows: Row[] = await this.dataSource.query(
       `SELECT c."id", c."code", c."amount", ${EFFECTIVE_STATUS} AS "status",
               c."validUntil", c."usedAt", c."createdAt",
-              m."id" AS "merchantId", m."name" AS "merchantName",
-              m."slug" AS "merchantSlug", m."logo" AS "merchantLogo"
+              v."id" AS "venueId", v."name" AS "venueName",
+              v."slug" AS "venueSlug", v."logo" AS "venueLogo"
          FROM "certificates" c
-         JOIN "merchants" m ON m."id" = c."merchantId"
+         JOIN "venues" v ON v."id" = c."venueId"
         WHERE c."ownerUserId" = $1
         ORDER BY CASE WHEN ${EFFECTIVE_STATUS} = 'active' THEN 0 ELSE 1 END,
                  c."createdAt" DESC,
@@ -63,11 +63,11 @@ export class CertificatesService {
       validUntil: row.validUntil,
       ...(row.status === "used" && row.usedAt ? { usedAt: row.usedAt } : {}),
       createdAt: row.createdAt,
-      merchant: {
-        id: row.merchantId,
-        name: row.merchantName,
-        slug: row.merchantSlug,
-        logo: row.merchantLogo,
+      venue: {
+        id: row.venueId,
+        name: row.venueName,
+        slug: row.venueSlug,
+        logo: row.venueLogo,
       },
     }));
   }

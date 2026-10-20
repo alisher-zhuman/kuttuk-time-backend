@@ -9,7 +9,7 @@ import { Order, OrderStatus } from "../../src/orders/entities/order.entity";
 import { OrdersService } from "../../src/orders/orders.service";
 import { CERTIFICATE_CODE_ATTEMPTS } from "../../src/orders/order-fulfillment";
 import { createTestApp, type TestApp } from "../helpers/app";
-import { createCertificate, createMerchant, createOrder, createUser } from "../helpers/factories";
+import { createCertificate, createVenue, createOrder, createUser } from "../helpers/factories";
 import { finikWebhookBody, signWebhook, WEBHOOK_PATH } from "../helpers/finik-webhook";
 
 const CODE = /^KT-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/;
@@ -27,15 +27,15 @@ describe("POST /api/finik/webhook (integration)", () => {
 
   const setup = async (order: Partial<Order> = {}, validityMonths = 6) => {
     const user = await createUser(t.ds);
-    const merchant = await createMerchant(t.ds, { validityMonths });
+    const venue = await createVenue(t.ds, { validityMonths });
     const created = await createOrder(t.ds, {
       userId: user.id,
-      merchantId: merchant.id,
+      venueId: venue.id,
       amount: 1000,
       ...order,
     });
 
-    return { user, merchant, order: created };
+    return { user, venue, order: created };
   };
 
   const reload = (id: string) => orders().findOneByOrFail({ id });
@@ -58,7 +58,7 @@ describe("POST /api/finik/webhook (integration)", () => {
 
   describe("valid signature, successful payment", () => {
     it("marks the order paid, issues one certificate with the right validUntil, writes the audit", async () => {
-      const { user, merchant, order } = await setup({}, 6);
+      const { user, venue, order } = await setup({}, 6);
       const body = finikWebhookBody(order);
       const headers = signWebhook(body);
 
@@ -78,7 +78,7 @@ describe("POST /api/finik/webhook (integration)", () => {
       expect(certs).toHaveLength(1);
       expect(certs[0]).toMatchObject({
         orderId: order.id,
-        merchantId: merchant.id,
+        venueId: venue.id,
         ownerUserId: user.id,
         amount: 1000,
         status: "active",
@@ -87,7 +87,7 @@ describe("POST /api/finik/webhook (integration)", () => {
       expect(certs[0].code).toMatch(CODE);
       // Aug 31 + 6 months → Feb 29 (2028 is a leap year).
       expect(certs[0].validUntil.toISOString()).toBe("2028-02-29T12:00:00.000Z");
-      expect(certs[0].validUntil).toEqual(addMonths(paidAt, merchant.validityMonths));
+      expect(certs[0].validUntil).toEqual(addMonths(paidAt, venue.validityMonths));
 
       const [event] = await events().find();
 
@@ -458,12 +458,12 @@ describe("POST /api/finik/webhook (integration)", () => {
 
   describe("certificate code collisions", () => {
     it("retries with a new code when the generated one is taken", async () => {
-      const { order, user, merchant } = await setup();
-      const other = await createOrder(t.ds, { userId: user.id, merchantId: merchant.id });
+      const { order, user, venue } = await setup();
+      const other = await createOrder(t.ds, { userId: user.id, venueId: venue.id });
 
       await createCertificate(t.ds, {
         orderId: other.id,
-        merchantId: merchant.id,
+        venueId: venue.id,
         ownerUserId: user.id,
         code: "KT-TAKN-2222",
       });
@@ -484,12 +484,12 @@ describe("POST /api/finik/webhook (integration)", () => {
     });
 
     it(`gives up after ${CERTIFICATE_CODE_ATTEMPTS} taken codes: 500, everything rolled back, audit kept`, async () => {
-      const { order, user, merchant } = await setup();
-      const other = await createOrder(t.ds, { userId: user.id, merchantId: merchant.id });
+      const { order, user, venue } = await setup();
+      const other = await createOrder(t.ds, { userId: user.id, venueId: venue.id });
 
       await createCertificate(t.ds, {
         orderId: other.id,
-        merchantId: merchant.id,
+        venueId: venue.id,
         ownerUserId: user.id,
         code: "KT-TAKN-2222",
       });

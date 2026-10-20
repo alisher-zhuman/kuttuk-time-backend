@@ -2,10 +2,11 @@ import type { DataSource } from "typeorm";
 
 import { OrderStatus } from "../../src/orders/entities/order.entity";
 import type { Merchant } from "../../src/merchants/entities/merchant.entity";
+import type { Venue } from "../../src/venues/entities/venue.entity";
 import type { User } from "../../src/users/entities/user.entity";
-import { buildPayoutReport, readOnly, weekOf } from "../../src/payouts/payouts-report";
+import { buildPayoutReport, paidSales, readOnly, weekOf } from "../../src/payouts/payouts-report";
 import { openTestDataSource, truncateAll } from "../helpers/db";
-import { createMerchant, createOrder, createUser } from "../helpers/factories";
+import { createMerchant, createOrder, createUser, createVenue } from "../helpers/factories";
 
 // Week of Mon 2026-10-19 … Sun 2026-10-25 in Bishkek (UTC+6, no DST).
 const WEEK = { from: "2026-10-19", to: "2026-10-25" };
@@ -14,15 +15,33 @@ const bishkek = (local: string) => new Date(`${local}+06:00`);
 describe("payouts report (integration)", () => {
   let ds: DataSource;
   let buyer: User;
+  // One venue per merchant unless a test makes more; a sale belongs to the venue's owner.
+  let venues: Map<number, Venue>;
 
-  const sale = (merchant: Merchant, amount: number, paidAt: Date, status = OrderStatus.Paid) =>
-    createOrder(ds, {
+  const venueOf = async (merchant: Merchant) => {
+    if (!venues.has(merchant.id)) {
+      venues.set(merchant.id, await createVenue(ds, { merchantId: merchant.id }));
+    }
+
+    return venues.get(merchant.id)!;
+  };
+
+  const sale = async (
+    seller: Merchant | Venue,
+    amount: number,
+    paidAt: Date,
+    status = OrderStatus.Paid,
+  ) => {
+    const venue = "slug" in seller ? seller : await venueOf(seller);
+
+    return createOrder(ds, {
       userId: buyer.id,
-      merchantId: merchant.id,
+      venueId: venue.id,
       amount,
       status,
       paidAt: status === OrderStatus.Paid || status === OrderStatus.NeedsReview ? paidAt : null,
     });
+  };
 
   beforeAll(async () => {
     ds = await openTestDataSource();
@@ -31,6 +50,7 @@ describe("payouts report (integration)", () => {
   beforeEach(async () => {
     await truncateAll(ds);
     buyer = await createUser(ds);
+    venues = new Map();
   });
 
   afterAll(async () => {
@@ -123,7 +143,7 @@ describe("payouts report (integration)", () => {
       await sale(merchant, 1000, inWeek);
       await createOrder(ds, {
         userId: buyer.id,
-        merchantId: merchant.id,
+        venueId: (await venueOf(merchant)).id,
         amount: 2000,
         status: OrderStatus.Refunded,
         paidAt: inWeek,
@@ -149,7 +169,12 @@ describe("payouts report (integration)", () => {
       const report = await buildPayoutReport(ds, WEEK);
 
       expect(report.needsReview).toEqual([
-        expect.objectContaining({ orderId: review.id, merchantId: merchant.id, amount: 2000 }),
+        expect.objectContaining({
+          orderId: review.id,
+          merchantId: merchant.id,
+          venueName: (await venueOf(merchant)).name,
+          amount: 2000,
+        }),
       ]);
       expect(report.rows).toEqual([]);
     });
@@ -200,6 +225,48 @@ describe("payouts report (integration)", () => {
         },
       ]);
       expect(report.total).toEqual({ ordersCount: 3, gross: 1510, commission: 151, payout: 1359 });
+    });
+
+    it("a merchant with several venues: one row, summed over all of them", async () => {
+      const chain = await createMerchant(ds, { name: "Coffee Chain" });
+      const [first, second] = [
+        await createVenue(ds, { merchantId: chain.id }),
+        await createVenue(ds, { merchantId: chain.id }),
+      ];
+      const day = bishkek("2026-10-23T15:00:00");
+
+      await sale(first, 1000, day);
+      await sale(second, 500, day);
+
+      expect((await buildPayoutReport(ds, WEEK)).rows).toEqual([
+        {
+          merchantId: chain.id,
+          merchantName: "Coffee Chain",
+          ordersCount: 2,
+          gross: 1500,
+          commission: 150,
+          payout: 1350,
+        },
+      ]);
+      await expect(
+        readOnly(ds, (em) => paidSales(em, WEEK, { merchantId: chain.id, venueId: second.id })),
+      ).resolves.toEqual([expect.objectContaining({ ordersCount: 1, gross: 500, payout: 450 })]);
+    });
+
+    it("a venue moved to another merchant: past sales stay with the one who sold", async () => {
+      const oldOwner = await createMerchant(ds);
+      const newOwner = await createMerchant(ds);
+      const venue = await createVenue(ds, { merchantId: oldOwner.id });
+      const day = bishkek("2026-10-21T12:00:00");
+
+      await sale(venue, 1000, day);
+      await ds.query(`UPDATE venues SET "merchantId" = $1 WHERE id = $2`, [newOwner.id, venue.id]);
+      await sale(venue, 500, bishkek("2026-10-22T12:00:00"));
+
+      expect((await buildPayoutReport(ds, WEEK)).rows.map((r) => [r.merchantId, r.gross])).toEqual([
+        [oldOwner.id, 1000],
+        [newOwner.id, 500],
+      ]);
     });
 
     it("fractions: the payout is floored on the merchant total, payout + commission = gross", async () => {

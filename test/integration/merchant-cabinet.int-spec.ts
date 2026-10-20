@@ -3,11 +3,18 @@ import * as request from "supertest";
 import { generateCertificateCode } from "../../src/certificates/certificate-code";
 import { Certificate, CertificateStatus } from "../../src/certificates/entities/certificate.entity";
 import type { Merchant } from "../../src/merchants/entities/merchant.entity";
+import type { Venue } from "../../src/venues/entities/venue.entity";
 import { OrderStatus } from "../../src/orders/entities/order.entity";
 import { buildPayoutReport } from "../../src/payouts/payouts-report";
 import type { User } from "../../src/users/entities/user.entity";
 import { createTestApp, type TestApp } from "../helpers/app";
-import { createCertificate, createMerchant, createOrder, createUser } from "../helpers/factories";
+import {
+  createCertificate,
+  createMerchant,
+  createOrder,
+  createUser,
+  createVenue,
+} from "../helpers/factories";
 
 const WEEK = { from: "2026-10-19", to: "2026-10-25" };
 const bishkek = (local: string) => new Date(`${local}+06:00`);
@@ -17,6 +24,7 @@ describe("merchant cabinet (integration)", () => {
   let t: TestApp;
   let owner: User;
   let merchant: Merchant;
+  let venue: Venue;
   let buyer: User;
 
   const http = () => request(t.app.getHttpServer());
@@ -26,13 +34,13 @@ describe("merchant cabinet (integration)", () => {
   const sale = async (
     amount: number,
     paidAt: Date,
-    opts: { status?: OrderStatus; cert?: Partial<Certificate>; forMerchant?: Merchant } = {},
+    opts: { status?: OrderStatus; cert?: Partial<Certificate>; forVenue?: Venue } = {},
   ) => {
-    const forMerchant = opts.forMerchant ?? merchant;
+    const forVenue = opts.forVenue ?? venue;
     const status = opts.status ?? OrderStatus.Paid;
     const order = await createOrder(t.ds, {
       userId: buyer.id,
-      merchantId: forMerchant.id,
+      venueId: forVenue.id,
       amount,
       status,
       paidAt: status === OrderStatus.Pending ? null : paidAt,
@@ -44,7 +52,7 @@ describe("merchant cabinet (integration)", () => {
 
     const cert = await createCertificate(t.ds, {
       orderId: order.id,
-      merchantId: forMerchant.id,
+      venueId: forVenue.id,
       ownerUserId: buyer.id,
       amount,
       code: generateCertificateCode(),
@@ -63,7 +71,8 @@ describe("merchant cabinet (integration)", () => {
   beforeEach(async () => {
     await t.reset();
     owner = await createUser(t.ds, { role: "merchant" });
-    merchant = await createMerchant(t.ds, { merchantTelegramId: owner.telegramId });
+    merchant = await createMerchant(t.ds, { telegramId: owner.telegramId });
+    venue = await createVenue(t.ds, { merchantId: merchant.id });
     buyer = await createUser(t.ds);
   });
 
@@ -127,14 +136,45 @@ describe("merchant cabinet (integration)", () => {
     });
 
     it("only this merchant's numbers", async () => {
-      const otherOwner = await createUser(t.ds, { role: "merchant" });
-      const other = await createMerchant(t.ds, { merchantTelegramId: otherOwner.telegramId });
+      const other = await createVenue(t.ds); // another merchant's venue
 
-      await sale(5000, bishkek("2026-10-21T12:00:00"), { forMerchant: other });
+      await sale(5000, bishkek("2026-10-21T12:00:00"), { forVenue: other });
 
       const res = await get("/api/merchants/me/summary?week=2026-10-21").expect(200);
 
       expect(res.body).toMatchObject({ sold: { count: 0, amount: 0 }, payout: 0 });
+    });
+
+    it("a chain: summed over all its venues; ?venueId= narrows to one", async () => {
+      const second = await createVenue(t.ds, { merchantId: merchant.id });
+      const day = bishkek("2026-10-21T12:00:00");
+
+      await sale(1000, day, { cert: { status: CertificateStatus.Used, usedAt: day } });
+      await sale(500, day, { forVenue: second });
+
+      const whole = await get("/api/merchants/me/summary?week=2026-10-21").expect(200);
+      const one = await get(
+        `/api/merchants/me/summary?week=2026-10-21&venueId=${second.id}`,
+      ).expect(200);
+
+      expect(whole.body).toMatchObject({
+        sold: { count: 2, amount: 1500 },
+        payout: 1350,
+        redeemed: { count: 1, amount: 1000 },
+      });
+      expect(one.body).toMatchObject({
+        sold: { count: 1, amount: 500 },
+        commission: 50,
+        payout: 450,
+        redeemed: { count: 0, amount: 0 },
+      });
+    });
+
+    it("404 on a venueId that isn't one of the merchant's venues", async () => {
+      const other = await createVenue(t.ds);
+
+      await get(`/api/merchants/me/summary?venueId=${other.id}`).expect(404);
+      await get("/api/merchants/me/summary?venueId=999999").expect(404);
     });
 
     it("an empty week is all zeros", async () => {
@@ -160,8 +200,7 @@ describe("merchant cabinet (integration)", () => {
 
   describe("GET /api/merchants/me/certificates", () => {
     it("own certificates, newest first, effective status, usedAt only on used", async () => {
-      const otherOwner = await createUser(t.ds, { role: "merchant" });
-      const other = await createMerchant(t.ds, { merchantTelegramId: otherOwner.telegramId });
+      const other = await createVenue(t.ds); // another merchant's venue
 
       const old = await sale(1000, new Date(Date.now() - 3 * DAY), {
         cert: { validUntil: new Date(Date.now() - DAY) },
@@ -171,7 +210,7 @@ describe("merchant cabinet (integration)", () => {
       });
       const fresh = await sale(2000, new Date(Date.now() - DAY));
 
-      await sale(9000, new Date(), { forMerchant: other });
+      await sale(9000, new Date(), { forVenue: other });
 
       const res = await get("/api/merchants/me/certificates").expect(200);
 
@@ -189,6 +228,27 @@ describe("merchant cabinet (integration)", () => {
       expect(res.body.items[0]).not.toHaveProperty("usedAt");
       expect(res.body.items[1].usedAt).toEqual(expect.any(String));
       expect(res.body.items[2]).not.toHaveProperty("usedAt");
+      expect(res.body.items[0].venue).toEqual({ id: venue.id, name: venue.name });
+    });
+
+    it("all of the merchant's venues; ?venueId= narrows to one; a foreign venueId → 404", async () => {
+      const second = await createVenue(t.ds, { merchantId: merchant.id });
+      const first = await sale(1000, new Date(Date.now() - 2 * DAY));
+      const fromSecond = await sale(1000, new Date(Date.now() - DAY), { forVenue: second });
+
+      const all = await get("/api/merchants/me/certificates").expect(200);
+      const one = await get(`/api/merchants/me/certificates?venueId=${venue.id}`).expect(200);
+
+      expect(all.body.items.map((c: { code: string }) => c.code)).toEqual([
+        fromSecond!.code,
+        first!.code,
+      ]);
+      expect(all.body.items[0].venue).toEqual({ id: second.id, name: second.name });
+      expect(one.body.items.map((c: { code: string }) => c.code)).toEqual([first!.code]);
+
+      await get(`/api/merchants/me/certificates?venueId=${(await createVenue(t.ds)).id}`).expect(
+        404,
+      );
     });
 
     it.each([

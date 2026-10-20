@@ -1,7 +1,7 @@
 import * as request from "supertest";
 
 import { createTestApp, type TestApp } from "../helpers/app";
-import { createMerchant, createOrder, createUser } from "../helpers/factories";
+import { createVenue, createOrder, createUser } from "../helpers/factories";
 
 // FINIK_REDIRECT_URL in globalSetup is https://t.me/kuttuk_time_bot/app.
 const BASE = "https://t.me/kuttuk_time_bot/app";
@@ -32,8 +32,8 @@ describe("GET /api/payments/return/:orderId (integration)", () => {
 
   it("works for a real order the same as for any UUID (the order isn't looked up)", async () => {
     const user = await createUser(t.ds);
-    const merchant = await createMerchant(t.ds);
-    const order = await createOrder(t.ds, { userId: user.id, merchantId: merchant.id });
+    const venue = await createVenue(t.ds);
+    const order = await createOrder(t.ds, { userId: user.id, venueId: venue.id });
 
     const existing = await http().get(`/api/payments/return/${order.id}`).expect(302);
     const missing = await http().get(`/api/payments/return/${ID}`).expect(302);

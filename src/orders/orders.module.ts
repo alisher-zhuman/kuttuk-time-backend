@@ -10,14 +10,14 @@ import { FinikWebhookController } from "./finik-webhook.controller";
 import { FinikWebhookService } from "./finik-webhook.service";
 import { PaymentReturnController } from "./payment-return.controller";
 import { Certificate } from "@/certificates/entities/certificate.entity";
-import { Merchant } from "@/merchants/entities/merchant.entity";
+import { Venue } from "@/venues/entities/venue.entity";
 import { FinikModule } from "@/finik/finik.module";
 import { finikConfig } from "@/finik/finik.config";
 import { FinikWebhookEvent } from "@/finik/entities/finik-webhook-event.entity";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, OrderResolution, Certificate, Merchant, FinikWebhookEvent]),
+    TypeOrmModule.forFeature([Order, OrderResolution, Certificate, Venue, FinikWebhookEvent]),
     FinikModule,
     // finik.webhookUrl (public origin) and finik.redirectUrl (Mini App base) for the payment return.
     ConfigModule.forFeature(finikConfig),

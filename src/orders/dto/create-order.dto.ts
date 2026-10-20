@@ -5,9 +5,9 @@ export class CreateOrderDto {
   @ApiProperty({ example: 9 })
   @IsInt()
   @IsPositive()
-  merchantId!: number;
+  venueId!: number;
 
-  @ApiProperty({ example: 1000, description: "Must be one of the merchant's current nominals" })
+  @ApiProperty({ example: 1000, description: "Must be one of the venue's current nominals" })
   @IsInt()
   @IsPositive()
   nominal!: number;

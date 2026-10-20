@@ -11,6 +11,7 @@ import {
 
 import { User } from "@/users/entities/user.entity";
 import { Merchant } from "@/merchants/entities/merchant.entity";
+import { Venue } from "@/venues/entities/venue.entity";
 
 export enum OrderStatus {
   Pending = "pending",
@@ -37,6 +38,15 @@ export class Order {
   @JoinColumn({ name: "userId" })
   user?: User;
 
+  @Column()
+  venueId!: number;
+
+  @ManyToOne(() => Venue, { onDelete: "RESTRICT" })
+  @JoinColumn({ name: "venueId" })
+  venue?: Venue;
+
+  // The venue's owner at the moment of the sale: payouts go to whoever sold, so moving a
+  // venue to another merchant later doesn't rewrite past payout reports.
   @Column()
   merchantId!: number;
 

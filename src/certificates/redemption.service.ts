@@ -20,6 +20,7 @@ export interface MerchantCertificate {
   // Present only for "used" (same contract as GET /certificates/my).
   usedAt?: Date;
   createdAt: Date;
+  venue: { id: number; name: string };
 }
 
 interface Row {
@@ -29,13 +30,19 @@ interface Row {
   validUntil: Date;
   usedAt: Date | null;
   createdAt: Date;
+  venueId: number;
+  venueName: string;
 }
 
 // Same effective status as GET /certificates/my: a stored "active" past validUntil is expired.
 const SELECT = `SELECT c."code", c."amount",
          CASE WHEN c."status" = 'active' AND c."validUntil" < now() THEN 'expired'
               ELSE c."status"::text END AS "status",
-         c."validUntil", c."usedAt", c."createdAt"`;
+         c."validUntil", c."usedAt", c."createdAt", v."id" AS "venueId", v."name" AS "venueName"`;
+
+// A merchant redeems the certificates of the venues it owns now — incl. ones sold before a
+// venue moved to it (it's the one serving the customer). Payouts follow orders.merchantId.
+const OWN = `JOIN "venues" v ON v."id" = c."venueId" AND v."merchantId" = $2`;
 
 const toView = (row: Row): MerchantCertificate => ({
   code: row.code,
@@ -44,6 +51,7 @@ const toView = (row: Row): MerchantCertificate => ({
   validUntil: row.validUntil,
   ...(row.status === "used" && row.usedAt ? { usedAt: row.usedAt } : {}),
   createdAt: row.createdAt,
+  venue: { id: row.venueId, name: row.venueName },
 });
 
 // Redemption by the merchant owner (the only role that redeems — see CLAUDE.md → Product
@@ -70,13 +78,15 @@ export class RedemptionService {
     const code = this.parse(rawCode);
     const merchantId = await ownMerchantId(this.dataSource, merchantTelegramId);
 
-    // One atomic statement: only an active, unexpired certificate of this merchant flips to
-    // used. Two simultaneous taps → one UPDATE matches, the other matches nothing.
+    // One atomic statement: only an active, unexpired certificate of this merchant's venues
+    // flips to used. Two simultaneous taps → one UPDATE matches, the other matches nothing.
     const [rows]: [Row[], number] = await this.dataSource.query(
       `UPDATE "certificates" c SET "status" = 'used', "usedAt" = now()
-        WHERE c."code" = $1 AND c."merchantId" = $2
-          AND c."status" = 'active' AND c."validUntil" > now()
-        RETURNING c."code", c."amount", 'used' AS "status", c."validUntil", c."usedAt", c."createdAt"`,
+         FROM "venues" v
+        WHERE v."id" = c."venueId" AND v."merchantId" = $2
+          AND c."code" = $1 AND c."status" = 'active' AND c."validUntil" > now()
+        RETURNING c."code", c."amount", 'used' AS "status", c."validUntil", c."usedAt", c."createdAt",
+                  v."id" AS "venueId", v."name" AS "venueName"`,
       [code, merchantId],
     );
 
@@ -113,7 +123,7 @@ export class RedemptionService {
 
   private async find(merchantId: number, code: string): Promise<Row | undefined> {
     const [row]: Row[] = await this.dataSource.query(
-      `${SELECT} FROM "certificates" c WHERE c."code" = $1 AND c."merchantId" = $2`,
+      `${SELECT} FROM "certificates" c ${OWN} WHERE c."code" = $1`,
       [code, merchantId],
     );
 

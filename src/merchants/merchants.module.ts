@@ -4,12 +4,11 @@ import { MerchantsController } from "./merchants.controller";
 import { AdminMerchantsController } from "./admin-merchants.controller";
 import { MerchantsService } from "./merchants.service";
 import { Merchant } from "./entities/merchant.entity";
-import { CloudinaryModule } from "@/cloudinary/cloudinary.module";
+import { VenuesModule } from "@/venues/venues.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Merchant]), CloudinaryModule],
+  imports: [TypeOrmModule.forFeature([Merchant]), VenuesModule],
   controllers: [MerchantsController, AdminMerchantsController],
   providers: [MerchantsService],
-  exports: [MerchantsService],
 })
 export class MerchantsModule {}

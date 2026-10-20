@@ -1,14 +1,4 @@
-import {
-  Controller,
-  Get,
-  Patch,
-  Body,
-  Param,
-  Query,
-  Headers,
-  UseGuards,
-  ParseIntPipe,
-} from "@nestjs/common";
+import { Controller, Get, Patch, Body, Param, UseGuards, ParseIntPipe } from "@nestjs/common";
 import {
   ApiTags,
   ApiOperation,
@@ -17,176 +7,77 @@ import {
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
-  ApiQuery,
 } from "@nestjs/swagger";
 
 import { MerchantsService } from "./merchants.service";
-import { UpdateMerchantDto } from "./dto/update-merchant.dto";
+import { UpdateVenueDto } from "@/venues/dto/update-venue.dto";
 import { RolesGuard } from "@/auth/roles.guard";
 import { Roles } from "@/auth/roles.decorator";
 import { GetUser } from "@/auth/get-user.decorator";
 import { CurrentUser } from "@/auth/interfaces/current-user.interface";
-import { Public } from "@/auth/public.decorator";
-import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "./merchant.constants";
 
 const UNAUTHORIZED = { statusCode: 401, message: "Unauthorized", error: "Unauthorized" };
 const FORBIDDEN = { statusCode: 403, message: "Forbidden", error: "Forbidden" };
-const NOT_FOUND = { statusCode: 404, message: "Merchant not found", error: "Not Found" };
 
-@ApiTags("Merchants")
+const OWN_VENUE_EXAMPLE = {
+  id: 9,
+  name: "Sierra Coffee",
+  description: { kg: "...", ru: "Лучший кофе в городе", en: "Best coffee in the city" },
+  categories: [1],
+  nominals: [500, 1000, 2000],
+  validityMonths: 12,
+  logo: "https://res.cloudinary.com/dnx8vxdyf/image/upload/v1/kuttuk-time/abc.webp",
+  slug: "sierra-coffee",
+  isActive: true,
+  createdAt: "2026-06-15T10:00:00.000Z",
+};
+
+// The owner's own business account. The cabinet (summary, certificates, redemption) lives in
+// src/certificates/merchant-*.controller.ts under the same /merchants/me prefix.
+@ApiTags("Merchant cabinet")
 @ApiBearerAuth()
-@Controller("merchants")
+@UseGuards(RolesGuard)
+@Roles("merchant")
+@Controller("merchants/me")
 export class MerchantsController {
   constructor(private readonly merchantsService: MerchantsService) {}
 
   @Get()
   @ApiOperation({
-    summary: "List active merchants",
-    description: "**Roles:** user · merchant · admin",
-  })
-  @ApiQuery({ name: "search", required: false, example: "sierra" })
-  @ApiQuery({ name: "category", required: false, example: 1 })
-  @ApiOkResponse({
-    description: "Array of merchants",
-    schema: {
-      example: [
-        {
-          id: 9,
-          name: "Sierra Coffee",
-          description: "Лучший кофе в городе",
-          logo: "https://res.cloudinary.com/dnx8vxdyf/image/upload/v1/kuttuk-time/abc.webp",
-          minNominal: 500,
-        },
-      ],
-    },
-  })
-  @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
-  findAll(
-    @Headers("accept-language") acceptLanguage: string = "kg",
-    @Query("search") search?: string,
-    @Query("category", new ParseIntPipe({ optional: true })) category?: number,
-  ) {
-    const lang = (acceptLanguage ?? "kg").slice(0, 2);
-    return this.merchantsService.findAll(lang, search, category);
-  }
-
-  @Get("me")
-  @UseGuards(RolesGuard)
-  @Roles("merchant")
-  @ApiOperation({
-    summary: "Get own merchant profile",
+    summary: "Own merchant account and its venues",
     description:
-      "**Roles:** `merchant` only. Returns the full merchant profile tied to your own Telegram account.",
+      "**Roles:** `merchant` only. The account tied to your Telegram ID; `venues` — all of them, active or not.",
   })
   @ApiOkResponse({
-    description: "Merchant object",
     schema: {
-      example: {
-        id: 9,
-        name: "Sierra Coffee",
-        description: { kg: "...", ru: "Лучший кофе в городе", en: "Best coffee in the city" },
-        categories: [1],
-        nominals: [500, 1000, 2000],
-        validityMonths: 12,
-        merchantTelegramId: 123456789,
-        logo: "https://res.cloudinary.com/dnx8vxdyf/image/upload/v1/kuttuk-time/abc.webp",
-        slug: "sierra-coffee",
-        isActive: true,
-        createdAt: "2026-06-15T10:00:00.000Z",
-      },
+      example: { id: 9, name: "Sierra Coffee", isActive: true, venues: [OWN_VENUE_EXAMPLE] },
     },
   })
   @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
   @ApiForbiddenResponse({ description: "Requires merchant role", schema: { example: FORBIDDEN } })
-  @ApiNotFoundResponse({ description: "Merchant not found", schema: { example: NOT_FOUND } })
+  @ApiNotFoundResponse({ description: "No merchant for this Telegram account" })
   getOwn(@GetUser() user: CurrentUser) {
     return this.merchantsService.getOwn(user.telegramId);
   }
 
-  // Declared before ":idOrSlug" — Express matches routes in order, so "options" would
-  // otherwise be taken for a merchant slug.
-  @Get("options")
-  @Public()
+  @Patch("venues/:venueId")
   @ApiOperation({
-    summary: "Allowed merchant values (nominals, validity months)",
+    summary: "Update own venue (storefront)",
     description:
-      "**Public.** The single source of truth for the merchant forms — the frontend doesn't keep its own lists. Sorted ascending.",
+      "**Roles:** `merchant` only. Not `slug` / `isActive` / the owner — those are admin-only.",
   })
-  @ApiOkResponse({
-    schema: { example: { nominals: [500, 1000, 2000], validityMonths: [3, 6, 12, 24] } },
-  })
-  getOptions(): { nominals: number[]; validityMonths: number[] } {
-    return {
-      nominals: [...VALID_NOMINALS].sort((a, b) => a - b),
-      validityMonths: [...VALID_VALIDITY_MONTHS].sort((a, b) => a - b),
-    };
-  }
-
-  @Get(":idOrSlug")
-  @ApiOperation({
-    summary: "Get one merchant by ID or slug",
-    description: "**Roles:** user · merchant · admin",
-  })
-  @ApiOkResponse({
-    description: "Merchant object",
-    schema: {
-      example: {
-        id: 9,
-        name: "Sierra Coffee",
-        description: "Лучший кофе в городе",
-        logo: "https://res.cloudinary.com/dnx8vxdyf/image/upload/v1/kuttuk-time/abc.webp",
-        nominals: [500, 1000, 2000],
-        validityMonths: 12,
-      },
-    },
-  })
-  @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
-  @ApiNotFoundResponse({
-    description: "Merchant not found or deactivated",
-    schema: { example: NOT_FOUND },
-  })
-  findOne(
-    @Param("idOrSlug") idOrSlug: string,
-    @Headers("accept-language") acceptLanguage: string = "kg",
-  ) {
-    const lang = (acceptLanguage ?? "kg").slice(0, 2);
-    return this.merchantsService.findOne(idOrSlug, lang);
-  }
-
-  @Patch("me")
-  @UseGuards(RolesGuard)
-  @Roles("merchant")
-  @ApiOperation({
-    summary: "Update own merchant profile",
-    description:
-      "**Roles:** `merchant` only. Edits the merchant tied to your own Telegram account.",
-  })
-  @ApiOkResponse({
-    description: "Merchant updated",
-    schema: {
-      example: {
-        id: 9,
-        name: "Sierra Coffee",
-        description: { kg: "...", ru: "Лучший кофе в городе", en: "Best coffee in the city" },
-        categories: [1],
-        nominals: [500, 1000, 2000],
-        validityMonths: 12,
-        merchantTelegramId: 123456789,
-        logo: "https://res.cloudinary.com/dnx8vxdyf/image/upload/v1/kuttuk-time/abc.webp",
-        slug: "sierra-coffee",
-        isActive: true,
-        createdAt: "2026-06-15T10:00:00.000Z",
-        updatedAt: "2026-07-10T12:00:00.000Z",
-      },
-    },
-  })
+  @ApiOkResponse({ schema: { example: OWN_VENUE_EXAMPLE } })
   @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
   @ApiForbiddenResponse({
-    description: "Requires merchant role, or merchant is deactivated",
+    description: "Requires merchant role, or the merchant is deactivated",
     schema: { example: FORBIDDEN },
   })
-  @ApiNotFoundResponse({ description: "Merchant not found", schema: { example: NOT_FOUND } })
-  updateOwn(@Body() dto: UpdateMerchantDto, @GetUser() user: CurrentUser) {
-    return this.merchantsService.updateOwn(user.telegramId, dto);
+  @ApiNotFoundResponse({ description: "No merchant, or the venue isn't yours" })
+  updateOwnVenue(
+    @Param("venueId", ParseIntPipe) venueId: number,
+    @Body() dto: UpdateVenueDto,
+    @GetUser() user: CurrentUser,
+  ) {
+    return this.merchantsService.updateOwnVenue(user.telegramId, venueId, dto);
   }
 }

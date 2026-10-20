@@ -15,7 +15,7 @@ import { LessThan, Repository } from "typeorm";
 import { Order, OrderStatus } from "./entities/order.entity";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { Certificate } from "@/certificates/entities/certificate.entity";
-import { Merchant } from "@/merchants/entities/merchant.entity";
+import { Venue } from "@/venues/entities/venue.entity";
 import { FinikService } from "@/finik/finik.service";
 import { finikConfig } from "@/finik/finik.config";
 import { paymentReturnUrl } from "./payment-redirect-url";
@@ -33,7 +33,7 @@ export interface OrderView {
   orderId: string;
   status: OrderStatus;
   amount: number;
-  merchantId: number;
+  venueId: number;
   paymentUrl: string | null;
   expiresAt: Date;
   paidAt: Date | null;
@@ -47,28 +47,34 @@ export class OrdersService {
   constructor(
     @InjectRepository(Order) private readonly orderRepo: Repository<Order>,
     @InjectRepository(Certificate) private readonly certificateRepo: Repository<Certificate>,
-    @InjectRepository(Merchant) private readonly merchantRepo: Repository<Merchant>,
+    @InjectRepository(Venue) private readonly venueRepo: Repository<Venue>,
     private readonly finikService: FinikService,
     @Inject(finikConfig.KEY) private readonly finik: ConfigType<typeof finikConfig>,
   ) {}
 
   async create(userId: number, dto: CreateOrderDto): Promise<CreatedOrder> {
-    const merchant = await this.merchantRepo.findOne({ where: { id: dto.merchantId } });
+    const venue = await this.venueRepo.findOne({
+      where: { id: dto.venueId },
+      relations: { merchant: true },
+    });
 
-    if (!merchant || !merchant.isActive) {
-      throw new BadRequestException("Merchant is not available");
+    // Same visibility as the storefront: the venue and its merchant both active.
+    if (!venue || !venue.isActive || !venue.merchant?.isActive) {
+      throw new BadRequestException("Venue is not available");
     }
 
-    // The amount always comes from the merchant's current nominals, never from the client.
-    if (!merchant.nominals.includes(dto.nominal)) {
-      throw new BadRequestException("Nominal is not available for this merchant");
+    // The amount always comes from the venue's current nominals, never from the client.
+    if (!venue.nominals.includes(dto.nominal)) {
+      throw new BadRequestException("Nominal is not available for this venue");
     }
 
     const order = await this.orderRepo.save(
       this.orderRepo.create({
         id: randomUUID(),
         userId,
-        merchantId: merchant.id,
+        venueId: venue.id,
+        // Owner snapshot for payouts (see Order.merchantId).
+        merchantId: venue.merchantId,
         amount: dto.nominal,
         status: OrderStatus.Pending,
         expiresAt: new Date(Date.now() + ORDER_TTL_MS),
@@ -81,8 +87,8 @@ export class OrdersService {
       ({ paymentUrl } = await this.finikService.createPayment({
         paymentId: order.id,
         amount: order.amount,
-        nameEn: merchant.name,
-        description: `${merchant.name} — ${order.amount} KGS`,
+        nameEn: venue.name,
+        description: `${venue.name} — ${order.amount} KGS`,
         lang: "ru",
         endDate: order.expiresAt.getTime(),
         redirectUrl: paymentReturnUrl(this.finik.webhookUrl, order.id),
@@ -112,7 +118,7 @@ export class OrdersService {
 
     await this.orderRepo.update(order.id, { paymentUrl });
 
-    this.logger.log(`Order ${order.id} created: merchant=${merchant.id} amount=${order.amount}`);
+    this.logger.log(`Order ${order.id} created: venue=${venue.id} amount=${order.amount}`);
 
     return { orderId: order.id, paymentUrl, expiresAt: order.expiresAt };
   }
@@ -134,7 +140,7 @@ export class OrdersService {
       orderId: order.id,
       status: order.status,
       amount: order.amount,
-      merchantId: order.merchantId,
+      venueId: order.venueId,
       paymentUrl: order.status === OrderStatus.Pending ? order.paymentUrl : null,
       expiresAt: order.expiresAt,
       paidAt: order.paidAt,

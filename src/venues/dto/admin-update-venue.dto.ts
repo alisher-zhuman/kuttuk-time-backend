@@ -3,18 +3,21 @@ import {
   ArrayUnique,
   IsString,
   IsNotEmpty,
+  IsBoolean,
+  IsPositive,
   IsArray,
   IsInt,
   IsIn,
   Matches,
+  IsNotIn,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 import type { Translations } from "@/common/translations";
 import { IsOptionalNotNull, IsTranslations } from "@/common/validators";
-import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../merchant.constants";
+import { RESERVED_SLUGS, VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../venue.constants";
 
-export class UpdateMerchantDto {
+export class AdminUpdateVenueDto {
   @ApiProperty({ example: "Sierra Coffee", required: false })
   @IsOptionalNotNull()
   @IsString()
@@ -65,4 +68,24 @@ export class UpdateMerchantDto {
   @IsString()
   @Matches(/^https:\/\/res\.cloudinary\.com\//, { message: "logo must be a Cloudinary URL" })
   logo?: string;
+
+  @ApiProperty({ example: true, required: false })
+  @IsOptionalNotNull()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @ApiProperty({ example: "sierra-coffee", required: false })
+  @IsOptionalNotNull()
+  @IsString()
+  @Matches(/^[a-z0-9-]+$/, {
+    message: "slug must contain only lowercase letters, numbers and hyphens",
+  })
+  @IsNotIn(RESERVED_SLUGS, { message: `slug must not be one of: ${RESERVED_SLUGS.join(", ")}` })
+  slug?: string;
+
+  @ApiProperty({ example: 9, description: "Move the venue to another merchant", required: false })
+  @IsOptionalNotNull()
+  @IsInt()
+  @IsPositive()
+  merchantId?: number;
 }

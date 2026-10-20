@@ -10,8 +10,8 @@ import {
 } from "typeorm";
 
 import { User } from "@/users/entities/user.entity";
-import { Merchant } from "@/merchants/entities/merchant.entity";
 import { Order } from "@/orders/entities/order.entity";
+import { Venue } from "@/venues/entities/venue.entity";
 
 export enum CertificateStatus {
   Active = "active",
@@ -38,12 +38,13 @@ export class Certificate {
   @JoinColumn({ name: "orderId" })
   order?: Order;
 
+  // No owner snapshot here: a certificate is redeemed by whoever owns the venue now.
   @Column()
-  merchantId!: number;
+  venueId!: number;
 
-  @ManyToOne(() => Merchant, { onDelete: "RESTRICT" })
-  @JoinColumn({ name: "merchantId" })
-  merchant?: Merchant;
+  @ManyToOne(() => Venue, { onDelete: "RESTRICT" })
+  @JoinColumn({ name: "venueId" })
+  venue?: Venue;
 
   @Column()
   ownerUserId!: number;

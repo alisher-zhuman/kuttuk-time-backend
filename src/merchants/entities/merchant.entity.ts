@@ -1,41 +1,23 @@
 import {
-  Entity,
   Column,
-  PrimaryGeneratedColumn,
   CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
   UpdateDateColumn,
-  Index,
-  Check,
 } from "typeorm";
 
-import type { Translations } from "@/common/translations";
-
+// The business account of a venue owner: login role, cabinet, deactivation, payouts.
+// The storefront data (name shown to buyers, logo, nominals, slug…) lives on its venues.
 @Entity("merchants")
-// GIN index created by hand on prod (see Baseline migration); TypeORM can't declare GIN,
-// so it must not try to manage (drop) it.
-@Index("merchants_categories_idx", { synchronize: false })
-// Declared here so schema diffs stay clean; TypeORM matches CHECKs by name.
-@Check("merchants_description_langs", `"description" ?& ARRAY['ru', 'kg', 'en']`)
-@Check("merchants_nominals_not_empty", `cardinality("nominals") > 0`)
 export class Merchant {
   @PrimaryGeneratedColumn()
   id!: number;
 
+  // Business name for the admin and the payout report.
   @Column()
   name!: string;
 
-  @Column({ type: "jsonb" })
-  description!: Translations;
-
-  @Column("int", { array: true })
-  categories!: number[];
-
-  @Column("int", { array: true })
-  nominals!: number[];
-
-  @Column({ default: 12 })
-  validityMonths!: number;
-
+  // The owner's Telegram account: log-in gives this user the merchant role.
   @Column({
     type: "bigint",
     unique: true,
@@ -46,20 +28,16 @@ export class Merchant {
       from: (value: string | null) => (value == null ? value : Number(value)),
     },
   })
-  merchantTelegramId!: number;
+  telegramId!: number;
 
-  @Column({ type: "text" })
-  logo!: string;
-
-  @Column({ type: "text", unique: true })
-  slug!: string;
-
+  // false: every venue is hidden from buyers and the owner can't edit them;
+  // the cabinet and redemption keep working.
   @Column({ default: true })
   isActive!: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt!: Date;
 }

@@ -6,6 +6,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { AuthModule } from "./auth/auth.module";
 import { MerchantsModule } from "./merchants/merchants.module";
+import { VenuesModule } from "./venues/venues.module";
 import { UploadModule } from "./upload/upload.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { OrdersModule } from "./orders/orders.module";
@@ -26,6 +27,7 @@ import { buildTypeOrmOptions } from "./database/typeorm.options";
     }),
     AuthModule,
     MerchantsModule,
+    VenuesModule,
     UploadModule,
     CategoriesModule,
     OrdersModule,

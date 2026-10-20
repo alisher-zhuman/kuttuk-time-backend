@@ -29,7 +29,7 @@ export class OrdersController {
   @ApiOperation({
     summary: "Create an order and a Finik payment",
     description:
-      "**Roles:** user · merchant · admin. The amount is taken from the merchant's nominals.",
+      "**Roles:** user · merchant · admin. The amount is taken from the venue's nominals.",
   })
   @ApiCreatedResponse({
     schema: {
@@ -40,7 +40,7 @@ export class OrdersController {
       },
     },
   })
-  @ApiBadRequestResponse({ description: "Merchant unavailable or nominal not offered" })
+  @ApiBadRequestResponse({ description: "Venue unavailable or nominal not offered" })
   @ApiBadGatewayResponse({ description: "Payment provider failed; the order is expired" })
   @ApiTooManyRequestsResponse({ description: "Too many order attempts" })
   create(@Body() dto: CreateOrderDto, @GetUser() user: CurrentUser) {
@@ -60,7 +60,7 @@ export class OrdersController {
         orderId: "5e1c1f5b-0a3c-4c1b-9a59-2a1d7c8a3f10",
         status: "paid",
         amount: 1000,
-        merchantId: 9,
+        venueId: 9,
         paymentUrl: null,
         expiresAt: "2026-10-12T10:30:00.000Z",
         paidAt: "2026-10-12T10:05:12.000Z",

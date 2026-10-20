@@ -9,7 +9,7 @@ import {
 } from "../../src/orders/entities/order-resolution.entity";
 import { resolveNeedsReview, ResolveNeedsReviewError } from "../../src/orders/resolve-needs-review";
 import { openTestDataSource, truncateAll } from "../helpers/db";
-import { createMerchant, createOrder, createUser } from "../helpers/factories";
+import { createVenue, createOrder, createUser } from "../helpers/factories";
 
 const CODE = /^KT-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/;
 const PAID_AT = new Date("2026-10-20T08:30:00.000Z");
@@ -23,17 +23,17 @@ describe("resolveNeedsReview (integration)", () => {
 
   const setup = async (status = OrderStatus.NeedsReview, paidAt: Date | null = PAID_AT) => {
     const user = await createUser(ds);
-    const merchant = await createMerchant(ds, { validityMonths: 6 });
+    const venue = await createVenue(ds, { validityMonths: 6 });
     const order = await createOrder(ds, {
       userId: user.id,
-      merchantId: merchant.id,
+      venueId: venue.id,
       amount: 1000,
       status,
       paidAt,
       finikTransactionId: status === OrderStatus.Pending ? null : `txn-${Math.random()}`,
     });
 
-    return { user, merchant, order };
+    return { user, venue, order };
   };
 
   beforeAll(async () => {
@@ -50,7 +50,7 @@ describe("resolveNeedsReview (integration)", () => {
 
   describe("--issue", () => {
     it("→ paid + exactly one valid certificate; paidAt and finikTransactionId kept; trail written", async () => {
-      const { user, merchant, order } = await setup();
+      const { user, venue, order } = await setup();
 
       const result = await resolveNeedsReview(ds, {
         orderId: order.id,
@@ -78,14 +78,14 @@ describe("resolveNeedsReview (integration)", () => {
       expect(certs).toHaveLength(1);
       expect(certs[0]).toMatchObject({
         orderId: order.id,
-        merchantId: merchant.id,
+        venueId: venue.id,
         ownerUserId: user.id,
         amount: 1000,
         status: CertificateStatus.Active,
         usedAt: null, // certificates_used_at_iff_used holds
         code: result.certificate!.code,
       });
-      // Same rule as the webhook: paidAt + merchant.validityMonths.
+      // Same rule as the webhook: paidAt + venue.validityMonths.
       expect(certs[0].validUntil).toEqual(addMonths(PAID_AT, 6));
 
       expect(await resolutions().find()).toEqual([

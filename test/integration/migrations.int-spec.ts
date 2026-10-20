@@ -11,6 +11,7 @@ const MIGRATIONS = [
   "MerchantCategoryIntegrity1792043280467",
   "CertificateUsedAtInvariant1792053473835",
   "RefundedAndOrderResolutions1792486116886",
+  "SplitMerchantsAndVenues1792500000000",
 ];
 
 describe("Migrations (integration)", () => {
@@ -63,11 +64,111 @@ describe("Migrations (integration)", () => {
       expect(sql.upQueries.map((q) => q.query)).toEqual([]);
     });
 
-    it("creates prod's hand-made GIN index (kept out of TypeORM's sync)", async () => {
-      const [index] = await ds.query(
-        `SELECT indexdef FROM pg_indexes WHERE indexname = 'merchants_categories_idx'`,
+    // The split moves data, so check it on data: revert it, fill the old shape the way prod
+    // had it, apply it again. Leaves the schema migrated and the tables empty.
+    it("SplitMerchantsAndVenues: old merchants → merchant + venue with the same id, orders/certificates follow", async () => {
+      await ds.undoLastMigration();
+
+      await ds.query(`INSERT INTO users (id, "telegramId", role) VALUES (1, 7000000001, 'user')`);
+      await ds.query(`
+        INSERT INTO merchants (id, name, description, categories, nominals, "validityMonths",
+                               "merchantTelegramId", logo, slug, "isActive", "createdAt")
+        VALUES (9, 'Sierra', '{"ru":"r","kg":"k","en":"e"}', '{1}', '{500}', 6, 8000000009,
+                'https://x/a.webp', 'sierra', false, '2026-06-23 05:55:06'),
+               (10, 'Coffeeroom', '{"ru":"r","kg":"k","en":"e"}', '{}', '{10,500}', 12, 8000000010,
+                'https://x/b.webp', 'coffeeroom', true, '2026-07-01 00:00:00')`);
+      await ds.query(`SELECT setval('merchants_id_seq', 10)`);
+      await ds.query(`
+        INSERT INTO orders (id, "userId", "merchantId", amount, status, "expiresAt", "paidAt")
+        VALUES ('00000000-0000-4000-8000-000000000001', 1, 10, 500, 'paid', now(), now())`);
+      await ds.query(`
+        INSERT INTO certificates (id, code, "orderId", "merchantId", "ownerUserId", amount, "validUntil")
+        VALUES ('00000000-0000-4000-8000-000000000002', 'KT-AAAA-BBBB',
+                '00000000-0000-4000-8000-000000000001', 10, 1, 500, now() + interval '1 year')`);
+
+      await ds.runMigrations();
+
+      await expect(
+        ds.query(
+          `SELECT id, name, "telegramId"::int8::text AS tg, "isActive", "createdAt" FROM merchants ORDER BY id`,
+        ),
+      ).resolves.toEqual([
+        // Deactivation moves to the merchant; old timestamps were UTC.
+        {
+          id: 9,
+          name: "Sierra",
+          tg: "8000000009",
+          isActive: false,
+          createdAt: new Date("2026-06-23T05:55:06Z"),
+        },
+        {
+          id: 10,
+          name: "Coffeeroom",
+          tg: "8000000010",
+          isActive: true,
+          createdAt: new Date("2026-07-01T00:00:00Z"),
+        },
+      ]);
+      await expect(
+        ds.query(
+          `SELECT id, "merchantId", name, slug, nominals, "validityMonths", "isActive" FROM venues ORDER BY id`,
+        ),
+      ).resolves.toEqual([
+        {
+          id: 9,
+          merchantId: 9,
+          name: "Sierra",
+          slug: "sierra",
+          nominals: [500],
+          validityMonths: 6,
+          isActive: true,
+        },
+        {
+          id: 10,
+          merchantId: 10,
+          name: "Coffeeroom",
+          slug: "coffeeroom",
+          nominals: [10, 500],
+          validityMonths: 12,
+          isActive: true,
+        },
+      ]);
+      await expect(ds.query(`SELECT "venueId", "merchantId" FROM orders`)).resolves.toEqual([
+        { venueId: 10, merchantId: 10 },
+      ]);
+      await expect(ds.query(`SELECT "venueId" FROM certificates`)).resolves.toEqual([
+        { venueId: 10 },
+      ]);
+
+      // Both sequences continue after the moved ids.
+      const [{ m, v }] = await ds.query(
+        `SELECT nextval('merchants_id_seq')::int AS m, nextval('venues_id_seq')::int AS v`,
       );
 
+      expect([m, v]).toEqual([11, 11]);
+
+      await ds.query(`TRUNCATE certificates, orders, venues, merchants, users CASCADE`);
+    });
+
+    it("SplitMerchantsAndVenues can't be reverted once a merchant owns several venues", async () => {
+      await ds.query(`INSERT INTO merchants (id, name, "telegramId") VALUES (1, 'Chain', 1)`);
+      await ds.query(`
+        INSERT INTO venues ("merchantId", name, description, categories, nominals, logo, slug)
+        VALUES (1, 'A', '{"ru":"r","kg":"k","en":"e"}', '{}', '{500}', 'x', 'a'),
+               (1, 'B', '{"ru":"r","kg":"k","en":"e"}', '{}', '{500}', 'x', 'b')`);
+
+      await expect(ds.undoLastMigration()).rejects.toThrow(/owns several venues/);
+      await expect(ds.showMigrations()).resolves.toBe(false);
+
+      await ds.query(`TRUNCATE venues, merchants CASCADE`);
+    });
+
+    it("creates prod's hand-made GIN index (kept out of TypeORM's sync)", async () => {
+      const [index] = await ds.query(
+        `SELECT tablename, indexdef FROM pg_indexes WHERE indexname = 'venues_categories_idx'`,
+      );
+
+      expect(index.tablename).toBe("venues");
       expect(index.indexdef).toContain("USING gin (categories)");
     });
   });

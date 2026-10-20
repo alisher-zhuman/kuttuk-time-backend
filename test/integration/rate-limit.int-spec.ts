@@ -1,15 +1,15 @@
 import * as request from "supertest";
 
-import type { Merchant } from "../../src/merchants/entities/merchant.entity";
+import type { Venue } from "../../src/venues/entities/venue.entity";
 import type { User } from "../../src/users/entities/user.entity";
 import { createTestApp, type TestApp } from "../helpers/app";
-import { createMerchant, createOrder, createUser } from "../helpers/factories";
+import { createVenue, createOrder, createUser } from "../helpers/factories";
 
 // In tests every request comes from 127.0.0.1 — exactly the "everyone behind one proxy IP"
 // situation on Koyeb. Per-user limits must hold anyway.
 describe("rate limits per user (integration)", () => {
   let t: TestApp;
-  let merchant: Merchant;
+  let venue: Venue;
 
   const http = () => request(t.app.getHttpServer());
 
@@ -17,7 +17,7 @@ describe("rate limits per user (integration)", () => {
     http()
       .post("/api/orders")
       .auth(t.tokenFor(user), { type: "bearer" })
-      .send({ merchantId: merchant.id, nominal: 1000 });
+      .send({ venueId: venue.id, nominal: 1000 });
 
   const statuses = async (requests: Array<() => request.Test>) => {
     const result: number[] = [];
@@ -35,7 +35,7 @@ describe("rate limits per user (integration)", () => {
 
   beforeEach(async () => {
     await t.reset();
-    merchant = await createMerchant(t.ds);
+    venue = await createVenue(t.ds);
   });
 
   afterAll(async () => {
@@ -68,7 +68,7 @@ describe("rate limits per user (integration)", () => {
         http()
           .post("/api/orders")
           .auth(t.tokenFor(alice), { type: "bearer" })
-          .send({ merchantId: merchant.id, nominal: 1 });
+          .send({ venueId: venue.id, nominal: 1 });
 
       const result = await statuses(Array.from({ length: 11 }, () => bad));
 
@@ -90,7 +90,7 @@ describe("rate limits per user (integration)", () => {
   describe("GET /api/orders/:id — 60/min per user", () => {
     it("polling 20 times in a row (every 3 s for a minute) is fine", async () => {
       const user = await createUser(t.ds);
-      const order = await createOrder(t.ds, { userId: user.id, merchantId: merchant.id });
+      const order = await createOrder(t.ds, { userId: user.id, venueId: venue.id });
       const poll = () =>
         http().get(`/api/orders/${order.id}`).auth(t.tokenFor(user), { type: "bearer" });
 
@@ -100,7 +100,7 @@ describe("rate limits per user (integration)", () => {
     it("four buyers polling at once (80 requests from one IP, over the old shared 60) don't block each other", async () => {
       const users = await Promise.all(Array.from({ length: 4 }, () => createUser(t.ds)));
       const orders = await Promise.all(
-        users.map((user) => createOrder(t.ds, { userId: user.id, merchantId: merchant.id })),
+        users.map((user) => createOrder(t.ds, { userId: user.id, venueId: venue.id })),
       );
 
       const polls = Array.from({ length: 20 }, () =>
@@ -115,7 +115,7 @@ describe("rate limits per user (integration)", () => {
 
     it("the 61st poll of one user → 429", async () => {
       const user = await createUser(t.ds);
-      const order = await createOrder(t.ds, { userId: user.id, merchantId: merchant.id });
+      const order = await createOrder(t.ds, { userId: user.id, venueId: venue.id });
       const poll = () =>
         http().get(`/api/orders/${order.id}`).auth(t.tokenFor(user), { type: "bearer" });
 
@@ -131,7 +131,7 @@ describe("rate limits per user (integration)", () => {
       const result = await statuses(
         Array.from(
           { length: 12 },
-          () => () => http().post("/api/orders").send({ merchantId: merchant.id, nominal: 1000 }),
+          () => () => http().post("/api/orders").send({ venueId: venue.id, nominal: 1000 }),
         ),
       );
 
