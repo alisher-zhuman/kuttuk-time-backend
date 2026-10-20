@@ -34,7 +34,13 @@
 ## Окружение пользователя (macOS)
 
 - Ключи Finik: `~/.finik/` — `finik_private.pem`, `finik_public.pem`, `prod.env`, `finik_server_prod_public.pem`, beta-пара `finik_beta_*.pem`.
-- Бэкапы прода: `~/kuttuk-backups/*.dump` (`pg_dump -Fc`).
+- Бэкапы прода: `~/kuttuk-backups/*.dump` (`pg_dump -Fc`). Последний перед миграцией: `prod-20261020-1504.dump` (перед мержем #41).
+- Доступ к прод-БД: `~/.kuttuk/prod-db.env` (`chmod 600`, только `PG*`: host/port/user/password/database/sslmode). Подключать на время команды и только на чтение, значения не выводить:
+  ```bash
+  ( set -a; . ~/.kuttuk/prod-db.env; set +a; export PGOPTIONS='-c default_transaction_read_only=on'
+    /opt/homebrew/opt/libpq/bin/psql -X -P pager=off -Atc "select …" )
+  ```
+  Для `pg_dump` — то же окружение. Для скриптов (`report:payouts`, `orders:resolve-review`) — `DATABASE_*` из того же файла: `DATABASE_HOST=$PGHOST` и т.д. Прод-env целиком (Finik, Cloudinary, бот) локально **не хранится** — не нужен.
 - Прод-Postgres 18 → использовать `/opt/homebrew/opt/libpq/bin/pg_dump` и `/opt/homebrew/opt/libpq/bin/psql` (системный `pg_dump` 14 не подходит). `psql` запускать с `-P pager=off`, иначе вывод пропадает.
 - Docker Desktop нужен для `npm run test:int`; после перезагрузки бывает выключен — `open -a Docker`.
 - `gh` установлен и авторизован.
@@ -89,14 +95,15 @@ QR живёт 30 минут — это наше решение (`endDate`), не
 - HTML-страницу возврата с `tg://` не делаем — хватает 302.
 - Карточка мерчанта на 320 px (kg, название рвётся): оставляем как есть, вернуться при жалобах. Вариант на будущее — цена третьей строкой под описанием.
 
-## Текущее состояние (на момент передачи, 2026-10-20)
+## Текущее состояние (обновлено 2026-10-20)
 
-- **Бэк PR #41** (`dev → main`) **не смержен**: отчёт выплат + ручной разбор `needs_review` (скрипт `orders:resolve-review`, статус `refunded`, таблица `order_resolutions`). В нём **миграция** `RefundedAndOrderResolutions` → перед мержем `pg_dump` прода.
+- **Бэк PR #41 смержен** (`a9932df`, 2026-10-20): отчёт выплат + ручной разбор `needs_review` (скрипт `orders:resolve-review`, статус `refunded`, таблица `order_resolutions`). Бэкап перед мержем — `prod-20261020-1504.dump`. После деплоя проверено: `migrations` = 6 (`RefundedAndOrderResolutions1792486116886`), в enum есть `refunded`, API отвечает.
+- На проде `JWT_EXPIRATION=24h`, а задумано `2h` (`CLAUDE.md`) — пользователь решает, менять ли в env Koyeb.
 - **Фронт:** kg-правки сделаны (`5c82260` в `dev`, уже в проде): `merchant.fromPrice` с `{{price}}`, «жарактуу», «мекемелер», единая формулировка ошибки загрузки.
 
 ## Следующие шаги по порядку
 
-1. **Пользователь:** бэкап → мерж PR #41 → Koyeb Healthy → проверить таблицу `migrations` (должна появиться `RefundedAndOrderResolutions1792486116886`).
+1. ~~Пользователь: бэкап → мерж PR #41 → Koyeb Healthy → проверить таблицу `migrations`~~ — сделано 2026-10-20.
 2. **Фронту:** статус `refunded` на экране заказа. Сейчас `GET /orders/:id` со статусом `refunded` сломает zod-схему, поэтому сделать сразу после мержа #41 (на проде `refunded`-заказов пока нет):
    - zod-union: вариант `refunded` без `paymentUrl`/`certificate` (бэк присылает `null`, схема их отбрасывает);
    - экран «Деньги возвращены», без MainButton, с кнопкой поддержки;
@@ -125,5 +132,5 @@ QR живёт 30 минут — это наше решение (`endDate`), не
 
 ## Открытые PR
 
-- **Бэк #41** — см. «Текущее состояние».
+- **Бэк #41** — смержен 2026-10-20. Открытых PR на бэке нет.
 - **Фронт #21** (`dev → main`, 93 коммита) — по `gh pr view 21` на 2026-10-20 уже **смержен**, а не открыт. На деплой не влияет в любом случае: Vercel берёт `dev`.
