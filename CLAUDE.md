@@ -177,6 +177,8 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 - `GET /api/merchants/me` — own full profile, looked up by `merchantTelegramId`
 - `GET /api/merchants/me/certificates/:code` — look up **own** certificate by code before redeeming → `{ code, amount, status, validUntil, createdAt, usedAt? }` (effective status, `usedAt` only for `used` — same rules as `/certificates/my`). Code normalized by `normalizeCertificateCode` (`src/certificates/certificate-code.ts`). Not a code → 400; another merchant's or unknown → the same 404 (nothing leaks)
 - `POST /api/merchants/me/certificates/:code/redeem` → 200 + the certificate with `usedAt`. **One atomic `UPDATE … WHERE code AND merchantId AND status = 'active' AND validUntil > now()`** (`src/certificates/redemption.service.ts`) — concurrent taps redeem once. Otherwise **409** with `error: "already_used"` or `error: "expired"` (re-fetch the `GET` for `usedAt`), 404 as above. A **deactivated** merchant can still redeem what it sold. Only the `merchant` role (admin → 403). Default rate limit, per user
+- `GET /api/merchants/me/summary?week=YYYY-MM-DD` — weekly summary (Mon–Sun, Bishkek; any date inside the week, default — the current week) → `{ from, to, sold: { count, amount }, commission, payout, redeemed: { count, amount } }`. Sold / commission / payout come from **`paidSales()`** (`src/payouts/payouts-report.ts`) — the same function as the payout report, so the cabinet and the report can't disagree; redeemed = certificates whose `usedAt` falls in that week (whatever the sale date). Bad `week` → 400
+- `GET /api/merchants/me/certificates?status=&limit=&cursor=` — own certificates, newest first (`createdAt DESC, id DESC`), optional effective `status` (`active`/`used`/`expired`) → `{ items: [{ code, amount, status, validUntil, createdAt, usedAt? }], nextCursor }`. **Keyset pagination**: `limit` 1–100 (default 50), pass `nextCursor` back as `cursor`, `null` = last page; the cursor is opaque base64url of `createdAt|id`, so new sales never shift pages already read. Bad `status`/`limit`/`cursor` → 400. Both endpoints: `merchant` role only (`src/certificates/merchant-cabinet.*`), the merchant is looked up by `ownMerchantId` (deactivated still counts)
 - `PATCH /api/merchants/me` — update own profile (no `isActive`/`slug`/`merchantTelegramId`); 403 if deactivated (`GET /me` still works and returns `isActive`)
 
 **Merchants — admin (role: admin), raw shape, under `/api/admin/merchants`:**
@@ -258,7 +260,7 @@ The main things not yet implemented:
 
 1. **Orders module** — ✅ orders, certificates issued on payment (webhook); ✅ redemption by code (merchant API); still missing: the merchant cabinet UI
 2. **Payment integration** — Finik: ✅ payment creation + webhook (not yet tried with a real Finik webhook). Bakai / Freedom: not started
-3. **Merchant cabinet** — backend for "mark as used" ✅ (by code); still missing: the cabinet screen (frontend), weekly stats, list of active codes, QR scanning
+3. **Merchant cabinet** — backend ✅: redemption by code, weekly summary, certificate list (paginated). Frontend: redemption screen ✅; still missing: the summary + list screens, QR scanning
 4. **Weekly reports** — automatic calculation and merchant notification every Monday
 
 ---
@@ -445,7 +447,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 ### Later
 
-- [ ] **Redemption — the rest:** backend by code is done (2026-10-20). Next: the cabinet screen on the frontend; QR scanning (Telegram `qrScanner` fills the same code — no backend change); a list of the merchant's active codes; undoing a mistaken redemption stays an open question (a manual script if needed).
+- [ ] **Merchant cabinet — the rest:** backend is done (2026-10-20: redemption, `summary`, `certificates` list). Next: summary + list screens on the frontend; QR scanning (Telegram `qrScanner` fills the same code — no backend change); undoing a mistaken redemption stays an open question (a manual script if needed).
 - [ ] **Staging:** a test bot + Finik beta. Redemption was built without it — the user decided to test on prod (only he uses it; all merchants are test ones). Return to it before launch.
 - [ ] **Bot notifications** (see **Bot — messages and commands**): the code to the buyer (`requestWriteAccess` at the moment of purchase), new sale and redemption to the merchant, a reminder before a certificate expires.
 - [ ] **Merchant cabinet** (stats, active codes, redemption) and **admin for orders** incl. resolving `needs_review` (today it's the `orders:resolve-review` CLI — see the **needs_review runbook**).
