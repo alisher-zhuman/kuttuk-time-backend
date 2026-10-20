@@ -7,7 +7,7 @@ import { FinikWebhookEvent } from "../../src/finik/entities/finik-webhook-event.
 import { FinikWebhookVerifier } from "../../src/finik/finik-webhook.verifier";
 import { Order, OrderStatus } from "../../src/orders/entities/order.entity";
 import { OrdersService } from "../../src/orders/orders.service";
-import { CERTIFICATE_CODE_ATTEMPTS } from "../../src/orders/finik-webhook.service";
+import { CERTIFICATE_CODE_ATTEMPTS } from "../../src/orders/order-fulfillment";
 import { createTestApp, type TestApp } from "../helpers/app";
 import { createCertificate, createMerchant, createOrder, createUser } from "../helpers/factories";
 import { finikWebhookBody, signWebhook, WEBHOOK_PATH } from "../helpers/finik-webhook";
@@ -425,6 +425,20 @@ describe("POST /api/finik/webhook (integration)", () => {
       expect(status).toBe(OrderStatus.NeedsReview);
       expect(paidAt!.getTime()).toBeGreaterThanOrEqual(before - 1000);
       expect(paidAt!.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
+    });
+
+    it("a retry on an order already refunded by hand → 200, already_refunded, untouched", async () => {
+      const { order } = await setup({ status: OrderStatus.Refunded });
+      const body = finikWebhookBody(order);
+
+      await post(body, signWebhook(body)).expect(200);
+
+      expect((await reload(order.id)).status).toBe(OrderStatus.Refunded);
+      expect(await certificates().count()).toBe(0);
+      expect((await events().find())[0]).toMatchObject({
+        result: "already_refunded",
+        orderId: order.id,
+      });
     });
 
     it("a retry of a needs_review webhook stays a no-op", async () => {

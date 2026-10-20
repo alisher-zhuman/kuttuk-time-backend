@@ -10,6 +10,7 @@ const MIGRATIONS = [
   "FinikWebhookAndNeedsReview1791798635519",
   "MerchantCategoryIntegrity1792043280467",
   "CertificateUsedAtInvariant1792053473835",
+  "RefundedAndOrderResolutions1792486116886",
 ];
 
 describe("Migrations (integration)", () => {

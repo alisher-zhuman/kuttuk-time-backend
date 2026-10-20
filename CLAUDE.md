@@ -1,5 +1,7 @@
 # KuttukTime Backend — Context for Claude
 
+> **Прочитай [docs/workflow.md](docs/workflow.md) перед любой задачей** — роль, правила работы с пользователем и продом, окружение, текущее состояние и следующие шаги.
+
 ## Project
 
 **KuttukTime** — a Telegram Mini App (TMA) for quickly buying and gifting gift certificates from local Kyrgyzstan businesses (coffee shops, spas, restaurants, beauty salons).
@@ -22,7 +24,7 @@ Merchant payout:       -900 KGS (90%)
 Our net revenue:        +80 KGS (~8% net)
 ```
 
-**Merchant payouts:** every Monday, automatically, via Finik / Bakai / Freedom.
+**Merchant payouts:** weekly (Mon–Sun, Bishkek time). Today by hand, from `npm run report:payouts` (see **Product decisions → Payouts**); automatic payouts depend on the open money-flow question.
 
 **Forecast:**
 | Period | Merchants | Orders/week | Revenue/month |
@@ -63,6 +65,11 @@ Our net revenue:        +80 KGS (~8% net)
 - **Roles are only `user` / `merchant` / `admin`.** No separate roles (cashier, staff) — the merchant owner redeems certificates.
 - **Redemption is all-or-nothing.** No partial redemption.
 - **The merchant is paid for the sale, not for the redemption.** If the customer spends more than the nominal, they pay the difference to the merchant directly.
+- **Payouts** (decided 2026-10-20, implemented as `npm run report:payouts`, `src/payouts/payouts-report.ts`):
+  - only orders with `status = 'paid'` count, by `paidAt`; `needs_review` is **not** paid out until resolved by hand (the report lists them separately); `pending`/`expired`/`refunded` never count (`refunded` isn't listed either);
+  - the merchant gets **90%** of the order amount, the platform keeps a **10%** commission — one constant for everyone (`PLATFORM_COMMISSION_PERCENT`; a per-merchant rate may be needed later, see TODOs). Finik's ~2% fee comes out of the platform's share and isn't part of the merchant report;
+  - the period is a week, **Monday 00:00 – Sunday 23:59:59 in Asia/Bishkek**;
+  - money is whole KGS; the payout is **floored on the merchant's total for the period** and the commission is the rest, so `payout + commission = gross` exactly and the merchant loses less than 1 KGS per period (flooring each order would lose up to 1 KGS per order). With today's nominals (multiples of 10) there are no fractions at all.
 
 **Open — not decided, don't implement without discussing:**
 - Undoing a mistaken redemption.
@@ -88,6 +95,8 @@ Our net revenue:        +80 KGS (~8% net)
 - `npm test` · `npm run test:int` (needs Docker) · `npm run test:all` — see **Testing**
 - `npm run migration:generate | migration:run | migration:revert | migration:show` — TypeORM CLI (see **Migrations**)
 - `npm run finik:smoke` — manual: creates a real 1 KGS Finik payment from `.env` and prints the URL. Not for CI
+- `npm run orders:resolve-review -- --order <uuid> --issue | --refunded [--note "…"] [--by name]` — manual resolution of a `needs_review` order, see the **needs_review runbook**. Reads `DATABASE_*` from the env; refuses on a DB with pending migrations; never touches the schema
+- `npm run report:payouts -- --week 2026-10-19` (any date inside the week → that whole Mon–Sun week) or `-- --from 2026-10-19 --to 2026-10-25` (Bishkek dates, inclusive) — merchant payout report. Reads `DATABASE_*` from the env (point it at prod to get real numbers), **read-only**: every query runs in a `READ ONLY` transaction and it forces `synchronize`/migrations off whatever `DB_SYNC` says. Aggregation and week boundaries are in SQL (`date_trunc('week')`, `AT TIME ZONE 'Asia/Bishkek'`). stdout: the CSV (`merchantId,merchantName,ordersCount,gross,commission,payout` + a `TOTAL` line), then the period, the file path and the `needs_review` orders to resolve first; the CSV is also saved to `./reports/payouts-<from>_<to>.csv` (`reports/` is gitignored — it holds merchants' money)
 - `@/` path alias = `src/`
 - **Every route requires a JWT** (global `JwtGuard` + `UserThrottlerGuard` in `app.module.ts`); opt out with `@Public()`. **Guard order matters:** global guards run in registration order, and `JwtGuard` must come first so `req.user` is set when the throttler picks its key (`test/integration/rate-limit.int-spec.ts` fails if the order flips). Side effect: requests with a missing/invalid token get 401 before the throttler and aren't counted
 - Admin endpoints live in separate `admin-*.controller.ts` files under `/api/admin/*`, class-level `@UseGuards(RolesGuard) @Roles("admin")`
@@ -106,9 +115,11 @@ Our net revenue:        +80 KGS (~8% net)
 
 **Multilingual fields are always complete** (since 2026-10-15): `merchants.description` and `merchants.slug` are `NOT NULL`; CHECKs `merchants_description_langs` / `categories_name_langs` (`?& ARRAY['ru','kg','en']`) and `merchants_nominals_not_empty` (`cardinality(nominals) > 0`), declared with `@Check` in the entities so schema diffs stay clean. DTOs validate the same with `@IsTranslations()` (`src/common/validators.ts`: exactly `ru`/`kg`/`en`, non-blank strings, extra keys → 400). PATCH DTOs use `@IsOptionalNotNull()` instead of `@IsOptional()` — a field may be omitted but not `null` (null on a NOT NULL column used to be a 500). `resolveTranslation` therefore always returns a string (unknown language → `kg`); type `Translations` in `src/common/translations.ts`.
 
-**orders** — `id` (uuid, generated in the app, = Finik `PaymentId`), `userId` (FK users), `merchantId` (FK merchants), `amount` (int, KGS), `status` (`pending`/`paid`/`expired`/`needs_review`), `paymentUrl`, `expiresAt`, `paidAt`, `finikTransactionId` (unique), `createdAt`, `updatedAt`. Indexes `(userId, createdAt)`, `(status, expiresAt)`
+**orders** — `id` (uuid, generated in the app, = Finik `PaymentId`), `userId` (FK users), `merchantId` (FK merchants), `amount` (int, KGS), `status` (`pending`/`paid`/`expired`/`needs_review`/`refunded`), `paymentUrl`, `expiresAt`, `paidAt`, `finikTransactionId` (unique), `createdAt`, `updatedAt`. Indexes `(userId, createdAt)`, `(status, expiresAt)`
 
 **certificates** — `id` (uuid), `code` (unique, `KT-XXXX-XXXX`), `orderId` (FK, unique — one order = one certificate), `merchantId`, `ownerUserId`, `amount`, `status` (`active`/`used`/`expired`), `validUntil`, `usedAt` (set ⇔ `used`, CHECK `certificates_used_at_iff_used`), `createdAt`
+
+**order_resolutions** — the trail of each manual decision on a `needs_review` order: `id`, `orderId` (FK orders), `action` (`issue`/`refunded`), `fromStatus`, `toStatus`, `certificateCode` (on `issue`), `note`, `resolvedBy` (OS user or `--by`), `resolvedAt`. Written in the same transaction as the status change. Separate from `finik_webhook_events` on purpose: that table is Finik's data (every row can be re-verified against its signature, `signatureValid` means something); this one is our decision
 
 **finik_webhook_events** — audit of **every** request to the webhook, valid or not: `id`, `receivedAt`, `signatureValid`, `headers` (only `host` + `x-api-*`; the `signature` header itself is not stored), `body`, `result`, `orderId` (nullable, indexed, **no FK** so the audit row can always be written). `headers`/`body` are **`json`, not `jsonb`**: jsonb reorders keys, and nested key order is part of Finik's signature — with `json` a stored body can be re-verified later
 
@@ -186,13 +197,13 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 
 **Orders (any authenticated role):**
 - `POST /api/orders` — body `{ merchantId, nominal }` → 201 `{ orderId, paymentUrl, expiresAt }`. The amount is the nominal, checked against the merchant's **current** `nominals` (client amounts are never trusted). Merchant missing/inactive or nominal not offered → 400. Creates an order `pending` for 30 min, then calls `FinikService.createPayment`. If Finik fails (API/network/timeout) → the order goes `expired` (kept, not deleted: on a timeout Finik may still have created the payment, and a later webhook must find it) and the client gets 502 without Finik details. Rate limit 10/min **per user**
-- `GET /api/orders/:id` — for polling after payment. Only the owner; anyone else's order → 404. Non-uuid → 400. Returns `status`, `amount`, `merchantId`, `expiresAt`, `paidAt`, `paymentUrl` (only while `pending`) and `certificate: { code, validUntil }` once `paid`. Rate limit 60/min **per user** (the frontend polls every 3 s = 20/min)
+- `GET /api/orders/:id` — for polling after payment. Only the owner; anyone else's order → 404. Non-uuid → 400. Returns `status`, `amount`, `merchantId`, `expiresAt`, `paidAt`, `paymentUrl` (only while `pending`) and `certificate: { code, validUntil }` once `paid`. `status` is one of `pending` / `paid` / `expired` / `needs_review` / `refunded` and is returned as is; `paymentUrl` is non-null only for `pending`, `certificate` only for `paid` (so `needs_review` and `refunded` have both `null`). Rate limit 60/min **per user** (the frontend polls every 3 s = 20/min)
 
 **Certificates (any authenticated role):**
 - `GET /api/certificates/my` — the caller's certificates (`ownerUserId` = current user), contract agreed with the frontend (`../frontend/src/entities/certificate/model/schemas.ts`) — **don't change the shape**: `{ id, code, amount, status, validUntil, usedAt?, createdAt, merchant: { id, name, slug, logo } }`. `status` is the **effective** one (see below); `usedAt` key is present **only** for `used` (absent, not null, otherwise). Sorted in SQL: effective `active` first, then newest first (`createdAt DESC`). One query with the merchant joined (`src/certificates/certificates.service.ts`); certificates of deactivated merchants are included. Default rate limit (60/min per user). No pagination yet (see TODOs)
 
 **Statuses:**
-- Order: `pending → paid | expired | needs_review`, and `expired → paid | needs_review` (a payment can land after the QR expired — the money is taken, so it's honoured). A cron (`OrdersService.expireStale`, every minute) moves only `pending` with `expiresAt < now` to `expired` — it never touches `paid`/`needs_review`. `paid`/`needs_review` are set only by the Finik webhook. `GET /api/orders/:id` returns `needs_review` as is (no certificate, no payment URL)
+- Order: `pending → paid | expired | needs_review`, and `expired → paid | needs_review` (a payment can land after the QR expired — the money is taken, so it's honoured); then, by hand only (`orders:resolve-review`), `needs_review → paid` (+ certificate) or `needs_review → refunded`. **Terminal:** `paid` and `refunded` — the cron moves only `pending` with `expiresAt < now` to `expired` (every minute, `OrdersService.expireStale`), and the webhook never changes `paid`/`needs_review`/`refunded` (a retry → `already_<status>`). `paid`/`needs_review` come from the Finik webhook, `refunded` only from the script. `GET /api/orders/:id` returns every status as is
 - Certificate: `active → used | expired`. **Effective status is computed on read:** `active` in the DB with `validUntil < now()` is returned as `expired` — there's no cron for certificates, so the stored `active` may already be expired. **Redemption ("mark as used", not built yet) must check `validUntil`, not just `status = 'active'`**, and must set `usedAt` together with `status = 'used'` — the frontend parses the whole list with a schema that requires `usedAt` on `used`, so one `used` row without it breaks the user's entire list — the DB enforces it: CHECK `certificates_used_at_iff_used` = `(status = 'used') = ("usedAt" IS NOT NULL)`, i.e. `used` ⇔ `usedAt` set, both ways. Created only by the webhook, in the same transaction that marks the order `paid`. `validUntil = addMonths(paidAt, merchant.validityMonths)` — calendar months in UTC, clamped to the month's last day (Jan 31 + 1 → Feb 28/29; `src/common/utils/add-months.ts`). Code `KT-XXXX-XXXX` from a 32-symbol alphabet without `0/O/1/I`, `crypto.randomInt` (`src/certificates/certificate-code.ts`)
 
 **Finik webhook — `POST /api/finik/webhook`** (`src/orders/finik-webhook.{controller,service}.ts`, signature check in `src/finik/finik-webhook.verifier.ts`). Public (`@Public`), not throttled (`@SkipThrottle`), hidden from Swagger. Answers **200** = "don't retry", **401** = bad signature, **5xx** = Finik retries (up to a day).
@@ -201,20 +212,23 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
   - `invalid_signature` → 401, logged without the body
   - `order_not_found` — unknown or non-uuid `paymentId` → 200 (retrying is pointless)
   - `ignored_status: <status>` — `body.status` isn't `success`/`succeeded` (case-insensitive) → 200, order untouched
-  - `already_paid` / `already_needs_review` — duplicate delivery → 200, no-op
+  - `already_paid` / `already_needs_review` / `already_refunded` — duplicate delivery, or an order already resolved by hand → 200, no-op
   - `needs_review: amount_mismatch` — `body.amount !== order.amount` → order `needs_review`, `paidAt` + `finikTransactionId` filled, **no certificate**, error log → 200
-  - `paid` / `paid_after_expiry` — order `paid`, `paidAt = body.transactionDate` (fallback now), `finikTransactionId = body.id`; certificate issued (owner = buyer). Code collisions retried up to 5× via `INSERT … ON CONFLICT (code) DO NOTHING` (catching the error would abort the transaction)
+  - `paid` / `paid_after_expiry` — order `paid`, `paidAt = body.transactionDate` (fallback now), `finikTransactionId = body.id`; certificate issued (owner = buyer). Code collisions retried up to 5× via `INSERT … ON CONFLICT (code) DO NOTHING` (catching the error would abort the transaction). The paying + issuing itself lives in `src/orders/order-fulfillment.ts` (`lockOrder`, `payAndIssueCertificate`) — shared with the manual `--issue`, so a certificate is issued the same way either way
   - `error: <message>` — anything unexpected → everything rolled back, 500, Finik retries
 - **Audit** is written first, outside the payment transaction (`received`, then the final `result`), so it survives a rollback. To re-check a disputed webhook: take `body` + `headers` from `finik_webhook_events` and run them through `FinikWebhookVerifier.verify` with the signature from Finik.
 
-**Resolving `needs_review` by hand** (Finik took money, but not the amount we expected — usually a Finik-side or tampering issue):
-1. Find them: `SELECT o.*, e.body FROM orders o JOIN finik_webhook_events e ON e."orderId" = o.id AND e.result LIKE 'needs_review%' WHERE o.status = 'needs_review';` — compare `e.body->>'amount'` with `o.amount` and check `o."finikTransactionId"` in Finik's cabinet.
-2. Decide: **refund** through Finik (then leave the order as `needs_review`, or note it), or **honour** it — set the order to `paid` and insert the certificate by hand in one transaction (code from `generateCertificateCode()`, `validUntil` = `paidAt` + the merchant's `validityMonths`). There's no admin endpoint for this yet.
-3. A retried webhook for that order is a no-op (`already_needs_review`), so a manual fix is never overwritten.
+**needs_review runbook.** `needs_review` = a valid webhook came, but `body.amount` didn't match the order: Finik took money, **no certificate was issued**, nothing is paid out to the merchant for it.
+1. **Find them** — the weekly payout report lists them under the CSV (`npm run report:payouts -- --week <date>`), or in SQL: `SELECT o.id, o.amount, o."paidAt", o."finikTransactionId", e.body->>'amount' AS paid FROM orders o JOIN finik_webhook_events e ON e."orderId" = o.id AND e.result LIKE 'needs_review%' WHERE o.status = 'needs_review';`
+2. **Check in Finik's cabinet** the real transaction by `finikTransactionId`: the amount actually charged, and that it's one charge (not a duplicate).
+3. **Decide:**
+   - the real charge equals the order amount (the webhook's `amount` was wrong or in other units) → **`--issue`**: `npm run orders:resolve-review -- --order <id> --issue --note "Finik cabinet: 1000 KGS, txn …"`. One transaction with the order locked: `paid` + the certificate through the same code as the webhook; `paidAt` stays as recorded (falls back to now only for old rows without it). Prints the certificate code — send it to the buyer;
+   - the charge is wrong (less/more than the order, or a double charge) → return the money **outside the system** (Finik has no refund API), then **`--refunded`** with a note on how/when: `npm run orders:resolve-review -- --order <id> --refunded --note "returned 990 KGS by bank transfer 2026-10-21"`.
+4. Only `needs_review` orders are accepted — anything else is an error and nothing changes. Every run writes a row to `order_resolutions` (who, when, note, the code). A webhook retry afterwards is a no-op (`already_paid` / `already_refunded`), so a manual decision is never overwritten.
 
 **Payment RedirectUrl → back to the order.** The chain:
 1. `OrdersService` sends Finik `RedirectUrl = <public origin>/api/payments/return/<order.id>` (`paymentReturnUrl`, `src/orders/payment-redirect-url.ts`). The public origin is the origin of **`FINIK_WEBHOOK_URL`** — it already has to be our exact public URL (webhook signatures are checked against its host, and they verify on prod), so no extra env to forget on Koyeb. If the webhook ever moves to another host, the return URL moves with it.
-2. After paying, Finik sends the buyer there (through its own `/v1/redirect` hop, possibly appending a query).
+2. After paying, Finik sends the buyer there (through its own `/v1/redirect` hop). Confirmed on prod by the logs: Finik appends `?paymentId=…&status=succeeded` with a `?` regardless of an existing query — which is what broke the direct t.me link.
 3. `GET /api/payments/return/:orderId` (`src/orders/payment-return.controller.ts`) answers **302** to `paymentRedirectUrl(FINIK_REDIRECT_URL, orderId)` = `https://t.me/kuttuk_time_bot/app?startapp=order_<id>`; a non-UUID id → 302 to the bare `FINIK_REDIRECT_URL`. Whatever query Finik appends is ignored. The order is **not** looked up — the answer is the same for any UUID, so nothing is disclosed. It logs the full incoming URL (`Payment return: …`) to see what Finik appends.
 4. Telegram opens the Mini App with that start param; the frontend routes `order_<uuid>` to the order screen before any role-based redirect.
 
@@ -399,7 +413,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `PORT` | `8000` |
 | `NODE_ENV` | `production` |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,https://kuttuk-time.vercel.app` |
-| `FINIK_*` (7 vars) | **not set yet** — must be added before `dev` is merged to `main`, or prod won't start |
+| `FINIK_*` (7 vars) | set — the app doesn't start without them; payments run on prod |
 
 > `TG_BOT_USERNAME` and `TG_APP_NAME` were removed — the URL is hardcoded in the slug-redirect middleware in `src/main.ts`
 
@@ -420,20 +434,20 @@ yourapp.com/m/coffeehouse?ref=insta_ali
   2. `UPDATE merchants SET nominals = array_remove(nominals, 10) WHERE 10 = ANY(nominals);`
   3. Code: remove `10` from `VALID_NOMINALS` (`src/merchants/merchant.constants.ts`) and delete `test/integration/temp-test-nominal.int-spec.ts`. Nothing to change on the frontend — it reads the list from `GET /api/merchants/options` (frontend `0238b0b`).
   4. Already-paid 10 KGS orders/certificates are history — leave them.
-- [ ] **Confirm the payment-return fix on prod** (2026-10-20: Finik now gets our `/api/payments/return/<id>` instead of the t.me link — see **Payment RedirectUrl**). After deploy: a 10 KGS test payment, check that it ends on the order screen, and read the `Payment return: …` log line in Koyeb to see what Finik appends. If it still lands in the bot chat, the problem is past our 302 (how Telegram handles a t.me link opened from Finik's page) — then look at an HTML page with a `tg://resolve?domain=kuttuk_time_bot&appname=app&startapp=…` button instead.
 - [ ] **Double webhook on prod:** Finik delivered the same webhook again ~28 s later (its first retry), so our first 200 wasn't counted on Finik's side. Idempotency handled it (`already_paid`). Find out why — Koyeb cold start / response time over Finik's timeout? Check the two rows in `finik_webhook_events` (`receivedAt`) against Koyeb logs.
-- [ ] **Rotate leaked secrets**, and `JWT_SECRET` in any case — it's weak. Rotating `JWT_SECRET` logs everyone out (the frontend re-logs-in on 401, so it's harmless).
+- [ ] **Rotate leaked secrets** — not now (the user's decision; the risk was explained), but before launch: `JWT_SECRET` (weak in any case), the Finik keys, `BOT_TOKEN`, `CLOUDINARY_API_SECRET`, the prod DB password. Rotating `JWT_SECRET` logs everyone out (the frontend re-logs-in on 401, so it's harmless).
+- [ ] **Always-on Koyeb instance** — Hobby sleeps without traffic: cold starts, the expiry cron only ticks while awake, and a slow first response may be why Finik retried a webhook (see the double-webhook item).
 - [ ] Enable `origin: allowedOrigins` in CORS (currently `origin: true`)
-- [ ] Set `FINIK_*` on Koyeb, then merge `dev` → `main` (see **Project status**)
-- [ ] First real Finik webhook on beta: check it in `finik_webhook_events` (`signatureValid = true`); Bakai/Freedom not started
+- [ ] Bakai / Freedom not started (real Finik webhooks already verify on prod).
 
 ### Later
 
 - [ ] **Redemption** ("mark as used" by the merchant owner): check `validUntil`, not just `status`; set `usedAt` with `status = 'used'` (CHECK `certificates_used_at_iff_used`); no double redemption — see **Statuses** and **Product decisions**.
 - [ ] **Staging before redemption:** a test bot + Finik beta, so redemption and payments can be tried without prod.
 - [ ] **Bot notifications** (see **Bot — messages and commands**): the code to the buyer (`requestWriteAccess` at the moment of purchase), new sale and redemption to the merchant, a reminder before a certificate expires.
-- [ ] **Merchant cabinet** (stats, active codes, redemption) and **admin for orders** incl. resolving `needs_review` (today it's SQL by hand — see **Resolving `needs_review` by hand**).
-- [ ] **Payouts and weekly reports** — depend on the open money-flow decision (**Product decisions**).
+- [ ] **Merchant cabinet** (stats, active codes, redemption) and **admin for orders** incl. resolving `needs_review` (today it's the `orders:resolve-review` CLI — see the **needs_review runbook**).
+- [ ] **Payouts:** the weekly report exists (`npm run report:payouts`); actually paying out stays manual until the money-flow decision (**Product decisions**). Next: merchant notification of the weekly sum, an admin view instead of the CLI, and recording what was paid (today nothing marks an order as paid out).
+- [ ] **Per-merchant commission rate** — today one `PLATFORM_COMMISSION_PERCENT = 10` for everyone (the risk table already says it may drop to 7–8%). Would need a `merchants.commissionPercent` column (with the rate as of the sale, so past reports don't change).
 - [ ] `GET /api/certificates/my` has no pagination — fine at current volume (a buyer has a handful); add cursor pagination (`createdAt`, `id`) before it gets long
 - [ ] **Nest 12** — the remaining `npm audit` highs in prod deps (`multer` inside `@nestjs/platform-express`, `js-yaml`/`lodash` via `@nestjs/swagger`) are only fixed by the major upgrade.
 - [ ] **Category filter via GIN:** switch `:category = ANY(categories)` to `categories @> ARRAY[:id]` so `merchants_categories_idx` is actually used (see **Migrations**).

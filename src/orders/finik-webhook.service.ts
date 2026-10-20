@@ -4,13 +4,9 @@ import { randomUUID } from "node:crypto";
 import { DataSource, type EntityManager, Repository } from "typeorm";
 
 import { Order, OrderStatus } from "./entities/order.entity";
-import { Merchant } from "@/merchants/entities/merchant.entity";
-import { generateCertificateCode } from "@/certificates/certificate-code";
-import { addMonths } from "@/common/utils/add-months";
+import { lockOrder, payAndIssueCertificate } from "./order-fulfillment";
 import { FinikWebhookEvent } from "@/finik/entities/finik-webhook-event.entity";
 import { FinikWebhookVerifier, type IncomingWebhook } from "@/finik/finik-webhook.verifier";
-
-export const CERTIFICATE_CODE_ATTEMPTS = 5;
 
 const SUCCESS_STATUSES = new Set(["success", "succeeded"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -92,13 +88,7 @@ export class FinikWebhookService {
       return { result: "order_not_found", orderId: null };
     }
 
-    // Row lock: concurrent deliveries of the same webhook serialize here.
-    const order = await em
-      .getRepository(Order)
-      .createQueryBuilder("order")
-      .setLock("pessimistic_write")
-      .where("order.id = :id", { id: paymentId })
-      .getOne();
+    const order = await lockOrder(em, paymentId);
 
     if (!order) {
       return { result: "order_not_found", orderId: null };
@@ -110,7 +100,12 @@ export class FinikWebhookService {
       return { result: `ignored_status: ${String(body.status).slice(0, 100)}`, orderId: order.id };
     }
 
-    if (order.status === OrderStatus.Paid || order.status === OrderStatus.NeedsReview) {
+    // Terminal for the webhook: a duplicate delivery or an order already resolved by hand.
+    if (
+      order.status === OrderStatus.Paid ||
+      order.status === OrderStatus.NeedsReview ||
+      order.status === OrderStatus.Refunded
+    ) {
       return { result: `already_${order.status}`, orderId: order.id };
     }
 
@@ -132,44 +127,11 @@ export class FinikWebhookService {
     }
 
     // An expired order still gets paid: the money has already been taken.
-    await em.update(Order, order.id, { status: OrderStatus.Paid, paidAt, finikTransactionId });
-
-    const merchant = await em.findOneByOrFail(Merchant, { id: order.merchantId });
-
-    await this.issueCertificate(em, order, addMonths(paidAt, merchant.validityMonths));
+    await payAndIssueCertificate(em, order, { paidAt, finikTransactionId });
 
     return {
       result: order.status === OrderStatus.Expired ? "paid_after_expiry" : "paid",
       orderId: order.id,
     };
-  }
-
-  // ON CONFLICT instead of catching the unique violation: an error would abort the whole transaction.
-  private async issueCertificate(em: EntityManager, order: Order, validUntil: Date): Promise<void> {
-    for (let attempt = 1; attempt <= CERTIFICATE_CODE_ATTEMPTS; attempt++) {
-      const inserted: unknown[] = await em.query(
-        `INSERT INTO "certificates" ("id", "code", "orderId", "merchantId", "ownerUserId", "amount", "validUntil")
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT ("code") DO NOTHING
-         RETURNING "id"`,
-        [
-          randomUUID(),
-          generateCertificateCode(),
-          order.id,
-          order.merchantId,
-          order.userId,
-          order.amount,
-          validUntil,
-        ],
-      );
-
-      if (inserted.length > 0) {
-        return;
-      }
-    }
-
-    throw new Error(
-      `Could not generate a unique certificate code in ${CERTIFICATE_CODE_ATTEMPTS} attempts`,
-    );
   }
 }
