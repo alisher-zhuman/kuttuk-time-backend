@@ -228,7 +228,7 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 
 **Payment RedirectUrl → back to the order.** The chain:
 1. `OrdersService` sends Finik `RedirectUrl = <public origin>/api/payments/return/<order.id>` (`paymentReturnUrl`, `src/orders/payment-redirect-url.ts`). The public origin is the origin of **`FINIK_WEBHOOK_URL`** — it already has to be our exact public URL (webhook signatures are checked against its host, and they verify on prod), so no extra env to forget on Koyeb. If the webhook ever moves to another host, the return URL moves with it.
-2. After paying, Finik sends the buyer there (through its own `/v1/redirect` hop, possibly appending a query).
+2. After paying, Finik sends the buyer there (through its own `/v1/redirect` hop). Confirmed on prod by the logs: Finik appends `?paymentId=…&status=succeeded` with a `?` regardless of an existing query — which is what broke the direct t.me link.
 3. `GET /api/payments/return/:orderId` (`src/orders/payment-return.controller.ts`) answers **302** to `paymentRedirectUrl(FINIK_REDIRECT_URL, orderId)` = `https://t.me/kuttuk_time_bot/app?startapp=order_<id>`; a non-UUID id → 302 to the bare `FINIK_REDIRECT_URL`. Whatever query Finik appends is ignored. The order is **not** looked up — the answer is the same for any UUID, so nothing is disclosed. It logs the full incoming URL (`Payment return: …`) to see what Finik appends.
 4. Telegram opens the Mini App with that start param; the frontend routes `order_<uuid>` to the order screen before any role-based redirect.
 
@@ -413,7 +413,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `PORT` | `8000` |
 | `NODE_ENV` | `production` |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,https://kuttuk-time.vercel.app` |
-| `FINIK_*` (7 vars) | **not set yet** — must be added before `dev` is merged to `main`, or prod won't start |
+| `FINIK_*` (7 vars) | set — the app doesn't start without them; payments run on prod |
 
 > `TG_BOT_USERNAME` and `TG_APP_NAME` were removed — the URL is hardcoded in the slug-redirect middleware in `src/main.ts`
 
@@ -434,12 +434,11 @@ yourapp.com/m/coffeehouse?ref=insta_ali
   2. `UPDATE merchants SET nominals = array_remove(nominals, 10) WHERE 10 = ANY(nominals);`
   3. Code: remove `10` from `VALID_NOMINALS` (`src/merchants/merchant.constants.ts`) and delete `test/integration/temp-test-nominal.int-spec.ts`. Nothing to change on the frontend — it reads the list from `GET /api/merchants/options` (frontend `0238b0b`).
   4. Already-paid 10 KGS orders/certificates are history — leave them.
-- [ ] **Confirm the payment-return fix on prod** (2026-10-20: Finik now gets our `/api/payments/return/<id>` instead of the t.me link — see **Payment RedirectUrl**). After deploy: a 10 KGS test payment, check that it ends on the order screen, and read the `Payment return: …` log line in Koyeb to see what Finik appends. If it still lands in the bot chat, the problem is past our 302 (how Telegram handles a t.me link opened from Finik's page) — then look at an HTML page with a `tg://resolve?domain=kuttuk_time_bot&appname=app&startapp=…` button instead.
 - [ ] **Double webhook on prod:** Finik delivered the same webhook again ~28 s later (its first retry), so our first 200 wasn't counted on Finik's side. Idempotency handled it (`already_paid`). Find out why — Koyeb cold start / response time over Finik's timeout? Check the two rows in `finik_webhook_events` (`receivedAt`) against Koyeb logs.
-- [ ] **Rotate leaked secrets**, and `JWT_SECRET` in any case — it's weak. Rotating `JWT_SECRET` logs everyone out (the frontend re-logs-in on 401, so it's harmless).
+- [ ] **Rotate leaked secrets** — not now (the user's decision; the risk was explained), but before launch: `JWT_SECRET` (weak in any case), the Finik keys, `BOT_TOKEN`, `CLOUDINARY_API_SECRET`, the prod DB password. Rotating `JWT_SECRET` logs everyone out (the frontend re-logs-in on 401, so it's harmless).
+- [ ] **Always-on Koyeb instance** — Hobby sleeps without traffic: cold starts, the expiry cron only ticks while awake, and a slow first response may be why Finik retried a webhook (see the double-webhook item).
 - [ ] Enable `origin: allowedOrigins` in CORS (currently `origin: true`)
-- [ ] Set `FINIK_*` on Koyeb, then merge `dev` → `main` (see **Project status**)
-- [ ] First real Finik webhook on beta: check it in `finik_webhook_events` (`signatureValid = true`); Bakai/Freedom not started
+- [ ] Bakai / Freedom not started (real Finik webhooks already verify on prod).
 
 ### Later
 
