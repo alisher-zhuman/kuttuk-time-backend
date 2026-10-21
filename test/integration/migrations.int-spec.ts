@@ -16,6 +16,7 @@ const MIGRATIONS = [
   "Payouts1792570881461",
   "CertificateExpiryReminder1792574451008",
   "DigitCertificateCodes1792581780947",
+  "BotDigests1792584683240",
 ];
 
 // Revert migrations from the newest down to (and including) `name`.
