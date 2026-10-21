@@ -65,6 +65,10 @@ export class Certificate {
   @Column({ type: "timestamptz", nullable: true })
   usedAt!: Date | null;
 
+  // When the "expires soon" bot reminder was sent (claimed before sending, so at most once).
+  @Column({ type: "timestamptz", nullable: true })
+  expiryRemindedAt!: Date | null;
+
   @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;
 }

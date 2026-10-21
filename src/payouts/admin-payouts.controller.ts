@@ -48,6 +48,16 @@ export class AdminPayoutsController {
             payout: 1350,
             paidOut: 1350,
             due: 0,
+            payouts: [
+              {
+                id: "6c1d…",
+                payout: 1350,
+                ordersCount: 3,
+                note: "Mbank transfer 27.10",
+                paidBy: 4,
+                createdAt: "2026-10-27T04:00:00.000Z",
+              },
+            ],
           },
         ],
         total: {

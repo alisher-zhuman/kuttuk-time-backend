@@ -142,7 +142,7 @@ describe("merchant redemption (integration)", () => {
 
       expect(t.bot.sent[0]).toMatchObject({
         chatId: buyer.telegramId,
-        button: { text: "Написать в поддержку", url: "https://t.me/grozbytas" },
+        button: { text: "Написать в поддержку", url: "https://t.me/alisher_zh" },
       });
       expect(t.bot.sent[0].html).toMatch(
         new RegExp(

@@ -66,6 +66,7 @@ describe("GET /api/admin/payouts (integration)", () => {
           payout: 1350,
           paidOut: 0,
           due: 1350,
+          payouts: [],
         },
         {
           merchantId: solo.merchantId,
@@ -76,6 +77,7 @@ describe("GET /api/admin/payouts (integration)", () => {
           payout: 9,
           paidOut: 0,
           due: 9,
+          payouts: [],
         },
       ],
       total: { ordersCount: 3, gross: 1510, commission: 151, payout: 1359, paidOut: 0, due: 1359 },
@@ -103,7 +105,7 @@ describe("GET /api/admin/payouts (integration)", () => {
     ).body;
 
     expect(screen.merchants).toEqual(
-      csv.rows.map((row) => ({ ...row, paidOut: 0, due: row.payout })),
+      csv.rows.map((row) => ({ ...row, paidOut: 0, due: row.payout, payouts: [] })),
     );
     expect(screen.total).toMatchObject(csv.total);
     // 45 × 0.9 = 40.5 → 40, floored on the merchant's total.

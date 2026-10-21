@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
 
 import { CertificatesController } from "./certificates.controller";
 import { CertificatesService } from "./certificates.service";
@@ -7,11 +8,20 @@ import { MerchantCabinetService } from "./merchant-cabinet.service";
 import { MerchantCertificatesController } from "./merchant-certificates.controller";
 import { RedemptionService } from "./redemption.service";
 import { RedemptionNotifier } from "./redemption-notifier";
+import { ExpiryRemindersService } from "./expiry-reminders.service";
+import { finikConfig } from "@/finik/finik.config";
 import { TelegramModule } from "@/telegram/telegram.module";
 
 @Module({
-  imports: [TelegramModule],
+  // finik.redirectUrl — the Mini App link for the reminder button.
+  imports: [TelegramModule, ConfigModule.forFeature(finikConfig)],
   controllers: [CertificatesController, MerchantCertificatesController, MerchantCabinetController],
-  providers: [CertificatesService, RedemptionService, RedemptionNotifier, MerchantCabinetService],
+  providers: [
+    CertificatesService,
+    RedemptionService,
+    RedemptionNotifier,
+    MerchantCabinetService,
+    ExpiryRemindersService,
+  ],
 })
 export class CertificatesModule {}
