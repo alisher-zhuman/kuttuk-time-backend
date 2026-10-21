@@ -39,7 +39,8 @@ export interface OrderView {
   paymentUrl: string | null;
   expiresAt: Date;
   paidAt: Date | null;
-  certificate: { code: string; validUntil: Date } | null;
+  // id — for "Подарить" (POST /certificates/:id/share) straight from the order screen.
+  certificate: { id: string; code: string; validUntil: Date } | null;
 }
 
 @Injectable()
@@ -156,7 +157,7 @@ export class OrdersService {
       expiresAt: order.expiresAt,
       paidAt: order.paidAt,
       certificate: certificate
-        ? { code: certificate.code, validUntil: certificate.validUntil }
+        ? { id: certificate.id, code: certificate.code, validUntil: certificate.validUntil }
         : null,
     };
   }
