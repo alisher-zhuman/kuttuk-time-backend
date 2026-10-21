@@ -64,6 +64,8 @@ describe("GET /api/admin/payouts (integration)", () => {
           gross: 1500,
           commission: 150,
           payout: 1350,
+          paidOut: 0,
+          due: 1350,
         },
         {
           merchantId: solo.merchantId,
@@ -72,9 +74,11 @@ describe("GET /api/admin/payouts (integration)", () => {
           gross: 10,
           commission: 1,
           payout: 9,
+          paidOut: 0,
+          due: 9,
         },
       ],
-      total: { ordersCount: 3, gross: 1510, commission: 151, payout: 1359 },
+      total: { ordersCount: 3, gross: 1510, commission: 151, payout: 1359, paidOut: 0, due: 1359 },
       needsReviewCount: 1,
     });
   });
@@ -98,8 +102,10 @@ describe("GET /api/admin/payouts (integration)", () => {
         .expect(200)
     ).body;
 
-    expect(screen.merchants).toEqual(csv.rows);
-    expect(screen.total).toEqual(csv.total);
+    expect(screen.merchants).toEqual(
+      csv.rows.map((row) => ({ ...row, paidOut: 0, due: row.payout })),
+    );
+    expect(screen.total).toMatchObject(csv.total);
     // 45 × 0.9 = 40.5 → 40, floored on the merchant's total.
     expect(cabinet).toMatchObject({ payout: 40, commission: 5, sold: { count: 3, amount: 45 } });
     expect(screen.merchants[0]).toMatchObject({ payout: 40, commission: 5, gross: 45 });
@@ -120,7 +126,7 @@ describe("GET /api/admin/payouts (integration)", () => {
       from: "2026-01-05",
       to: "2026-01-11",
       merchants: [],
-      total: { ordersCount: 0, gross: 0, commission: 0, payout: 0 },
+      total: { ordersCount: 0, gross: 0, commission: 0, payout: 0, paidOut: 0, due: 0 },
       needsReviewCount: 0,
     });
   });

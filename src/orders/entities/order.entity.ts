@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -12,6 +13,7 @@ import {
 import { User } from "@/users/entities/user.entity";
 import { Merchant } from "@/merchants/entities/merchant.entity";
 import { Venue } from "@/venues/entities/venue.entity";
+import { Payout } from "@/payouts/entities/payout.entity";
 
 export enum OrderStatus {
   Pending = "pending",
@@ -24,6 +26,8 @@ export enum OrderStatus {
 }
 
 @Entity("orders")
+// Only a paid order can be paid out to the merchant.
+@Check("orders_payout_only_paid", `"payoutId" IS NULL OR "status" = 'paid'`)
 @Index(["userId", "createdAt"])
 @Index(["status", "expiresAt"])
 export class Order {
@@ -56,6 +60,14 @@ export class Order {
 
   @Column("int")
   amount!: number;
+
+  // The payout that covered this order (paid orders only); null = not paid out yet.
+  @Column({ type: "uuid", nullable: true })
+  payoutId!: string | null;
+
+  @ManyToOne(() => Payout, { onDelete: "RESTRICT" })
+  @JoinColumn({ name: "payoutId" })
+  payout?: Payout;
 
   @Column({ type: "enum", enum: OrderStatus, default: OrderStatus.Pending })
   status!: OrderStatus;

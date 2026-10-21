@@ -13,6 +13,7 @@ const MIGRATIONS = [
   "RefundedAndOrderResolutions1792486116886",
   "SplitMerchantsAndVenues1792500000000",
   "UserLanguage1792555538900",
+  "Payouts1792570881461",
 ];
 
 // Revert migrations from the newest down to (and including) `name`.

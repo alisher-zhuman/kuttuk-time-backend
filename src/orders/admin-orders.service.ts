@@ -21,6 +21,8 @@ export interface AdminOrder {
   venue: { id: number; name: string };
   merchant: { id: number; name: string };
   certificateCode?: string;
+  // The payout that covered it (paid orders, once the admin marked the week paid out).
+  payoutId?: string;
 }
 
 export interface AdminOrderDetail extends AdminOrder {
@@ -58,10 +60,11 @@ interface Row {
   merchantId: number;
   merchantName: string;
   certificateCode: string | null;
+  payoutId: string | null;
 }
 
 // merchant = orders.merchantId, the owner at the moment of the sale (the one it's paid out to).
-const SELECT = `SELECT o."id", o."amount", o."status", o."createdAt", o."paidAt",
+const SELECT = `SELECT o."id", o."amount", o."status", o."createdAt", o."paidAt", o."payoutId",
          v."id" AS "venueId", v."name" AS "venueName",
          m."id" AS "merchantId", m."name" AS "merchantName",
          c."code" AS "certificateCode"
@@ -79,6 +82,7 @@ const toItem = (row: Row): AdminOrder => ({
   venue: { id: row.venueId, name: row.venueName },
   merchant: { id: row.merchantId, name: row.merchantName },
   ...(row.certificateCode ? { certificateCode: row.certificateCode } : {}),
+  ...(row.payoutId ? { payoutId: row.payoutId } : {}),
 });
 
 const definedOnly = <T extends object>(value: T): T =>

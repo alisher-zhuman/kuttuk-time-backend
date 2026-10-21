@@ -115,6 +115,8 @@ describe("merchant cabinet (integration)", () => {
         commission: 150,
         payout: 1350,
         redeemed: { count: 2, amount: 2500 },
+        paidOut: 0,
+        due: 1350,
       });
     });
 
@@ -185,6 +187,8 @@ describe("merchant cabinet (integration)", () => {
         commission: 0,
         payout: 0,
         redeemed: { count: 0, amount: 0 },
+        paidOut: 0,
+        due: 0,
       });
     });
 

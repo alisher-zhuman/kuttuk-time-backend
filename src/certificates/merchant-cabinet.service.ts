@@ -14,6 +14,7 @@ import {
   weekOf,
   type PayoutPeriod,
 } from "@/payouts/payouts-report";
+import { payoutProgress } from "@/payouts/payout-ledger";
 
 export interface MerchantWeekSummary {
   from: string;
@@ -22,6 +23,10 @@ export interface MerchantWeekSummary {
   commission: number;
   payout: number;
   redeemed: { count: number; amount: number };
+  // Whole merchant only (absent with ?venueId= — payouts are per merchant): recorded payouts
+  // for the week, and the share of its paid orders not paid out yet.
+  paidOut?: number;
+  due?: number;
 }
 
 export interface MerchantCertificatePage {
@@ -87,6 +92,14 @@ export class MerchantCabinetService {
         [period.from, period.to, merchantId, venueId ?? null],
       );
 
+      const progress =
+        venueId === undefined
+          ? ((await payoutProgress(em, period, merchantId)).get(merchantId) ?? {
+              paidOut: 0,
+              due: 0,
+            })
+          : null;
+
       return {
         from: period.from,
         to: period.to,
@@ -94,6 +107,7 @@ export class MerchantCabinetService {
         commission: sales?.commission ?? 0,
         payout: sales?.payout ?? 0,
         redeemed: { count: redeemed.count, amount: Number(redeemed.amount) },
+        ...(progress ?? {}),
       };
     });
   }
