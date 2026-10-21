@@ -335,6 +335,8 @@ Beyond tests, verify changes by exercising the real flow, not by assuming.
 - **To the owner** (`merchants.telegramId` of `orders.merchantId`, the sale-time owner): "🎉 New sale: <venue> — <amount>", button → the Mini App. **No buyer data, no code.**
 - **Language:** `users.language` (the owner's — via a users row with the same `telegramId`, if it ever logged in); unknown → kg. HTML parse mode, user data escaped.
 - **Best-effort:** never throws, no retries, no outbox. A user who never started the bot / didn't allow messages → Telegram 403 → a `warn` in the logs, nothing else. Logs never contain the token (it's in the URL).
+- **Redemption notice (2026-10-21)** (`src/certificates/redemption-notifier.ts`, texts in `redemption-messages.ts`): after a **successful** redeem only (the request whose atomic `UPDATE` matched — 409/404 and the losers of a race send nothing), to the certificate's owner (`ownerUserId`) in their language: «✅ Сертификат KT-… в <venue> на 500 сом использован 21.10.2026 в 14:30. Если это были не вы — напишите нам», button → support (`SUPPORT_URL` in `src/telegram/links.ts`, the same as the frontend's). Not awaited, like the sale notice. The merchant gets nothing — they pressed the button themselves.
+- **Payout notice** — see `POST /api/admin/payouts`.
 - **Frontend side:** `requestWriteAccess` — the buyer at the moment of purchase, the owner from the cabinet ("notify me about sales"). Without it the bot reaches only people who started it.
 
 
@@ -486,7 +488,7 @@ Ordered by priority. (The admin «Выплаты» and «Заказы» endpoint
 
 - [ ] **QR scanning at redemption** — frontend only (Telegram `qrScanner` fills the same code, no backend change). The rest of the cabinet is done (2026-10-20/21: redemption, summary, paginated list, venues, sale notifications). Undoing a mistaken redemption stays an open question (a manual script if needed).
 - [ ] **Staging:** a test bot + Finik beta. Redemption was built without it — the user decided to test on prod (only he uses it; all merchants are test ones). Return to it before launch.
-- [ ] **Bot notifications — the rest** (sale notifications are built, see **Bot**): a redemption notice to the owner (and the buyer?), a reminder before a certificate expires, a weekly digest on Mondays.
+- [ ] **Bot notifications — the rest** (sale, redemption and payout notices are built, see **Bot**): a reminder before a certificate expires, a weekly digest on Mondays.
 - [ ] **Resolving `needs_review` from the admin** (issue / refund buttons) — after the admin orders list (built 2026-10-21) and the refund decision; today it's the `orders:resolve-review` CLI (see the **needs_review runbook**).
 - [ ] **Payouts:** the weekly report, the admin screen and **marking payouts** exist (2026-10-21; `payouts` table, `orders.payoutId`, a bot message to the owner); the transfer itself stays manual until the money-flow decision (**Product decisions**). Next: a Monday reminder/digest, undo of a mistaken mark (today SQL), merchant notification of the weekly sum, and recording what was paid (today nothing marks an order as paid out).
 - [ ] **Per-merchant commission rate** — today one `PLATFORM_COMMISSION_PERCENT = 10` for everyone (the risk table already says it may drop to 7–8%). Would need a `merchants.commissionPercent` column (with the rate as of the sale, so past reports don't change).

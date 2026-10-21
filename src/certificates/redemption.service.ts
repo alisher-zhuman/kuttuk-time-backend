@@ -10,6 +10,7 @@ import type { DataSource } from "typeorm";
 
 import { normalizeCertificateCode } from "./certificate-code";
 import { ownMerchantId } from "./own-merchant";
+import { RedemptionNotifier } from "./redemption-notifier";
 import type { EffectiveCertificateStatus } from "./certificates.service";
 
 export interface MerchantCertificate {
@@ -60,7 +61,10 @@ const toView = (row: Row): MerchantCertificate => ({
 export class RedemptionService {
   private readonly logger = new Logger(RedemptionService.name);
 
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly notifier: RedemptionNotifier,
+  ) {}
 
   async lookup(merchantTelegramId: number, rawCode: string): Promise<MerchantCertificate> {
     const code = this.parse(rawCode);
@@ -92,6 +96,8 @@ export class RedemptionService {
 
     if (rows.length > 0) {
       this.logger.log(`Certificate ${code} redeemed by merchant ${merchantId}`);
+      // Only the request whose UPDATE matched gets here, so the owner is told once.
+      void this.notifier.notifyRedeemed(code);
 
       return toView(rows[0]);
     }

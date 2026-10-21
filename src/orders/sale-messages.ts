@@ -1,18 +1,9 @@
 import type { Language } from "@/common/translations";
+import { bishkekDate } from "@/common/utils/bishkek-format";
 import { escapeHtml } from "@/telegram/telegram-bot.service";
 
 // Bot message texts. kg is the app's default (unknown language → kg). The code goes in <code>,
 // so Telegram copies it on tap.
-
-const DATE = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Asia/Bishkek",
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-});
-
-// dd.mm.yyyy in Bishkek time, the same as the app shows.
-const bishkekDate = (date: Date): string => DATE.format(date).replace(/\//g, ".");
 
 export interface BuyerSale {
   venue: string;

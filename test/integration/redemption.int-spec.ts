@@ -5,7 +5,7 @@ import type { Merchant } from "../../src/merchants/entities/merchant.entity";
 import type { Venue } from "../../src/venues/entities/venue.entity";
 import { OrderStatus } from "../../src/orders/entities/order.entity";
 import type { User } from "../../src/users/entities/user.entity";
-import { createTestApp, type TestApp } from "../helpers/app";
+import { createTestApp, waitFor, type TestApp } from "../helpers/app";
 import {
   createCertificate,
   createMerchant,
@@ -133,6 +133,43 @@ describe("merchant redemption (integration)", () => {
   });
 
   describe("POST /api/merchants/me/certificates/:code/redeem", () => {
+    it("tells the certificate's owner in the bot — once, and only on success", async () => {
+      await t.ds.query(`UPDATE users SET language = 'ru' WHERE id = $1`, [buyer.id]);
+      await issue({ code: "KT-ABCD-2345", amount: 500 });
+
+      await redeem("KT-ABCD-2345").expect(200);
+      await waitFor(() => t.bot.sent.length === 1);
+
+      expect(t.bot.sent[0]).toMatchObject({
+        chatId: buyer.telegramId,
+        button: { text: "Написать в поддержку", url: "https://t.me/grozbytas" },
+      });
+      expect(t.bot.sent[0].html).toMatch(
+        new RegExp(
+          `^✅ Сертификат <code>KT-ABCD-2345</code> в <b>${venue.name}</b> на 500 сом использован \\d\\d\\.\\d\\d\\.\\d{4} в \\d\\d:\\d\\d\\.`,
+        ),
+      );
+
+      // A second redeem (409), an expired one (409), a foreign / unknown code (404) send nothing.
+      await issue({ code: "KT-BBBB-2222", validUntil: new Date(Date.now() - 1000) });
+      await redeem("KT-ABCD-2345").expect(409);
+      await redeem("KT-BBBB-2222").expect(409);
+      await redeem("KT-ZZZZ-ZZZZ").expect(404);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      expect(t.bot.sent).toHaveLength(1);
+    });
+
+    it("10 simultaneous redeems → one bot message", async () => {
+      await issue({ code: "KT-ABCD-2345" });
+
+      await Promise.all(Array.from({ length: 10 }, () => redeem("KT-ABCD-2345")));
+      await waitFor(() => t.bot.sent.length >= 1);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      expect(t.bot.sent).toHaveLength(1);
+    });
+
     it("redeems: 200 with usedAt; stored as used with usedAt (CHECK holds)", async () => {
       await issue({ code: "KT-ABCD-2345" });
       const before = Date.now();
