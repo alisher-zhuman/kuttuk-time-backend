@@ -73,6 +73,8 @@ describe("bot notifications on a sale (integration)", () => {
       text: "Открыть сертификат",
       url: `https://t.me/kuttuk_time_bot/app?startapp=order_${order.id}`,
     });
+    // Copies exactly the code (digits, no spaces).
+    expect(toBuyer.buttons).toEqual([{ text: "Скопировать код", copyText: code }]);
 
     expect(toOwner.html).toBe("🎉 New sale: <b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b> — 1000 KGS");
     expect(toOwner.html).not.toContain(code);

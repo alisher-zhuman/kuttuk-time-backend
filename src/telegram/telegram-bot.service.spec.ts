@@ -45,6 +45,39 @@ describe("TelegramBotService", () => {
     });
   });
 
+  it("extra buttons: one per row, a copy button as copy_text", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+    await bot.send({
+      chatId: 42,
+      html: "x",
+      button: { text: "Open", url: "https://t.me/x" },
+      buttons: [{ text: "Copy code", copyText: "04718263" }],
+    });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).reply_markup).toEqual({
+      inline_keyboard: [
+        [{ text: "Open", url: "https://t.me/x" }],
+        [{ text: "Copy code", copy_text: { text: "04718263" } }],
+      ],
+    });
+  });
+
+  it("request() returns the method's result; null on an API error", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, result: { id: "p1", expiration_date: 1 } }), {
+        status: 200,
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(new Response("{}", { status: 400 }));
+
+    await expect(bot.request("savePreparedInlineMessage", {})).resolves.toEqual({
+      id: "p1",
+      expiration_date: 1,
+    });
+    await expect(bot.request("savePreparedInlineMessage", {})).resolves.toBeNull();
+  });
+
   it("403 (never started the bot) → false, a warning, no throw", async () => {
     fetchMock.mockResolvedValue(
       new Response(

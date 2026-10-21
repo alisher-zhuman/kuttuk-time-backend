@@ -70,6 +70,8 @@ export class SaleNotifier {
             text: toBuyer.button,
             url: paymentRedirectUrl(this.finik.redirectUrl, orderId),
           },
+          // Copies exactly the code (digits, no spaces) — the counter accepts it as is.
+          buttons: [{ text: toBuyer.copy, copyText: sale.code }],
         }),
         this.bot.send({
           chatId: Number(sale.ownerTelegramId),
