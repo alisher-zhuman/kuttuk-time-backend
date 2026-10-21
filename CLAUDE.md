@@ -345,6 +345,11 @@ Since there's no sign-up, the bot chat is effectively the user's only "account".
 
 **Important finding (verified by hand):** simply opening the TMA via a deep link and browsing does NOT create a persistent bot chat, even after passing Telegram's native ToS screen. The bot sticks in the user's chats only if write access is actually granted. Without it, once the TMA is closed the bot vanishes without a trace — no channel to that user remains.
 
+**From Alisher's notes (2026-10-21) — to do / to research:**
+- **`/start` is empty** — a buyer who lands in the bot chat (every sale/redemption message brings them there) sees nothing. Needs incoming updates (a bot webhook — today we only send) and a welcome reply with an "open the app" button, in the user's language.
+- **Menu / launch button text** ("Открыть" etc.) and the bot's description / short description / commands — **multilingual** (the Bot API takes a `language_code` for these).
+- **Research:** how a bot gets the **verified** checkmark (BotFather has one); what changes after **10k monthly users**; whether a bot can publish **posts or stories**; and generally which UI features a bot and its chat have (menu button, commands, inline mode, descriptions, profile "Open App") — to decide what's worth using.
+
 **Now (2 merchants in testing):**
 - The certificate code is duplicated as a bot message right after purchase (needs `requestWriteAccess` on the frontend — request it contextually, at the moment of purchase, NOT on first app open). This isn't just a "handy code backup" — it's the only moment a communication channel with the user appears at all. If they decline here too, the bot stays ephemeral for them — and that's fine, it means they didn't buy anything and there's nothing to message them about.
 - Instant merchant notification of a new sale ("🎉 Sold: Sierra Coffee, 1000 KGS") — cheap to build, strongly boosts merchant trust during the worry threshold (< 10 orders/week).
