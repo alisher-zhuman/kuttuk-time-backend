@@ -206,6 +206,10 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 **Payouts — admin (role: admin):**
 - `GET /api/admin/payouts?week=YYYY-MM-DD` — the payout report as JSON (`src/payouts/admin-payouts.*`): any date inside the week, default — the current week (Bishkek) → `{ from, to, merchants: [{ merchantId, merchantName, ordersCount, gross, commission, payout }], total: { ordersCount, gross, commission, payout }, needsReviewCount }`. **The same `buildPayoutReport()`** as `npm run report:payouts` (and `paidSales()` as the cabinet), read-only; `needsReviewCount` = the week's `needs_review` orders, not in `merchants` (resolve them first). Bad `week` → 400. No "paid out" mark yet
 
+**Orders — admin (role: admin), read-only** (`src/orders/admin-orders.*`; resolving `needs_review` stays the CLI):
+- `GET /api/admin/orders?status=&venueId=&merchantId=&search=&limit=&cursor=` — newest first (`createdAt DESC, id DESC`), keyset pages `{ items, nextCursor }` (the same `src/common/utils/keyset-page.ts` as the cabinet list). `status` ∈ pending/paid/expired/needs_review/refunded; `merchantId` = the sale-time owner (`orders.merchantId`); `search` = a certificate code (normalized like redemption) or an order uuid, anything else → 400. Item: `{ id, amount, status, createdAt, paidAt?, venue: { id, name }, merchant: { id, name }, certificateCode? }` — `paidAt` / `certificateCode` only when set
+- `GET /api/admin/orders/:id` — the item + `expiresAt`, `finikTransactionId?`, `buyer: { userId, telegramId }`, `certificate?: { code, status (effective), validUntil, usedAt? }`, `webhooks: [{ receivedAt, result, amount }]` (what Finik sent — for `needs_review` compare `amount`), `resolutions: [{ action, fromStatus, toStatus, certificateCode?, note?, resolvedBy, resolvedAt }]`. Unknown → 404, not a uuid → 400
+
 **Categories — public (any authenticated role):**
 - `GET /api/categories` — sorted by `order`, `name` resolved to one language via `Accept-Language`
 
@@ -475,13 +479,12 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 ### Later
 
-Ordered by priority — the first one is the next backend task (asked by the frontend 2026-10-21: the admin tab «Заказы» is a stub waiting for it; «Выплаты» got `GET /api/admin/payouts` on 2026-10-21).
+Ordered by priority. (The admin «Выплаты» and «Заказы» endpoints asked by the frontend are built — 2026-10-21, see **API**.)
 
-- [ ] **1. Admin orders — `GET /api/admin/orders?status=&venueId=&merchantId=&search=&cursor=`**, newest first, keyset pages `{ items, nextCursor }` like `/merchants/me/certificates`. `status` ∈ pending/paid/expired/needs_review/refunded (none = all); `search` = a certificate code (normalized like redemption) or an order uuid. Item: `{ id, amount, status, createdAt, paidAt?, venue: { id, name }, merchant: { id, name }, certificateCode? }` — status-dependent fields only when present (the frontend parses a discriminated union). `GET /api/admin/orders/:id` — the same + `finikTransactionId`, the certificate (`code, status (effective), validUntil, usedAt?`), the buyer (`userId`, `telegramId` — fine for the admin), `resolutions[]` from `order_resolutions`. **No issue / refund buttons** — that stays the `orders:resolve-review` CLI; refunds are an open product question.
 - [ ] **QR scanning at redemption** — frontend only (Telegram `qrScanner` fills the same code, no backend change). The rest of the cabinet is done (2026-10-20/21: redemption, summary, paginated list, venues, sale notifications). Undoing a mistaken redemption stays an open question (a manual script if needed).
 - [ ] **Staging:** a test bot + Finik beta. Redemption was built without it — the user decided to test on prod (only he uses it; all merchants are test ones). Return to it before launch.
 - [ ] **Bot notifications — the rest** (sale notifications are built, see **Bot**): a redemption notice to the owner (and the buyer?), a reminder before a certificate expires, a weekly digest on Mondays.
-- [ ] **Resolving `needs_review` from the admin** (issue / refund buttons) — after the admin orders list (item 1) and the refund decision; today it's the `orders:resolve-review` CLI (see the **needs_review runbook**).
+- [ ] **Resolving `needs_review` from the admin** (issue / refund buttons) — after the admin orders list (built 2026-10-21) and the refund decision; today it's the `orders:resolve-review` CLI (see the **needs_review runbook**).
 - [ ] **Payouts:** the weekly report exists (`npm run report:payouts`); actually paying out stays manual until the money-flow decision (**Product decisions**). Next: merchant notification of the weekly sum, and recording what was paid (today nothing marks an order as paid out).
 - [ ] **Per-merchant commission rate** — today one `PLATFORM_COMMISSION_PERCENT = 10` for everyone (the risk table already says it may drop to 7–8%). Would need a `merchants.commissionPercent` column (with the rate as of the sale, so past reports don't change).
 - [ ] `GET /api/certificates/my` has no pagination — fine at current volume (a buyer has a handful); add cursor pagination (`createdAt`, `id`) before it gets long

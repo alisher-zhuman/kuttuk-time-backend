@@ -3,6 +3,7 @@ import { InjectDataSource } from "@nestjs/typeorm";
 import type { DataSource, EntityManager } from "typeorm";
 
 import { ownMerchantId } from "./own-merchant";
+import { decodeCursor, pageLimit, toPage } from "@/common/utils/keyset-page";
 import type { EffectiveCertificateStatus } from "./certificates.service";
 import type { MerchantCertificate } from "./redemption.service";
 import {
@@ -29,27 +30,8 @@ export interface MerchantCertificatePage {
 }
 
 export const CABINET_STATUSES: EffectiveCertificateStatus[] = ["active", "used", "expired"];
-export const CABINET_PAGE_DEFAULT = 50;
-export const CABINET_PAGE_MAX = 100;
 
 const EFFECTIVE_STATUS = `CASE WHEN c."status" = 'active' AND c."validUntil" < now() THEN 'expired' ELSE c."status"::text END`;
-
-// Opaque to the client: "<createdAt ISO>|<id>" in base64url — keyset pagination, stable
-// under new sales (new rows land on top, never inside an already-read page).
-const encodeCursor = (createdAt: Date, id: string) =>
-  Buffer.from(`${createdAt.toISOString()}|${id}`).toString("base64url");
-
-const decodeCursor = (cursor: string): { createdAt: Date; id: string } => {
-  const [iso, id] = Buffer.from(cursor, "base64url").toString("utf8").split("|");
-  const createdAt = new Date(iso ?? "");
-  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-  if (Number.isNaN(createdAt.getTime()) || !id || !UUID.test(id)) {
-    throw new BadRequestException("Invalid cursor");
-  }
-
-  return { createdAt, id };
-};
 
 // ?venueId= must be one of the caller's venues; another merchant's looks like a missing one.
 const assertOwnVenue = async (
@@ -126,11 +108,7 @@ export class MerchantCabinetService {
       throw new BadRequestException(`status must be one of: ${CABINET_STATUSES.join(", ")}`);
     }
 
-    const limit = opts.limit ?? CABINET_PAGE_DEFAULT;
-
-    if (!Number.isInteger(limit) || limit < 1 || limit > CABINET_PAGE_MAX) {
-      throw new BadRequestException(`limit must be 1–${CABINET_PAGE_MAX}`);
-    }
+    const limit = pageLimit(opts.limit);
 
     const after = opts.cursor ? decodeCursor(opts.cursor) : null;
     const merchantId = await ownMerchantId(this.dataSource, merchantTelegramId);
@@ -172,8 +150,7 @@ export class MerchantCabinetService {
       ],
     );
 
-    const page = rows.slice(0, limit);
-    const last = page[page.length - 1];
+    const { page, nextCursor } = toPage(rows, limit);
 
     return {
       items: page.map((row) => ({
@@ -185,7 +162,7 @@ export class MerchantCabinetService {
         createdAt: row.createdAt,
         venue: { id: row.venueId, name: row.venueName },
       })),
-      nextCursor: rows.length > limit && last ? encodeCursor(last.createdAt, last.id) : null,
+      nextCursor,
     };
   }
 }
