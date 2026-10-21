@@ -345,6 +345,16 @@ Since there's no sign-up, the bot chat is effectively the user's only "account".
 
 **Important finding (verified by hand):** simply opening the TMA via a deep link and browsing does NOT create a persistent bot chat, even after passing Telegram's native ToS screen. The bot sticks in the user's chats only if write access is actually granted. Without it, once the TMA is closed the bot vanishes without a trace — no channel to that user remains.
 
+**Incoming: the bot webhook and `/start` (2026-10-21)** (`src/telegram/bot-*`):
+- `POST /api/telegram/webhook` — Telegram's updates (`allowed_updates: ["message"]`). Telegram proves itself with `X-Telegram-Bot-Api-Secret-Token` = `botWebhookSecret()` (sha256 of a label + `BOT_TOKEN`, so no extra env; rotating the token rotates it — re-run `bot:setup`); anything else → 401. Valid updates get **200 at once** and are handled after (a slow / non-2xx answer makes Telegram retry → duplicate replies). Public, not throttled, hidden from Swagger.
+- **Private chats only** (groups and other bots ignored). The bot doesn't chat: **`/start`** → a welcome (`welcomeMessage`) + a button "Открыть KuttukTime" → the Mini App; **`/start <slug>`** of a visible venue → "Открыть <venue>" → `startapp=<slug>` (the same deep link as `GET /:slug`); **anything else** → «Всё делается в приложении 👇 Вопросы — @alisher_zh» + the same button.
+- **Language** = the user's **Telegram** `language_code` (`botLanguage()`: ky → kg, en → en, anything else → **ru** — the usual Telegram UI language in Kyrgyzstan). Not the app's `users.language`: the person may never have opened the app.
+- **Menu button** (left of the input): the Bot API has one default text for everyone, so at `/start` the bot also sets **this chat's** menu button in its language (`setChatMenuButton` with `chat_id`, type `web_app`, `MINI_APP_URL`). Without `MINI_APP_URL` that step is skipped and the default stays.
+- **`npm run bot:setup [-- --dry-run]`** — one-time setup, **run by Alisher** (real Bot API calls with the prod token; reads `BOT_TOKEN`, `FINIK_WEBHOOK_URL` — its origin is our public URL — and `MINI_APP_URL`): `setWebhook` (our URL + the derived secret, `drop_pending_updates`), `setMyDescription` / `setMyShortDescription` for `ru`, `ky`, `en` and the default (ru), the default menu button «Открыть». `--dry-run` prints the calls (the secret masked). Re-run after changing texts, the URL or the token. Texts — `src/telegram/bot-texts.ts`.
+
+**From Alisher's notes (2026-10-21) — still to research:**
+- **Research:** how a bot gets the **verified** checkmark (BotFather has one); what changes after **10k monthly users**; whether a bot can publish **posts or stories**; and generally which UI features a bot and its chat have (menu button, commands, inline mode, descriptions, profile "Open App") — to decide what's worth using.
+
 **Now (2 merchants in testing):**
 - The certificate code is duplicated as a bot message right after purchase (needs `requestWriteAccess` on the frontend — request it contextually, at the moment of purchase, NOT on first app open). This isn't just a "handy code backup" — it's the only moment a communication channel with the user appears at all. If they decline here too, the bot stays ephemeral for them — and that's fine, it means they didn't buy anything and there's nothing to message them about.
 - Instant merchant notification of a new sale ("🎉 Sold: Sierra Coffee, 1000 KGS") — cheap to build, strongly boosts merchant trust during the worry threshold (< 10 orders/week).
@@ -435,6 +445,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `FINIK_PRIVATE_KEY_B64` | `...` | `base64 -i finik_private.pem \| tr -d '\n'` (`*.pem` is gitignored) |
 | `FINIK_PUBLIC_KEY_B64` | `...` | Finik's public key, base64 — for webhook verification |
 | `FINIK_WEBHOOK_URL` | `https://kuttuk-time.koyeb.app/api/finik/webhook` | sent to Finik with each payment **and** used to verify webhook signatures (host + path) — must be exactly the public URL, with `/api`. Its **origin** is also the base of the payment return URL (`/api/payments/return/<id>`) |
+| `MINI_APP_URL` | `https://kuttuk-time.vercel.app` | the Mini App's https URL — for the bot's `web_app` menu button (set per chat at `/start`, and by `bot:setup`). Optional for the app (without it the per-chat menu button is skipped); required by `bot:setup` |
 | `FINIK_REDIRECT_URL` | `https://t.me/kuttuk_time_bot/app` | the Mini App link our return endpoint 302s to, with `?startapp=order_<uuid>` added (see **Payment RedirectUrl**). Not sent to Finik any more |
 
 ### Prod (Koyeb) — current list
@@ -458,6 +469,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `NODE_ENV` | `production` |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,https://kuttuk-time.vercel.app` |
 | `FINIK_*` (7 vars) | set — the app doesn't start without them; payments run on prod |
+| `MINI_APP_URL` | **to add** — `https://kuttuk-time.vercel.app` (bot menu button) |
 
 > `TG_BOT_USERNAME` and `TG_APP_NAME` were removed — the URL is hardcoded in the slug-redirect middleware in `src/main.ts`
 
