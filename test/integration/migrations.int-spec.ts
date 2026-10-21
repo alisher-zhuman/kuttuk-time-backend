@@ -12,7 +12,21 @@ const MIGRATIONS = [
   "CertificateUsedAtInvariant1792053473835",
   "RefundedAndOrderResolutions1792486116886",
   "SplitMerchantsAndVenues1792500000000",
+  "UserLanguage1792555538900",
 ];
+
+// Revert migrations from the newest down to (and including) `name`.
+const undoDownTo = async (ds: DataSource, name: string) => {
+  for (const later of MIGRATIONS.slice(MIGRATIONS.indexOf(name)).reverse()) {
+    const [last] = await ds.query(`SELECT name FROM migrations ORDER BY id DESC LIMIT 1`);
+
+    if (last.name !== later) {
+      throw new Error(`expected ${later} to be the last applied migration, got ${last.name}`);
+    }
+
+    await ds.undoLastMigration();
+  }
+};
 
 describe("Migrations (integration)", () => {
   describe("on an empty database", () => {
@@ -67,7 +81,7 @@ describe("Migrations (integration)", () => {
     // The split moves data, so check it on data: revert it, fill the old shape the way prod
     // had it, apply it again. Leaves the schema migrated and the tables empty.
     it("SplitMerchantsAndVenues: old merchants → merchant + venue with the same id, orders/certificates follow", async () => {
-      await ds.undoLastMigration();
+      await undoDownTo(ds, "SplitMerchantsAndVenues1792500000000");
 
       await ds.query(`INSERT INTO users (id, "telegramId", role) VALUES (1, 7000000001, 'user')`);
       await ds.query(`
@@ -157,7 +171,11 @@ describe("Migrations (integration)", () => {
         VALUES (1, 'A', '{"ru":"r","kg":"k","en":"e"}', '{}', '{500}', 'x', 'a'),
                (1, 'B', '{"ru":"r","kg":"k","en":"e"}', '{}', '{500}', 'x', 'b')`);
 
-      await expect(ds.undoLastMigration()).rejects.toThrow(/owns several venues/);
+      await expect(undoDownTo(ds, "SplitMerchantsAndVenues1792500000000")).rejects.toThrow(
+        /owns several venues/,
+      );
+      // The split itself stayed; only the later migrations were reverted — re-apply them.
+      await ds.runMigrations();
       await expect(ds.showMigrations()).resolves.toBe(false);
 
       await ds.query(`TRUNCATE venues, merchants CASCADE`);

@@ -16,6 +16,8 @@ import { Order, OrderStatus } from "./entities/order.entity";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { Certificate } from "@/certificates/entities/certificate.entity";
 import { Venue } from "@/venues/entities/venue.entity";
+import { User } from "@/users/entities/user.entity";
+import type { Language } from "@/common/translations";
 import { FinikService } from "@/finik/finik.service";
 import { finikConfig } from "@/finik/finik.config";
 import { paymentReturnUrl } from "./payment-redirect-url";
@@ -52,7 +54,12 @@ export class OrdersService {
     @Inject(finikConfig.KEY) private readonly finik: ConfigType<typeof finikConfig>,
   ) {}
 
-  async create(userId: number, dto: CreateOrderDto): Promise<CreatedOrder> {
+  // language: the app's language at purchase — the bot sends the certificate code in it.
+  async create(
+    userId: number,
+    dto: CreateOrderDto,
+    language: Language | null = null,
+  ): Promise<CreatedOrder> {
     const venue = await this.venueRepo.findOne({
       where: { id: dto.venueId },
       relations: { merchant: true },
@@ -66,6 +73,10 @@ export class OrdersService {
     // The amount always comes from the venue's current nominals, never from the client.
     if (!venue.nominals.includes(dto.nominal)) {
       throw new BadRequestException("Nominal is not available for this venue");
+    }
+
+    if (language) {
+      await this.orderRepo.manager.update(User, userId, { language });
     }
 
     const order = await this.orderRepo.save(
