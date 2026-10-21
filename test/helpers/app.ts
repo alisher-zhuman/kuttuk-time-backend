@@ -54,10 +54,20 @@ export class FakeTelegramBot {
     return this.deliver;
   }
 
+  // What request() returns (e.g. savePreparedInlineMessage's PreparedInlineMessage); null = failed.
+  requestResult: unknown = { id: "prepared-1", expiration_date: 1_800_000_000 };
+
+  async request(method: string, payload: Record<string, unknown>): Promise<unknown> {
+    this.calls.push({ method, payload });
+
+    return this.deliver ? this.requestResult : null;
+  }
+
   reset(): void {
     this.sent = [];
     this.calls = [];
     this.deliver = true;
+    this.requestResult = { id: "prepared-1", expiration_date: 1_800_000_000 };
   }
 }
 
