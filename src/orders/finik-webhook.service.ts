@@ -5,6 +5,7 @@ import { DataSource, type EntityManager, Repository } from "typeorm";
 
 import { Order, OrderStatus } from "./entities/order.entity";
 import { lockOrder, payAndIssueCertificate } from "./order-fulfillment";
+import { SaleNotifier } from "./sale-notifier";
 import { FinikWebhookEvent } from "@/finik/entities/finik-webhook-event.entity";
 import { FinikWebhookVerifier, type IncomingWebhook } from "@/finik/finik-webhook.verifier";
 
@@ -41,6 +42,7 @@ export class FinikWebhookService {
     @InjectDataSource() private readonly dataSource: DataSource,
     @InjectRepository(FinikWebhookEvent)
     private readonly eventRepo: Repository<FinikWebhookEvent>,
+    private readonly saleNotifier: SaleNotifier,
   ) {}
 
   async handle(webhook: IncomingWebhook): Promise<void> {
@@ -78,6 +80,12 @@ export class FinikWebhookService {
     await this.eventRepo.update(event.id, outcome);
 
     this.logger.log(`Finik webhook ${event.id}: ${outcome.result} order=${outcome.orderId ?? "-"}`);
+
+    // Only on the transition to paid (committed above), so a retried delivery (already_paid)
+    // never sends twice. Not awaited: Finik's answer mustn't wait on Telegram.
+    if (outcome.orderId && (outcome.result === "paid" || outcome.result === "paid_after_expiry")) {
+      void this.saleNotifier.notifyPaid(outcome.orderId);
+    }
   }
 
   private async apply(em: EntityManager, rawBody: unknown): Promise<Outcome> {

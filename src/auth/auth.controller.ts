@@ -1,9 +1,10 @@
-import { Controller, Post, Body, HttpCode } from "@nestjs/common";
+import { Controller, Post, Body, HttpCode, Headers } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiOkResponse, ApiUnauthorizedResponse } from "@nestjs/swagger";
 
 import { AuthService } from "./auth.service";
 import { LogInDto } from "./dtos/log-in.dto";
 import { Public } from "./public.decorator";
+import { toLanguage } from "@/common/translations";
 
 @ApiTags("Auth")
 @Controller("auth")
@@ -31,7 +32,10 @@ export class AuthController {
       example: { statusCode: 401, message: "Invalid initData signature", error: "Unauthorized" },
     },
   })
-  logIn(@Body() logInDto: LogInDto): Promise<{ accessToken: string; role: string }> {
-    return this.authService.logIn(logInDto.initData);
+  logIn(
+    @Body() logInDto: LogInDto,
+    @Headers("accept-language") acceptLanguage?: string,
+  ): Promise<{ accessToken: string; role: string }> {
+    return this.authService.logIn(logInDto.initData, toLanguage(acceptLanguage));
   }
 }

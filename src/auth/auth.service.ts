@@ -5,6 +5,8 @@ import { JwtService } from "@nestjs/jwt";
 import { createHmac, timingSafeEqual } from "crypto";
 import { User } from "../users/entities/user.entity";
 import { Merchant } from "../merchants/entities/merchant.entity";
+import type { Language } from "@/common/translations";
+import { botToken } from "@/telegram/bot-token";
 
 // Telegram doesn't refresh initData while the Mini App stays open, and the
 // frontend re-logs-in with the same string on 401 — so this must outlast a
@@ -12,10 +14,6 @@ import { Merchant } from "../merchants/entities/merchant.entity";
 const INIT_DATA_MAX_AGE_SEC = 24 * 60 * 60;
 // Tolerate small clock drift between Telegram and our server.
 const INIT_DATA_MAX_FUTURE_SKEW_SEC = 60;
-
-// With an empty BOT_TOKEN the HMAC key would be HMAC("WebAppData", "") — public knowledge, so
-// anyone could forge initData for any telegramId (incl. an admin). Fail closed instead.
-const botToken = (): string | null => process.env.BOT_TOKEN?.trim() || null;
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -37,7 +35,11 @@ export class AuthService implements OnModuleInit {
     }
   }
 
-  async logIn(initData: string): Promise<{ accessToken: string; role: string }> {
+  // language: the app's current language (Accept-Language), remembered for bot messages.
+  async logIn(
+    initData: string,
+    language: Language | null = null,
+  ): Promise<{ accessToken: string; role: string }> {
     const telegramId = this.verifyInitData(initData);
 
     let user = await this.userRepository.findOne({ where: { telegramId } });
@@ -48,11 +50,22 @@ export class AuthService implements OnModuleInit {
 
     if (!user) {
       const role = merchant ? "merchant" : "user";
-      user = this.userRepository.create({ telegramId, role });
+      user = this.userRepository.create({ telegramId, role, language });
       user = await this.userRepository.save(user);
-    } else if (merchant && user.role === "user") {
-      user.role = "merchant";
-      await this.userRepository.save(user);
+    } else {
+      const promote = merchant && user.role === "user";
+      const relang = language !== null && language !== user.language;
+
+      if (promote || relang) {
+        await this.userRepository.update(user.id, {
+          ...(promote ? { role: "merchant" as const } : {}),
+          ...(relang ? { language } : {}),
+        });
+
+        if (promote) {
+          user.role = "merchant";
+        }
+      }
     }
 
     const payload = {
@@ -71,6 +84,8 @@ export class AuthService implements OnModuleInit {
   private verifyInitData(initData: string): number {
     const token = botToken();
 
+    // With an empty BOT_TOKEN the HMAC key would be HMAC("WebAppData", "") — public knowledge, so
+    // anyone could forge initData for any telegramId (incl. an admin). Fail closed instead.
     if (!token) {
       this.logger.error("Log-in refused: BOT_TOKEN is not set");
 

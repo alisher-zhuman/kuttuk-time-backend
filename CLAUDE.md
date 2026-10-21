@@ -113,7 +113,7 @@ Our net revenue:        +80 KGS (~8% net)
 
 ## Database (current entities)
 
-**users** — `id`, `telegramId` (unique, **bigint** — Telegram IDs exceed int4), `role` (user/merchant/admin), `createdAt`
+**users** — `id`, `telegramId` (unique, **bigint** — Telegram IDs exceed int4), `role` (user/merchant/admin), `language` (`ru`/`kg`/`en` or null, CHECK `users_language_valid` — the app language last seen: set from `Accept-Language` at log-in and at `POST /api/orders`; used for bot messages, null → kg), `createdAt`
 
 **merchants** — the business account: `id`, `name` (business name — admin, payout report), `telegramId` (the owner, unique, **bigint**), `isActive`, `createdAt`, `updatedAt` (timestamptz)
 
@@ -317,7 +317,16 @@ Beyond tests, verify changes by exercising the real flow, not by assuming.
 
 ---
 
-## Bot — messages and commands (future ideas)
+## Bot — messages (built) and commands (future ideas)
+
+**Built (2026-10-21): sale notifications** (`src/orders/sale-notifier.ts`, texts in `src/orders/sale-messages.ts`, sending in `src/telegram/telegram-bot.service.ts` — plain `fetch` to the Bot API with `BOT_TOKEN`, no library):
+- **When:** after the Finik webhook commits `paid` / `paid_after_expiry` — only on that transition, so a retried delivery (`already_paid`) never sends twice; `needs_review` / `--issue` by hand send nothing (the runbook says to send the code by hand). **Not awaited** — Finik's answer never waits on Telegram.
+- **To the buyer** (`orders.userId`): venue, amount, the code in `<code>` (copied on tap), valid until (dd.mm.yyyy, Bishkek), button "Open certificate" → `t.me/…/app?startapp=order_<id>`.
+- **To the owner** (`merchants.telegramId` of `orders.merchantId`, the sale-time owner): "🎉 New sale: <venue> — <amount>", button → the Mini App. **No buyer data, no code.**
+- **Language:** `users.language` (the owner's — via a users row with the same `telegramId`, if it ever logged in); unknown → kg. HTML parse mode, user data escaped.
+- **Best-effort:** never throws, no retries, no outbox. A user who never started the bot / didn't allow messages → Telegram 403 → a `warn` in the logs, nothing else. Logs never contain the token (it's in the URL).
+- **Frontend side:** `requestWriteAccess` — the buyer at the moment of purchase, the owner from the cabinet ("notify me about sales"). Without it the bot reaches only people who started it.
+
 
 Since there's no sign-up, the bot chat is effectively the user's only "account". Organized by roadmap phase.
 
@@ -465,7 +474,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 - [ ] **Merchant cabinet — the rest:** backend is done (2026-10-20: redemption, `summary`, `certificates` list). Next: summary + list screens on the frontend; QR scanning (Telegram `qrScanner` fills the same code — no backend change); undoing a mistaken redemption stays an open question (a manual script if needed).
 - [ ] **Staging:** a test bot + Finik beta. Redemption was built without it — the user decided to test on prod (only he uses it; all merchants are test ones). Return to it before launch.
-- [ ] **Bot notifications** (see **Bot — messages and commands**): the code to the buyer (`requestWriteAccess` at the moment of purchase), new sale and redemption to the merchant, a reminder before a certificate expires.
+- [ ] **Bot notifications — the rest** (sale notifications are built, see **Bot**): a redemption notice to the owner (and the buyer?), a reminder before a certificate expires, a weekly digest on Mondays.
 - [ ] **Merchant cabinet** (stats, active codes, redemption) and **admin for orders** incl. resolving `needs_review` (today it's the `orders:resolve-review` CLI — see the **needs_review runbook**).
 - [ ] **Payouts:** the weekly report exists (`npm run report:payouts`); actually paying out stays manual until the money-flow decision (**Product decisions**). Next: merchant notification of the weekly sum, an admin view instead of the CLI, and recording what was paid (today nothing marks an order as paid out).
 - [ ] **Per-merchant commission rate** — today one `PLATFORM_COMMISSION_PERCENT = 10` for everyone (the risk table already says it may drop to 7–8%). Would need a `merchants.commissionPercent` column (with the rate as of the sale, so past reports don't change).

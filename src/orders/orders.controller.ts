@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post } from "@nestjs/common";
 import {
   ApiBadGatewayResponse,
   ApiBadRequestResponse,
@@ -16,6 +16,7 @@ import { OrdersService } from "./orders.service";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { GetUser } from "@/auth/get-user.decorator";
 import { CurrentUser } from "@/auth/interfaces/current-user.interface";
+import { toLanguage } from "@/common/translations";
 
 @ApiTags("Orders")
 @ApiBearerAuth()
@@ -43,8 +44,12 @@ export class OrdersController {
   @ApiBadRequestResponse({ description: "Venue unavailable or nominal not offered" })
   @ApiBadGatewayResponse({ description: "Payment provider failed; the order is expired" })
   @ApiTooManyRequestsResponse({ description: "Too many order attempts" })
-  create(@Body() dto: CreateOrderDto, @GetUser() user: CurrentUser) {
-    return this.ordersService.create(user.userId, dto);
+  create(
+    @Body() dto: CreateOrderDto,
+    @GetUser() user: CurrentUser,
+    @Headers("accept-language") acceptLanguage?: string,
+  ) {
+    return this.ordersService.create(user.userId, dto, toLanguage(acceptLanguage));
   }
 
   @Get(":id")
