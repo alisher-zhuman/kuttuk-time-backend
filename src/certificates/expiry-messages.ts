@@ -1,5 +1,6 @@
 import type { Language } from "@/common/translations";
 import { bishkekDate } from "@/common/utils/bishkek-format";
+import { formatCertificateCode } from "@/certificates/certificate-code";
 import { escapeHtml } from "@/telegram/telegram-bot.service";
 
 // "Expires soon" reminder to the certificate's owner.
@@ -8,7 +9,7 @@ export const expiryMessage = (
   c: { venue: string; amount: number; code: string; validUntil: Date },
 ): { html: string; button: string } => {
   const venue = `<b>${escapeHtml(c.venue)}</b>`;
-  const code = `<code>${escapeHtml(c.code)}</code>`;
+  const code = `<code>${formatCertificateCode(c.code)}</code>`;
   const until = bishkekDate(c.validUntil);
 
   switch (lang) {

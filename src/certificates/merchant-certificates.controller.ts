@@ -17,7 +17,7 @@ import { Roles } from "@/auth/roles.decorator";
 import { RolesGuard } from "@/auth/roles.guard";
 
 const EXAMPLE = {
-  code: "KT-7F3A-9B2C",
+  code: "04718263",
   amount: 1000,
   status: "active",
   validUntil: "2027-10-20T10:05:12.000Z",
@@ -38,7 +38,7 @@ export class MerchantCertificatesController {
   @ApiOperation({
     summary: "Look up own certificate by code (before redeeming)",
     description:
-      "**Roles:** `merchant`. Any of your venues' certificates (`venue` says which). Code in any case/spacing, `KT` prefix optional, Cyrillic look-alikes accepted. `status` is effective (`active` past `validUntil` → `expired`); `usedAt` only for `used`.",
+      "**Roles:** `merchant`. Any of your venues' certificates (`venue` says which). Code = 8 digits, spaces / dashes ignored (`0471 8263`). `status` is effective (`active` past `validUntil` → `expired`); `usedAt` only for `used`.",
   })
   @ApiOkResponse({ schema: { example: EXAMPLE } })
   @ApiBadRequestResponse({ description: "Not a certificate code" })

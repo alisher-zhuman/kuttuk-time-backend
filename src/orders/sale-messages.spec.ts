@@ -4,7 +4,7 @@ import { buyerMessage, ownerMessage } from "./sale-messages";
 const SALE = {
   venue: "Café <Ali> & Co",
   amount: 1000,
-  code: "KT-ABCD-2345",
+  code: "12345678",
   // 20:00 UTC = 02:00 the next day in Bishkek.
   validUntil: new Date("2027-10-20T20:00:00Z"),
 };
@@ -15,7 +15,7 @@ describe("sale messages", () => {
     (lang) => {
       const { html, button } = buyerMessage(lang, SALE);
 
-      expect(html).toContain("<code>KT-ABCD-2345</code>");
+      expect(html).toContain("<code>1234 5678</code>");
       expect(html).toContain("1000");
       expect(html).toContain("21.10.2027");
       expect(html).toContain("<b>Café &lt;Ali&gt; &amp; Co</b>");
@@ -28,7 +28,7 @@ describe("sale messages", () => {
 
     expect(html).toContain("<b>Café &lt;Ali&gt; &amp; Co</b>");
     expect(html).toContain("1000");
-    expect(html).not.toContain("KT-");
+    expect(html).not.toContain("1234");
   });
 });
 

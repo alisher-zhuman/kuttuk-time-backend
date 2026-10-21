@@ -121,7 +121,7 @@ export class RedemptionService {
     const code = normalizeCertificateCode(rawCode);
 
     if (!code) {
-      throw new BadRequestException("Invalid certificate code format (expected KT-XXXX-XXXX)");
+      throw new BadRequestException("Invalid certificate code format (expected 8 digits)");
     }
 
     return code;

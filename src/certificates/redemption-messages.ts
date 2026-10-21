@@ -1,5 +1,6 @@
 import type { Language } from "@/common/translations";
 import { bishkekDate, bishkekTime } from "@/common/utils/bishkek-format";
+import { formatCertificateCode } from "@/certificates/certificate-code";
 import { escapeHtml } from "@/telegram/telegram-bot.service";
 
 // To the certificate's owner right after it was redeemed: if it wasn't them, they know at once.
@@ -8,7 +9,7 @@ export const redeemedMessage = (
   r: { venue: string; amount: number; code: string; usedAt: Date },
 ): { html: string; button: string } => {
   const venue = `<b>${escapeHtml(r.venue)}</b>`;
-  const code = `<code>${escapeHtml(r.code)}</code>`;
+  const code = `<code>${formatCertificateCode(r.code)}</code>`;
   const date = bishkekDate(r.usedAt);
   const time = bishkekTime(r.usedAt);
 

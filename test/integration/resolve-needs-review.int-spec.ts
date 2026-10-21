@@ -11,7 +11,7 @@ import { resolveNeedsReview, ResolveNeedsReviewError } from "../../src/orders/re
 import { openTestDataSource, truncateAll } from "../helpers/db";
 import { createVenue, createOrder, createUser } from "../helpers/factories";
 
-const CODE = /^KT-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/;
+const CODE = /^[0-9]{8}$/;
 const PAID_AT = new Date("2026-10-20T08:30:00.000Z");
 
 describe("resolveNeedsReview (integration)", () => {

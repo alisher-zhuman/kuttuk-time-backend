@@ -232,7 +232,7 @@ describe("OrdersService", () => {
       const validUntil = new Date("2027-10-12T10:05:00.000Z");
 
       orderRepo.findOne.mockResolvedValue(order({ status: OrderStatus.Paid, paidAt }));
-      certificateRepo.findOne.mockResolvedValue({ code: "KT-7F3A-9B2C", validUntil });
+      certificateRepo.findOne.mockResolvedValue({ code: "04718263", validUntil });
 
       const view = await service.findOwn(USER_ID, order().id);
 
@@ -240,7 +240,7 @@ describe("OrdersService", () => {
         status: "paid",
         paidAt,
         paymentUrl: null,
-        certificate: { code: "KT-7F3A-9B2C", validUntil },
+        certificate: { code: "04718263", validUntil },
       });
     });
 

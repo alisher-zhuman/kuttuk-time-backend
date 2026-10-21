@@ -1,5 +1,6 @@
 import * as request from "supertest";
 
+import { formatCertificateCode } from "../../src/certificates/certificate-code";
 import { User } from "../../src/users/entities/user.entity";
 import type { Order } from "../../src/orders/entities/order.entity";
 import { createTestApp, waitFor, type TestApp } from "../helpers/app";
@@ -64,7 +65,7 @@ describe("bot notifications on a sale (integration)", () => {
     const toBuyer = t.bot.sent.find((m) => m.chatId === buyer.telegramId)!;
     const toOwner = t.bot.sent.find((m) => m.chatId === merchant.telegramId)!;
 
-    expect(toBuyer.html).toContain(`Код: <code>${code}</code>`);
+    expect(toBuyer.html).toContain(`Код: <code>${formatCertificateCode(code)}</code>`);
     expect(toBuyer.html).toContain("<b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b> на 1000 сом");
     // validUntil = paidAt (2027-08-31 12:00 UTC) + 12 months, shown in Bishkek time.
     expect(toBuyer.html).toContain("Действует до 31.08.2028");

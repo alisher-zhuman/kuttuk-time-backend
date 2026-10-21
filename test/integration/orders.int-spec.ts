@@ -215,7 +215,7 @@ describe("Orders API (integration)", () => {
         orderId: order.id,
         venueId: venue.id,
         ownerUserId: user.id,
-        code: "KT-ABCD-2345",
+        code: "12345678",
       });
 
       const res = await http()
@@ -226,7 +226,7 @@ describe("Orders API (integration)", () => {
       expect(res.body).toMatchObject({
         status: "paid",
         paymentUrl: null,
-        certificate: { code: "KT-ABCD-2345" },
+        certificate: { code: "12345678" },
       });
     });
 

@@ -23,6 +23,8 @@ export enum CertificateStatus {
 // used ⇔ usedAt is set. The frontend parses GET /certificates/my with a schema that requires
 // usedAt on used, so a used row without it would break the whole list.
 @Check("certificates_used_at_iff_used", `("status" = 'used') = ("usedAt" IS NOT NULL)`)
+// 8 digits, no spaces (see certificate-code.ts) — the only format since 2026-10-21.
+@Check("certificates_code_format", `"code" ~ '^[0-9]{8}$'`)
 export class Certificate {
   @PrimaryColumn("uuid")
   id!: string;

@@ -1,5 +1,6 @@
 import type { Language } from "@/common/translations";
 import { bishkekDate } from "@/common/utils/bishkek-format";
+import { formatCertificateCode } from "@/certificates/certificate-code";
 import { escapeHtml } from "@/telegram/telegram-bot.service";
 
 // Bot message texts. kg is the app's default (unknown language → kg). The code goes in <code>,
@@ -14,7 +15,7 @@ export interface BuyerSale {
 
 export const buyerMessage = (lang: Language, sale: BuyerSale): { html: string; button: string } => {
   const venue = `<b>${escapeHtml(sale.venue)}</b>`;
-  const code = `<code>${escapeHtml(sale.code)}</code>`;
+  const code = `<code>${formatCertificateCode(sale.code)}</code>`;
   const until = bishkekDate(sale.validUntil);
 
   switch (lang) {
