@@ -140,10 +140,31 @@ describe("marking payouts (integration)", () => {
 
     expect(await rowOf()).toMatchObject({ payout: 1350, paidOut: 900, due: 450 });
 
-    const topUp = await mark().expect(201);
+    const topUp = await mark({ note: "top-up" }).expect(201);
 
     expect(topUp.body).toMatchObject({ ordersCount: 1, gross: 500, payout: 450 });
-    expect(await rowOf()).toMatchObject({ paidOut: 1350, due: 0 });
+
+    const row = await rowOf();
+
+    expect(row).toMatchObject({ paidOut: 1350, due: 0 });
+    // The week's history for the admin: both payouts, oldest first, the note only where given.
+    expect(row.payouts).toEqual([
+      {
+        id: expect.any(String),
+        payout: 900,
+        ordersCount: 1,
+        paidBy: admin.id,
+        createdAt: expect.any(String),
+      },
+      {
+        id: topUp.body.id,
+        payout: 450,
+        ordersCount: 1,
+        note: "top-up",
+        paidBy: admin.id,
+        createdAt: expect.any(String),
+      },
+    ]);
   });
 
   it("covers only this merchant's paid orders of this week", async () => {

@@ -4,7 +4,13 @@ import { InjectDataSource } from "@nestjs/typeorm";
 import type { DataSource } from "typeorm";
 
 import type { MarkPaidOutDto } from "./dto/mark-paid-out.dto";
-import { markPaidOut, NothingToPayOutError, payoutProgress } from "./payout-ledger";
+import {
+  markPaidOut,
+  NothingToPayOutError,
+  payoutProgress,
+  weekPayouts,
+  type RecordedPayoutItem,
+} from "./payout-ledger";
 import { payoutMessage } from "./payout-messages";
 import {
   buildPayoutReport,
@@ -24,7 +30,8 @@ type Progress = { paidOut: number; due: number };
 export interface AdminWeekPayouts {
   from: string;
   to: string;
-  merchants: Array<MerchantPayout & Progress>;
+  // payouts — what was recorded for the week (with the admin's note), oldest first.
+  merchants: Array<MerchantPayout & Progress & { payouts: RecordedPayoutItem[] }>;
   total: PayoutReport["total"] & Progress;
   // needs_review orders of the week — not in `merchants`, resolve them before paying out.
   needsReviewCount: number;
@@ -60,10 +67,15 @@ export class AdminPayoutsService {
   async week(week?: string): Promise<AdminWeekPayouts> {
     const period = await this.period(week);
     const report = await buildPayoutReport(this.dataSource, period);
-    const progress = await readOnly(this.dataSource, (em) => payoutProgress(em, period));
+    // Sequential: one transaction = one connection, no concurrent queries on it.
+    const { progress, payouts } = await readOnly(this.dataSource, async (em) => ({
+      progress: await payoutProgress(em, period),
+      payouts: await weekPayouts(em, period),
+    }));
     const merchants = report.rows.map((row) => ({
       ...row,
       ...(progress.get(row.merchantId) ?? { paidOut: 0, due: 0 }),
+      payouts: payouts.get(row.merchantId) ?? [],
     }));
 
     return {

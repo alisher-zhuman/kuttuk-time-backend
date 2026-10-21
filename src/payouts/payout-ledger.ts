@@ -52,6 +52,39 @@ export const payoutProgress = async (
   );
 };
 
+export interface RecordedPayoutItem {
+  id: string;
+  payout: number;
+  ordersCount: number;
+  note?: string;
+  paidBy: number;
+  createdAt: Date;
+}
+
+// The payouts recorded for the week, per merchant, oldest first (a top-up comes after the first).
+export const weekPayouts = async (
+  em: EntityManager,
+  period: PayoutPeriod,
+): Promise<Map<number, RecordedPayoutItem[]>> => {
+  const rows: Array<RecordedPayoutItem & { merchantId: number; note: string | null }> =
+    await em.query(
+      `SELECT "id", "merchantId", "payout", "ordersCount", "note", "paidBy", "createdAt"
+         FROM "payouts" WHERE "periodFrom" = $1::date AND "periodTo" = $2::date
+        ORDER BY "createdAt", "id"`,
+      [period.from, period.to],
+    );
+  const byMerchant = new Map<number, RecordedPayoutItem[]>();
+
+  for (const { merchantId, note, ...payout } of rows) {
+    byMerchant.set(merchantId, [
+      ...(byMerchant.get(merchantId) ?? []),
+      { ...payout, ...(note ? { note } : {}) },
+    ]);
+  }
+
+  return byMerchant;
+};
+
 // Record that the merchant was paid for its not-yet-paid-out orders of the week. The amount is
 // computed here from those orders — never taken from the client. The orders are locked, so two
 // simultaneous marks can't both cover them: the second finds nothing left → NothingToPayOutError.
