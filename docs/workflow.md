@@ -35,6 +35,7 @@
 
 - Ключи Finik: `~/.finik/` — `finik_private.pem`, `finik_public.pem`, `prod.env`, `finik_server_prod_public.pem`, beta-пара `finik_beta_*.pem`.
 - Бэкапы прода: `~/kuttuk-backups/*.dump` (`pg_dump -Fc`). Последний перед миграцией: `prod-20261020-1504.dump` (перед мержем #41).
+- **Все прод-переменные Koyeb:** `~/.kuttuk/prod.env` (`chmod 600`, вне репозитория, сохранено 2026-10-21 по просьбе пользователя из его сообщения от 2026-10-20; `JWT_EXPIRATION` = `2h`, как на Koyeb; добавлен `MINI_APP_URL`). Для скриптов с прод-окружением, например `bot:setup`: `( set -a; . ~/.kuttuk/prod.env; set +a; npm run bot:setup -- --dry-run )`. Значения не выводить. Если пользователь сменит секреты на Koyeb — обновить и этот файл.
 - Доступ к прод-БД: `~/.kuttuk/prod-db.env` (`chmod 600`, только `PG*`: host/port/user/password/database/sslmode). Подключать на время команды и только на чтение, значения не выводить:
   ```bash
   ( set -a; . ~/.kuttuk/prod-db.env; set +a; export PGOPTIONS='-c default_transaction_read_only=on'
