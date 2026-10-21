@@ -1,16 +1,19 @@
 import * as fc from "fast-check";
 
-import { CERTIFICATE_CODE_ALPHABET, generateCertificateCode } from "./certificate-code";
+import {
+  CERTIFICATE_CODE_PATTERN,
+  formatCertificateCode,
+  generateCertificateCode,
+  normalizeCertificateCode,
+} from "./certificate-code";
 
-const CODE = /^KT-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/;
-
-describe("generateCertificateCode (property-based)", () => {
-  it("maps any 8 indices in [0, 32) to KT-XXXX-XXXX, symbol by symbol", () => {
+describe("certificate code (property-based)", () => {
+  it("maps any 8 digits in [0, 10) to the code, digit by digit", () => {
     fc.assert(
       fc.property(
-        fc.array(fc.integer({ min: 0, max: 31 }), { minLength: 8, maxLength: 8 }),
-        (indices) => {
-          const queue = [...indices];
+        fc.array(fc.integer({ min: 0, max: 9 }), { minLength: 8, maxLength: 8 }),
+        (digits) => {
+          const queue = [...digits];
           const maxes: number[] = [];
 
           const code = generateCertificateCode((max) => {
@@ -19,24 +22,38 @@ describe("generateCertificateCode (property-based)", () => {
             return queue.shift()!;
           });
 
-          const symbols = indices.map((i) => CERTIFICATE_CODE_ALPHABET[i]).join("");
-
-          expect(code).toBe(`KT-${symbols.slice(0, 4)}-${symbols.slice(4)}`);
-          expect(code).toMatch(CODE);
-          expect(code).not.toMatch(/[0O1I]/);
-          // Always asks for an index over the full 32-symbol alphabet.
-          expect(maxes).toEqual(Array(8).fill(32));
+          expect(code).toBe(digits.join(""));
+          expect(code).toMatch(CERTIFICATE_CODE_PATTERN);
+          // Always asks for a digit over the full 0–9 range.
+          expect(maxes).toEqual(Array(8).fill(10));
         },
       ),
       { numRuns: 2000 },
     );
   });
 
-  it("with the real crypto.randomInt: every code matches the format", () => {
+  it("with the real crypto.randomInt: every code matches the format, leading zeros kept", () => {
     fc.assert(
       fc.property(fc.constant(null), () => {
-        expect(generateCertificateCode()).toMatch(CODE);
+        expect(generateCertificateCode()).toMatch(CERTIFICATE_CODE_PATTERN);
       }),
+      { numRuns: 2000 },
+    );
+  });
+
+  it("normalize(format(code)) = code, and any spaces / dashes between digits are fine", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 0, max: 9 }), { minLength: 8, maxLength: 8 }),
+        fc.array(fc.constantFrom("", " ", "-", "  "), { minLength: 9, maxLength: 9 }),
+        (digits, gaps) => {
+          const code = digits.join("");
+          const typed = digits.map((d, i) => `${gaps[i]}${d}`).join("") + gaps[8];
+
+          expect(normalizeCertificateCode(formatCertificateCode(code))).toBe(code);
+          expect(normalizeCertificateCode(typed)).toBe(code);
+        },
+      ),
       { numRuns: 2000 },
     );
   });

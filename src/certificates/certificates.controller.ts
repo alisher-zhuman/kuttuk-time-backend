@@ -29,7 +29,7 @@ export class CertificatesController {
       example: [
         {
           id: "0b6f7c3e-2a51-4c1e-9d3e-7d2f1b8a4c10",
-          code: "KT-7F3A-9B2C",
+          code: "04718263",
           amount: 1000,
           status: "active",
           validUntil: "2027-10-15T10:05:12.000Z",

@@ -39,7 +39,7 @@ describe("GET /api/certificates/my (integration)", () => {
       orderId: order.id,
       venueId: venue.id,
       ownerUserId: owner.id,
-      code: `KT-TEST-${String(++codeSeq).padStart(4, "2")}`,
+      code: String(30_000_000 + ++codeSeq),
       validUntil: future(),
       ...rest,
     });

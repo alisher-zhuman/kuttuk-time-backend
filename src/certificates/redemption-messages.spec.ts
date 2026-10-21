@@ -6,7 +6,7 @@ describe("redeemedMessage", () => {
   const used = {
     venue: "Café <Ali> & Co",
     amount: 500,
-    code: "KT-ABCD-2345",
+    code: "12345678",
     usedAt: new Date("2026-10-21T08:30:00Z"),
   };
 
@@ -15,7 +15,7 @@ describe("redeemedMessage", () => {
     (lang) => {
       const { html, button } = redeemedMessage(lang, used);
 
-      expect(html).toContain("<code>KT-ABCD-2345</code>");
+      expect(html).toContain("<code>1234 5678</code>");
       expect(html).toContain("<b>Café &lt;Ali&gt; &amp; Co</b>");
       expect(html).toContain("500");
       expect(html).toContain("21.10.2026");

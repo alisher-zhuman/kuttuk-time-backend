@@ -38,12 +38,12 @@ describe("certificates DB constraints (integration)", () => {
   });
 
   it("rejects a duplicate code", async () => {
-    await createCertificate(ds, { ...base, orderId: orderIds[0], code: "KT-AAAA-2222" });
+    await createCertificate(ds, { ...base, orderId: orderIds[0], code: "11112222" });
 
     const error = await createCertificate(ds, {
       ...base,
       orderId: orderIds[1],
-      code: "KT-AAAA-2222",
+      code: "11112222",
     }).catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(QueryFailedError);
@@ -51,12 +51,12 @@ describe("certificates DB constraints (integration)", () => {
   });
 
   it("rejects a second certificate for the same order", async () => {
-    await createCertificate(ds, { ...base, orderId: orderIds[0], code: "KT-AAAA-2222" });
+    await createCertificate(ds, { ...base, orderId: orderIds[0], code: "11112222" });
 
     const error = await createCertificate(ds, {
       ...base,
       orderId: orderIds[0],
-      code: "KT-BBBB-3333",
+      code: "22223333",
     }).catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(QueryFailedError);
@@ -64,9 +64,9 @@ describe("certificates DB constraints (integration)", () => {
   });
 
   it("accepts distinct codes on distinct orders", async () => {
-    await createCertificate(ds, { ...base, orderId: orderIds[0], code: "KT-AAAA-2222" });
+    await createCertificate(ds, { ...base, orderId: orderIds[0], code: "11112222" });
     await expect(
-      createCertificate(ds, { ...base, orderId: orderIds[1], code: "KT-BBBB-3333" }),
+      createCertificate(ds, { ...base, orderId: orderIds[1], code: "22223333" }),
     ).resolves.toBeDefined();
   });
 
@@ -82,7 +82,7 @@ describe("certificates DB constraints (integration)", () => {
       createCertificate(ds, {
         ...base,
         orderId: orderIds[0],
-        code: "KT-USED-2222",
+        code: "55552222",
         status,
         usedAt,
       }).catch((e: unknown) => e);
@@ -110,7 +110,7 @@ describe("certificates DB constraints (integration)", () => {
       const cert = await createCertificate(ds, {
         ...base,
         orderId: orderIds[0],
-        code: "KT-UPDT-2222",
+        code: "66662222",
       });
 
       const error = await ds

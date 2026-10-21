@@ -31,7 +31,7 @@ const ITEM_EXAMPLE = {
   paidAt: "2026-10-21T04:30:39.612Z",
   venue: { id: 10, name: "Coffeeroom" },
   merchant: { id: 10, name: "Coffeeroom" },
-  certificateCode: "KT-JNV5-AWAE",
+  certificateCode: "52930186",
 };
 
 // Read-only. Resolving needs_review (issue / refund) stays `npm run orders:resolve-review`.
@@ -52,7 +52,7 @@ export class AdminOrdersController {
   @ApiQuery({ name: "status", required: false, enum: Object.values(OrderStatus) })
   @ApiQuery({ name: "venueId", required: false, example: 10 })
   @ApiQuery({ name: "merchantId", required: false, example: 10 })
-  @ApiQuery({ name: "search", required: false, example: "KT-JNV5-AWAE" })
+  @ApiQuery({ name: "search", required: false, example: "52930186" })
   @ApiQuery({ name: "limit", required: false, example: 50 })
   @ApiQuery({ name: "cursor", required: false })
   @ApiOkResponse({ schema: { example: { items: [ITEM_EXAMPLE], nextCursor: null } } })
@@ -83,7 +83,7 @@ export class AdminOrdersController {
         finikTransactionId: "320259584_5e1c1f5b-…_DEBIT",
         buyer: { userId: 2, telegramId: 953745973 },
         certificate: {
-          code: "KT-JNV5-AWAE",
+          code: "52930186",
           status: "active",
           validUntil: "2027-10-21T04:30:39.612Z",
         },

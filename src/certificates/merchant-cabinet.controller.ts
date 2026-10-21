@@ -73,7 +73,7 @@ export class MerchantCabinetController {
       example: {
         items: [
           {
-            code: "KT-7F3A-9B2C",
+            code: "04718263",
             amount: 1000,
             status: "active",
             validUntil: "2027-10-20T10:05:12.000Z",

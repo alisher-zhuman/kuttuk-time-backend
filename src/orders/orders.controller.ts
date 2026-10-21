@@ -69,7 +69,7 @@ export class OrdersController {
         paymentUrl: null,
         expiresAt: "2026-10-12T10:30:00.000Z",
         paidAt: "2026-10-12T10:05:12.000Z",
-        certificate: { code: "KT-7F3A-9B2C", validUntil: "2027-10-12T10:05:12.000Z" },
+        certificate: { code: "04718263", validUntil: "2027-10-12T10:05:12.000Z" },
       },
     },
   })

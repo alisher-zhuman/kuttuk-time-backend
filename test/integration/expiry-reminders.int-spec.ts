@@ -2,6 +2,7 @@ import {
   CertificateStatus,
   type Certificate,
 } from "../../src/certificates/entities/certificate.entity";
+import { formatCertificateCode } from "../../src/certificates/certificate-code";
 import { ExpiryRemindersService } from "../../src/certificates/expiry-reminders.service";
 import { OrderStatus } from "../../src/orders/entities/order.entity";
 import type { User } from "../../src/users/entities/user.entity";
@@ -36,7 +37,7 @@ describe("expiry reminders (integration)", () => {
       venueId: venue.id,
       ownerUserId: buyer.id,
       amount: 500,
-      code: `KT-AAAA-${"BCDEFGHJKLMN"[n % 12].repeat(4)}`,
+      code: String(20_000_000 + n),
       validUntil,
       ...fields,
     });
@@ -67,7 +68,7 @@ describe("expiry reminders (integration)", () => {
     expect(t.bot.sent).toHaveLength(1);
     expect(t.bot.sent[0]).toMatchObject({
       chatId: buyer.telegramId,
-      html: `⏳ Сертификат <code>${soon.code}</code> в <b>Coffeeroom</b> на 500 сом действует до 27.10.2026.\n\nНе забудьте воспользоваться.`,
+      html: `⏳ Сертификат <code>${formatCertificateCode(soon.code)}</code> в <b>Coffeeroom</b> на 500 сом действует до 27.10.2026.\n\nНе забудьте воспользоваться.`,
       button: {
         text: "Открыть сертификат",
         url: `https://t.me/kuttuk_time_bot/app?startapp=order_${soon.orderId}`,

@@ -15,6 +15,7 @@ const MIGRATIONS = [
   "UserLanguage1792555538900",
   "Payouts1792570881461",
   "CertificateExpiryReminder1792574451008",
+  "DigitCertificateCodes1792581780947",
 ];
 
 // Revert migrations from the newest down to (and including) `name`.
@@ -99,7 +100,7 @@ describe("Migrations (integration)", () => {
         VALUES ('00000000-0000-4000-8000-000000000001', 1, 10, 500, 'paid', now(), now())`);
       await ds.query(`
         INSERT INTO certificates (id, code, "orderId", "merchantId", "ownerUserId", amount, "validUntil")
-        VALUES ('00000000-0000-4000-8000-000000000002', 'KT-AAAA-BBBB',
+        VALUES ('00000000-0000-4000-8000-000000000002', '11114444',
                 '00000000-0000-4000-8000-000000000001', 10, 1, 500, now() + interval '1 year')`);
 
       await ds.runMigrations();
@@ -181,6 +182,45 @@ describe("Migrations (integration)", () => {
       await expect(ds.showMigrations()).resolves.toBe(false);
 
       await ds.query(`TRUNCATE venues, merchants CASCADE`);
+    });
+
+    it("DigitCertificateCodes: old KT-XXXX-XXXX codes get unique 8-digit ones, then only digits are accepted", async () => {
+      await undoDownTo(ds, "DigitCertificateCodes1792581780947");
+
+      await ds.query(`INSERT INTO users (id, "telegramId", role) VALUES (1, 7000000001, 'user')`);
+      await ds.query(`INSERT INTO merchants (id, name, "telegramId") VALUES (1, 'M', 1)`);
+      await ds.query(`
+        INSERT INTO venues (id, "merchantId", name, description, categories, nominals, logo, slug)
+        VALUES (1, 1, 'V', '{"ru":"r","kg":"k","en":"e"}', '{}', '{500}', 'x', 'v')`);
+
+      for (const [i, code] of ["KT-AAAA-BBBB", "KT-CCCC-DDDD", "04718263"].entries()) {
+        const orderId = `00000000-0000-4000-8000-00000000000${i}`;
+
+        await ds.query(
+          `INSERT INTO orders (id, "userId", "venueId", "merchantId", amount, status, "expiresAt", "paidAt")
+           VALUES ($1, 1, 1, 1, 500, 'paid', now(), now())`,
+          [orderId],
+        );
+        await ds.query(
+          `INSERT INTO certificates (id, code, "orderId", "venueId", "ownerUserId", amount, "validUntil")
+           VALUES (gen_random_uuid(), $1, $2, 1, 1, 500, now() + interval '1 year')`,
+          [code, orderId],
+        );
+      }
+
+      await ds.runMigrations();
+
+      const codes: Array<{ code: string }> = await ds.query(`SELECT code FROM certificates`);
+
+      expect(codes.every(({ code }) => /^[0-9]{8}$/.test(code))).toBe(true);
+      expect(new Set(codes.map(({ code }) => code)).size).toBe(3);
+      // An already-digit code is left as it was.
+      expect(codes.map(({ code }) => code)).toContain("04718263");
+      await expect(
+        ds.query(`UPDATE certificates SET code = 'KT-AAAA-BBBB' WHERE code = '04718263'`),
+      ).rejects.toMatchObject({ constraint: "certificates_code_format" });
+
+      await ds.query(`TRUNCATE certificates, orders, venues, merchants, users CASCADE`);
     });
 
     it("creates prod's hand-made GIN index (kept out of TypeORM's sync)", async () => {

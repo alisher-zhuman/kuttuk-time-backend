@@ -12,7 +12,7 @@ import { createTestApp, type TestApp } from "../helpers/app";
 import { createCertificate, createVenue, createOrder, createUser } from "../helpers/factories";
 import { finikWebhookBody, signWebhook, WEBHOOK_PATH } from "../helpers/finik-webhook";
 
-const CODE = /^KT-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/;
+const CODE = /^[0-9]{8}$/;
 
 describe("POST /api/finik/webhook (integration)", () => {
   let t: TestApp;
@@ -465,22 +465,20 @@ describe("POST /api/finik/webhook (integration)", () => {
         orderId: other.id,
         venueId: venue.id,
         ownerUserId: user.id,
-        code: "KT-TAKN-2222",
+        code: "33332222",
       });
 
       jest
         .spyOn(certificateCode, "generateCertificateCode")
-        .mockReturnValueOnce("KT-TAKN-2222")
-        .mockReturnValueOnce("KT-TAKN-2222")
-        .mockReturnValueOnce("KT-FREE-3333");
+        .mockReturnValueOnce("33332222")
+        .mockReturnValueOnce("33332222")
+        .mockReturnValueOnce("44443333");
 
       const body = finikWebhookBody(order);
 
       await post(body, signWebhook(body)).expect(200);
 
-      expect((await certificates().findOneByOrFail({ orderId: order.id })).code).toBe(
-        "KT-FREE-3333",
-      );
+      expect((await certificates().findOneByOrFail({ orderId: order.id })).code).toBe("44443333");
     });
 
     it(`gives up after ${CERTIFICATE_CODE_ATTEMPTS} taken codes: 500, everything rolled back, audit kept`, async () => {
@@ -491,12 +489,12 @@ describe("POST /api/finik/webhook (integration)", () => {
         orderId: other.id,
         venueId: venue.id,
         ownerUserId: user.id,
-        code: "KT-TAKN-2222",
+        code: "33332222",
       });
 
       const spy = jest
         .spyOn(certificateCode, "generateCertificateCode")
-        .mockReturnValue("KT-TAKN-2222");
+        .mockReturnValue("33332222");
 
       const body = finikWebhookBody(order);
 

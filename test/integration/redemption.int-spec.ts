@@ -69,12 +69,12 @@ describe("merchant redemption (integration)", () => {
 
   describe("GET /api/merchants/me/certificates/:code", () => {
     it("shows an active certificate — no usedAt key", async () => {
-      const cert = await issue({ code: "KT-ABCD-2345", amount: 2000 });
+      const cert = await issue({ code: "12345678", amount: 2000 });
 
-      const res = await lookup("KT-ABCD-2345").expect(200);
+      const res = await lookup("12345678").expect(200);
 
       expect(res.body).toEqual({
-        code: "KT-ABCD-2345",
+        code: "12345678",
         amount: 2000,
         status: "active",
         validUntil: cert.validUntil.toISOString(),
@@ -84,25 +84,25 @@ describe("merchant redemption (integration)", () => {
       expect(res.body).not.toHaveProperty("usedAt");
     });
 
-    it.each(["kt-abcd-2345", "ABCD2345", " KT ABCD 2345 ", "кт-авсд-2345".replace("д", "D")])(
+    it.each(["1234 5678", "1234-5678", " 1234  5678 ", "12345678"])(
       "normalizes %p",
       async (input) => {
-        await issue({ code: "KT-ABCD-2345" });
+        await issue({ code: "12345678" });
 
-        expect((await lookup(input).expect(200)).body.code).toBe("KT-ABCD-2345");
+        expect((await lookup(input).expect(200)).body.code).toBe("12345678");
       },
     );
 
     it("effective status: active past validUntil → expired; used → usedAt", async () => {
-      await issue({ code: "KT-AAAA-2222", validUntil: new Date(Date.now() - DAY) });
+      await issue({ code: "11112222", validUntil: new Date(Date.now() - DAY) });
       await issue({
-        code: "KT-BBBB-2222",
+        code: "22222222",
         status: CertificateStatus.Used,
         usedAt: new Date("2026-10-19T10:00:00Z"),
       });
 
-      expect((await lookup("KT-AAAA-2222").expect(200)).body).toMatchObject({ status: "expired" });
-      expect((await lookup("KT-BBBB-2222").expect(200)).body).toMatchObject({
+      expect((await lookup("11112222").expect(200)).body).toMatchObject({ status: "expired" });
+      expect((await lookup("22222222").expect(200)).body).toMatchObject({
         status: "used",
         usedAt: "2026-10-19T10:00:00.000Z",
       });
@@ -111,10 +111,10 @@ describe("merchant redemption (integration)", () => {
     it("another merchant's certificate is a plain 404, same as a missing one", async () => {
       const other = await createVenue(t.ds); // another merchant's venue
 
-      await issue({ code: "KT-OTHR-2345".replace("O", "Q") }, other);
+      await issue({ code: "77772345" }, other);
 
-      const foreign = await lookup("KT-QTHR-2345").expect(404);
-      const missing = await lookup("KT-ZZZZ-2345").expect(404);
+      const foreign = await lookup("77772345").expect(404);
+      const missing = await lookup("99992345").expect(404);
 
       expect(foreign.body).toEqual(missing.body);
     });
@@ -125,19 +125,19 @@ describe("merchant redemption (integration)", () => {
     });
 
     it("403 for a buyer, 401 without a token", async () => {
-      await issue({ code: "KT-ABCD-2345" });
+      await issue({ code: "12345678" });
 
-      await lookup("KT-ABCD-2345", buyer).expect(403);
-      await http().get("/api/merchants/me/certificates/KT-ABCD-2345").expect(401);
+      await lookup("12345678", buyer).expect(403);
+      await http().get("/api/merchants/me/certificates/12345678").expect(401);
     });
   });
 
   describe("POST /api/merchants/me/certificates/:code/redeem", () => {
     it("tells the certificate's owner in the bot — once, and only on success", async () => {
       await t.ds.query(`UPDATE users SET language = 'ru' WHERE id = $1`, [buyer.id]);
-      await issue({ code: "KT-ABCD-2345", amount: 500 });
+      await issue({ code: "12345678", amount: 500 });
 
-      await redeem("KT-ABCD-2345").expect(200);
+      await redeem("12345678").expect(200);
       await waitFor(() => t.bot.sent.length === 1);
 
       expect(t.bot.sent[0]).toMatchObject({
@@ -146,24 +146,24 @@ describe("merchant redemption (integration)", () => {
       });
       expect(t.bot.sent[0].html).toMatch(
         new RegExp(
-          `^✅ Сертификат <code>KT-ABCD-2345</code> в <b>${venue.name}</b> на 500 сом использован \\d\\d\\.\\d\\d\\.\\d{4} в \\d\\d:\\d\\d\\.`,
+          `^✅ Сертификат <code>1234 5678</code> в <b>${venue.name}</b> на 500 сом использован \\d\\d\\.\\d\\d\\.\\d{4} в \\d\\d:\\d\\d\\.`,
         ),
       );
 
       // A second redeem (409), an expired one (409), a foreign / unknown code (404) send nothing.
-      await issue({ code: "KT-BBBB-2222", validUntil: new Date(Date.now() - 1000) });
-      await redeem("KT-ABCD-2345").expect(409);
-      await redeem("KT-BBBB-2222").expect(409);
-      await redeem("KT-ZZZZ-ZZZZ").expect(404);
+      await issue({ code: "22222222", validUntil: new Date(Date.now() - 1000) });
+      await redeem("12345678").expect(409);
+      await redeem("22222222").expect(409);
+      await redeem("99999999").expect(404);
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       expect(t.bot.sent).toHaveLength(1);
     });
 
     it("10 simultaneous redeems → one bot message", async () => {
-      await issue({ code: "KT-ABCD-2345" });
+      await issue({ code: "12345678" });
 
-      await Promise.all(Array.from({ length: 10 }, () => redeem("KT-ABCD-2345")));
+      await Promise.all(Array.from({ length: 10 }, () => redeem("12345678")));
       await waitFor(() => t.bot.sent.length >= 1);
       await new Promise((resolve) => setTimeout(resolve, 200));
 
@@ -171,70 +171,70 @@ describe("merchant redemption (integration)", () => {
     });
 
     it("redeems: 200 with usedAt; stored as used with usedAt (CHECK holds)", async () => {
-      await issue({ code: "KT-ABCD-2345" });
+      await issue({ code: "12345678" });
       const before = Date.now();
 
-      const res = await redeem("kt abcd 2345").expect(200);
+      const res = await redeem("1234 5678").expect(200);
 
-      expect(res.body).toMatchObject({ code: "KT-ABCD-2345", status: "used" });
+      expect(res.body).toMatchObject({ code: "12345678", status: "used" });
       expect(new Date(res.body.usedAt).getTime()).toBeGreaterThanOrEqual(before - 1000);
 
-      const cert = await stored("KT-ABCD-2345");
+      const cert = await stored("12345678");
 
       expect(cert.status).toBe(CertificateStatus.Used);
       expect(cert.usedAt).not.toBeNull();
     });
 
     it("a second redeem → 409 already_used, usedAt unchanged", async () => {
-      await issue({ code: "KT-ABCD-2345" });
-      await redeem("KT-ABCD-2345").expect(200);
-      const { usedAt } = await stored("KT-ABCD-2345");
+      await issue({ code: "12345678" });
+      await redeem("12345678").expect(200);
+      const { usedAt } = await stored("12345678");
 
-      const res = await redeem("KT-ABCD-2345").expect(409);
+      const res = await redeem("12345678").expect(409);
 
       expect(res.body).toMatchObject({ statusCode: 409, error: "already_used" });
-      expect((await stored("KT-ABCD-2345")).usedAt).toEqual(usedAt);
+      expect((await stored("12345678")).usedAt).toEqual(usedAt);
     });
 
     it("two simultaneous redeems (10 raced) → exactly one 200, the rest 409", async () => {
-      await issue({ code: "KT-ABCD-2345" });
+      await issue({ code: "12345678" });
 
-      const responses = await Promise.all(Array.from({ length: 10 }, () => redeem("KT-ABCD-2345")));
+      const responses = await Promise.all(Array.from({ length: 10 }, () => redeem("12345678")));
       const statuses = responses.map((r) => r.status).sort();
 
       expect(statuses).toEqual([200, ...Array(9).fill(409)]);
     });
 
     it("expired (active past validUntil) → 409 expired, stays active in the DB", async () => {
-      await issue({ code: "KT-ABCD-2345", validUntil: new Date(Date.now() - 1000) });
+      await issue({ code: "12345678", validUntil: new Date(Date.now() - 1000) });
 
-      const res = await redeem("KT-ABCD-2345").expect(409);
+      const res = await redeem("12345678").expect(409);
 
       expect(res.body).toMatchObject({ error: "expired" });
-      expect((await stored("KT-ABCD-2345")).status).toBe(CertificateStatus.Active);
+      expect((await stored("12345678")).status).toBe(CertificateStatus.Active);
     });
 
     it("stored expired → 409 expired", async () => {
-      await issue({ code: "KT-ABCD-2345", status: CertificateStatus.Expired });
+      await issue({ code: "12345678", status: CertificateStatus.Expired });
 
-      expect((await redeem("KT-ABCD-2345").expect(409)).body).toMatchObject({ error: "expired" });
+      expect((await redeem("12345678").expect(409)).body).toMatchObject({ error: "expired" });
     });
 
     it("another merchant's certificate → 404 and it is NOT redeemed", async () => {
       const other = await createVenue(t.ds); // another merchant's venue
 
-      await issue({ code: "KT-ABCD-2345" }, other);
+      await issue({ code: "12345678" }, other);
 
-      await redeem("KT-ABCD-2345").expect(404);
-      expect((await stored("KT-ABCD-2345")).status).toBe(CertificateStatus.Active);
+      await redeem("12345678").expect(404);
+      expect((await stored("12345678")).status).toBe(CertificateStatus.Active);
     });
 
     it("any of the merchant's venues: a certificate of its second venue, venue in the answer", async () => {
       const second = await createVenue(t.ds, { merchantId: merchant.id, name: "Second Shop" });
 
-      await issue({ code: "KT-ABCD-2345" }, second);
+      await issue({ code: "12345678" }, second);
 
-      expect((await redeem("KT-ABCD-2345").expect(200)).body).toMatchObject({
+      expect((await redeem("12345678").expect(200)).body).toMatchObject({
         status: "used",
         venue: { id: second.id, name: "Second Shop" },
       });
@@ -245,41 +245,41 @@ describe("merchant redemption (integration)", () => {
       const oldMerchant = await createMerchant(t.ds, { telegramId: oldOwner.telegramId });
       const moved = await createVenue(t.ds, { merchantId: oldMerchant.id });
 
-      await issue({ code: "KT-ABCD-2345" }, moved);
+      await issue({ code: "12345678" }, moved);
       await t.ds.query(`UPDATE venues SET "merchantId" = $1 WHERE id = $2`, [
         merchant.id,
         moved.id,
       ]);
 
-      await redeem("KT-ABCD-2345", oldOwner).expect(404);
-      await redeem("KT-ABCD-2345").expect(200);
+      await redeem("12345678", oldOwner).expect(404);
+      await redeem("12345678").expect(200);
     });
 
     it("a deactivated merchant can still redeem what it sold", async () => {
       await t.ds.query(`UPDATE merchants SET "isActive" = false WHERE id = $1`, [merchant.id]);
-      await issue({ code: "KT-ABCD-2345" });
+      await issue({ code: "12345678" });
 
-      await redeem("KT-ABCD-2345").expect(200);
+      await redeem("12345678").expect(200);
     });
 
     it("403 for a buyer and for an admin; nothing redeemed", async () => {
       const admin = await createUser(t.ds, { role: "admin" });
 
-      await issue({ code: "KT-ABCD-2345" });
+      await issue({ code: "12345678" });
 
-      await redeem("KT-ABCD-2345", buyer).expect(403);
-      await redeem("KT-ABCD-2345", admin).expect(403);
-      expect((await stored("KT-ABCD-2345")).status).toBe(CertificateStatus.Active);
+      await redeem("12345678", buyer).expect(403);
+      await redeem("12345678", admin).expect(403);
+      expect((await stored("12345678")).status).toBe(CertificateStatus.Active);
     });
 
     it("the buyer sees it as used in GET /certificates/my", async () => {
-      await issue({ code: "KT-ABCD-2345" });
-      await redeem("KT-ABCD-2345").expect(200);
+      await issue({ code: "12345678" });
+      await redeem("12345678").expect(200);
 
       const res = await as(buyer, http().get("/api/certificates/my")).expect(200);
 
       expect(res.body[0]).toMatchObject({
-        code: "KT-ABCD-2345",
+        code: "12345678",
         status: "used",
         usedAt: expect.any(String),
       });

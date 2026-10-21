@@ -45,7 +45,7 @@ describe("admin orders (integration)", () => {
         orderId: created.id,
         venueId: forVenue.id,
         ownerUserId: buyer.id,
-        code: `KT-AAAA-${"BCDEFGHJ"[days]}${"BCDEFGHJ"[days]}${"BCDEFGHJ"[days]}${"BCDEFGHJ"[days]}`,
+        code: `1111${String(days).repeat(4)}`,
       });
     }
 
@@ -90,7 +90,7 @@ describe("admin orders (integration)", () => {
       expect(res.body.items[1]).toMatchObject({
         status: "paid",
         paidAt: expect.any(String),
-        certificateCode: "KT-AAAA-CCCC",
+        certificateCode: "11111111",
       });
       expect(res.body.items[2]).toMatchObject({
         status: "needs_review",
@@ -131,13 +131,11 @@ describe("admin orders (integration)", () => {
       const paid = await order(1, OrderStatus.Paid);
       const pending = await order(0);
 
-      expect(ids(await get("/api/admin/orders?search=kt%20aaaa%20cccc").expect(200))).toEqual([
-        paid.id,
-      ]);
+      expect(ids(await get("/api/admin/orders?search=1111%201111").expect(200))).toEqual([paid.id]);
       expect(
         ids(await get(`/api/admin/orders?search=${pending.id.toUpperCase()}`).expect(200)),
       ).toEqual([pending.id]);
-      expect(ids(await get("/api/admin/orders?search=KT-ZZZZ-ZZZZ").expect(200))).toEqual([]);
+      expect(ids(await get("/api/admin/orders?search=99999999").expect(200))).toEqual([]);
     });
 
     it("keyset pagination: every order once, a new one between pages doesn't shift them", async () => {
