@@ -7,6 +7,7 @@ import { ThrottlerModule } from "@nestjs/throttler";
 import { AuthModule } from "./auth/auth.module";
 import { MerchantsModule } from "./merchants/merchants.module";
 import { VenuesModule } from "./venues/venues.module";
+import { PayoutsModule } from "./payouts/payouts.module";
 import { UploadModule } from "./upload/upload.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { OrdersModule } from "./orders/orders.module";
@@ -32,6 +33,7 @@ import { buildTypeOrmOptions } from "./database/typeorm.options";
     CategoriesModule,
     OrdersModule,
     CertificatesModule,
+    PayoutsModule,
   ],
   providers: [
     // Order matters: global guards run in registration order, and the throttler keys on
