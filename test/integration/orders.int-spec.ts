@@ -211,7 +211,7 @@ describe("Orders API (integration)", () => {
         paidAt: new Date(),
       });
 
-      await createCertificate(t.ds, {
+      const cert = await createCertificate(t.ds, {
         orderId: order.id,
         venueId: venue.id,
         ownerUserId: user.id,
@@ -226,7 +226,8 @@ describe("Orders API (integration)", () => {
       expect(res.body).toMatchObject({
         status: "paid",
         paymentUrl: null,
-        certificate: { code: "12345678" },
+        // id — for "Подарить" (POST /certificates/:id/share) from the order screen.
+        certificate: { id: cert.id, code: "12345678", validUntil: cert.validUntil.toISOString() },
       });
     });
 
