@@ -15,35 +15,44 @@ export interface BotMessage {
 export const escapeHtml = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-// Best-effort bot messages: never throws, returns whether Telegram accepted it. A bot can only
+// Best-effort Bot API calls: never throw, return whether Telegram accepted it. A bot can only
 // write to someone who started it or allowed it in the Mini App — otherwise Telegram answers 403,
 // which is expected and only logged.
 @Injectable()
 export class TelegramBotService {
   private readonly logger = new Logger(TelegramBotService.name);
 
-  async send({ chatId, html, button }: BotMessage): Promise<boolean> {
+  send({ chatId, html, button }: BotMessage): Promise<boolean> {
+    return this.call(
+      "sendMessage",
+      {
+        chat_id: chatId,
+        text: html,
+        parse_mode: "HTML",
+        link_preview_options: { is_disabled: true },
+        ...(button
+          ? { reply_markup: { inline_keyboard: [[{ text: button.text, url: button.url }]] } }
+          : {}),
+      },
+      `Bot message to ${chatId}`,
+    );
+  }
+
+  // Any Bot API method (setChatMenuButton, setWebhook, …). `label` names it in the logs.
+  async call(method: string, payload: object, label = `Bot ${method}`): Promise<boolean> {
     const token = botToken();
 
     if (!token) {
-      this.logger.error(`Bot message to ${chatId} skipped: BOT_TOKEN is not set`);
+      this.logger.error(`${label} skipped: BOT_TOKEN is not set`);
 
       return false;
     }
 
     try {
-      const response = await fetch(`${API}/bot${token}/sendMessage`, {
+      const response = await fetch(`${API}/bot${token}/${method}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: html,
-          parse_mode: "HTML",
-          link_preview_options: { is_disabled: true },
-          ...(button
-            ? { reply_markup: { inline_keyboard: [[{ text: button.text, url: button.url }]] } }
-            : {}),
-        }),
+        body: JSON.stringify(payload),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
 
@@ -56,16 +65,14 @@ export class TelegramBotService {
       };
       const log = response.status === 403 ? "warn" : "error";
 
-      this.logger[log](
-        `Bot message to ${chatId} not sent: ${response.status} ${description ?? ""}`,
-      );
+      this.logger[log](`${label} not sent: ${response.status} ${description ?? ""}`);
 
       return false;
     } catch (error) {
       // Only the error's name/message — never the request URL, it holds the token.
       const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
 
-      this.logger.error(`Bot message to ${chatId} failed: ${reason}`);
+      this.logger.error(`${label} failed: ${reason}`);
 
       return false;
     }

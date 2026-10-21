@@ -39,14 +39,24 @@ export class FakeTelegramBot {
   sent: BotMessage[] = [];
   deliver = true;
 
+  // Other Bot API methods (setChatMenuButton, …).
+  calls: Array<{ method: string; payload: Record<string, unknown> }> = [];
+
   async send(message: BotMessage): Promise<boolean> {
     this.sent.push(message);
 
     return this.deliver;
   }
 
+  async call(method: string, payload: Record<string, unknown>): Promise<boolean> {
+    this.calls.push({ method, payload });
+
+    return this.deliver;
+  }
+
   reset(): void {
     this.sent = [];
+    this.calls = [];
     this.deliver = true;
   }
 }
