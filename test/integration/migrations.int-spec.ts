@@ -14,6 +14,7 @@ const MIGRATIONS = [
   "SplitMerchantsAndVenues1792500000000",
   "UserLanguage1792555538900",
   "Payouts1792570881461",
+  "CertificateExpiryReminder1792574451008",
 ];
 
 // Revert migrations from the newest down to (and including) `name`.
