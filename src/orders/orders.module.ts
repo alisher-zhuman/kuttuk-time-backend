@@ -10,6 +10,8 @@ import { FinikWebhookController } from "./finik-webhook.controller";
 import { FinikWebhookService } from "./finik-webhook.service";
 import { PaymentReturnController } from "./payment-return.controller";
 import { SaleNotifier } from "./sale-notifier";
+import { AdminOrdersController } from "./admin-orders.controller";
+import { AdminOrdersService } from "./admin-orders.service";
 import { Certificate } from "@/certificates/entities/certificate.entity";
 import { Venue } from "@/venues/entities/venue.entity";
 import { FinikModule } from "@/finik/finik.module";
@@ -25,7 +27,12 @@ import { TelegramModule } from "@/telegram/telegram.module";
     // finik.webhookUrl (public origin) and finik.redirectUrl (Mini App base) for the payment return.
     ConfigModule.forFeature(finikConfig),
   ],
-  controllers: [OrdersController, FinikWebhookController, PaymentReturnController],
-  providers: [OrdersService, FinikWebhookService, SaleNotifier],
+  controllers: [
+    OrdersController,
+    FinikWebhookController,
+    PaymentReturnController,
+    AdminOrdersController,
+  ],
+  providers: [OrdersService, FinikWebhookService, SaleNotifier, AdminOrdersService],
 })
 export class OrdersModule {}
