@@ -126,6 +126,46 @@ describe("rate limits per user (integration)", () => {
     });
   });
 
+  describe("public routes — per client IP (CF-Connecting-IP), not the shared proxy IP", () => {
+    // GET /api/venues/options: public, default 60/min.
+    const options = (ip?: string) => {
+      const req = http().get("/api/venues/options");
+
+      return ip ? req.set("CF-Connecting-IP", ip) : req;
+    };
+
+    it("two clients behind the same proxy get separate counters", async () => {
+      const result = await statuses(
+        Array.from({ length: 60 }, () => [
+          () => options("1.1.1.1"),
+          () => options("2.2.2.2"),
+        ]).flat(),
+      );
+
+      expect(result).toEqual(Array(120).fill(200));
+    });
+
+    it("the 61st request of one client → 429; another client is unaffected", async () => {
+      const result = await statuses(Array.from({ length: 61 }, () => () => options("1.1.1.1")));
+
+      expect(result.slice(0, 60)).toEqual(Array(60).fill(200));
+      expect(result[60]).toBe(429);
+      await options("2.2.2.2").expect(200);
+    });
+
+    it("X-Forwarded-For doesn't change the key (a client controls it)", async () => {
+      const spoofed = (n: number) =>
+        http()
+          .get("/api/venues/options")
+          .set("CF-Connecting-IP", "1.1.1.1")
+          .set("X-Forwarded-For", `9.9.9.${n}`);
+
+      const result = await statuses(Array.from({ length: 61 }, (_, n) => () => spoofed(n)));
+
+      expect(result[60]).toBe(429);
+    });
+  });
+
   describe("guard order", () => {
     it("JwtGuard runs first: requests without a valid token get 401, never 429", async () => {
       const result = await statuses(

@@ -96,7 +96,7 @@ Our net revenue:        +80 KGS (~8% net)
 - **Passport JWT** — authentication via Telegram initData (HMAC-SHA256)
 - **Cloudinary** — image storage (auto-converts to WebP)
 - **Swagger** — auto-docs at `/api`, **outside production only** (since 2026-10-22)
-- **Throttler** — 60 requests / 60 sec per route by default; **keyed per user** for authenticated requests (`user:<id>`), by IP for public ones (see TODOs)
+- **Throttler** — 60 requests / 60 sec per route by default; **keyed per user** for authenticated requests (`user:<id>`), by the **real client IP** for public ones (`ip:<CF-Connecting-IP>`, since 2026-10-22 — `throttleKey()` in `src/auth/user-throttler.guard.ts`)
 
 ## Commands & conventions
 
@@ -173,7 +173,7 @@ A three-way review (security, money/correctness, code quality) with each finding
 - **Keyset cursor carries microseconds** (`CURSOR_AT()` in `src/common/utils/keyset-page.ts`): `createdAt` is `timestamptz` with µs, a JS `Date` keeps ms — a cursor built from it skipped every older row in the same millisecond. The cursor time now comes from Postgres and goes back as the exact value.
 - **Ids:** `ParseIdPipe` (`src/common/pipes/parse-id.pipe.ts`) for every db id in a path or query — a positive int4, else 400 (huge numbers used to reach Postgres → 500); `GET /venues/:idOrSlug` treats only a plain int4 as an id.
 - **Roles at log-in:** an owner with **no merchant row at all** (telegramId moved by the admin) goes back to `user`; a *deactivated* merchant keeps `merchant` (cabinet, redemption); `admin` is never touched.
-- **Log-in throttle 600/min** (keyed by the shared proxy IP; the HMAC makes guessing pointless).
+- **Log-in throttle 600/min** (the HMAC makes guessing pointless; kept high after the per-IP fix too — mobile carriers put many people behind one IP, CGNAT).
 - **Category reorder:** `@ArrayUnique` + sequential updates. **Never `Promise.all` queries on one transaction's `EntityManager`** — one connection, concurrent queries (a pg deprecation, an error in pg@9).
 - **Monday reminder:** claim only right before sending; **released if no admin got it** (retried next hour); lists debts left from earlier weeks too.
 - **One source** for the effective certificate status / `usedAt` rule (`src/certificates/effective-status.ts`) and for Mini App links (`miniAppLink()` in `src/orders/payment-redirect-url.ts`).
@@ -403,7 +403,7 @@ Since there's no sign-up, the bot chat is effectively the user's only "account".
 
 ## Design
 
-UI is finalized: purple `#8B5CF6` / pink `#EC4899`, light/dark themes.
+UI is finalized, light/dark themes. **The source of truth is the frontend's tokens** (`../frontend/src/app/styles/index.css`), decided 2026-10-22: primary `#5a4be8` (light) / `#8b7dfb` (dark), accent `#ff6b5e` / `#ff8a7e`. (The old note «purple `#8B5CF6` / pink `#EC4899`» was out of date.) Hint / secondary text colours were darkened for WCAG AA contrast after the Lighthouse audit (2026-10-22).
 
 ---
 
@@ -536,4 +536,4 @@ Ordered by priority. (The admin «Выплаты» and «Заказы» endpoint
 - [ ] `GET /api/certificates/my` has no pagination — fine at current volume (a buyer has a handful); add cursor pagination (`createdAt`, `id`) before it gets long
 - [x] **Nest 12** — done 2026-10-22 (see **Stack**). Was: the remaining `npm audit` highs in prod deps (`multer` inside `@nestjs/platform-express`, `js-yaml`/`lodash` via `@nestjs/swagger`) are only fixed by the major upgrade.
 - [ ] **Category filter via GIN:** switch `:category = ANY(categories)` to `categories @> ARRAY[:id]` so `venues_categories_idx` is actually used (see **Migrations**).
-- [ ] **Public routes are still rate-limited by the Koyeb proxy IP.** Authenticated routes are fixed (2026-10-15): `UserThrottlerGuard` (`src/auth/user-throttler.guard.ts`) keys them as `user:<id>`. Routes without a user — `POST /api/auth/log-in` above all, also `GET /:slug` — still use `req.ip`, which is the proxy hop (no `trust proxy` is set), so everyone behind the same Koyeb node shares one counter per route. Seen on prod 2026-09-30: `X-RateLimit-Remaining` went 59→59→58→58→59 for one client, i.e. different proxy nodes, not one counter per client. Chain: client → Cloudflare → Koyeb → app. **Which header carries the real client IP is NOT verified** — it can only be seen server-side on prod; `CF-Connecting-IP` and `X-Forwarded-For` are likely candidates, but that's an assumption. Full fix: temporarily log `cf-connecting-ip`, `x-forwarded-for`, `x-real-ip` and `req.ip` on prod, check in the Koyeb logs which header holds the client IP and can't be set by the client, use it in `UserThrottlerGuard.getTracker` for the no-user case, remove the log. **Don't** just set `trust proxy: true`: Express would take the leftmost `X-Forwarded-For`, which the client controls, so anyone could bypass the limit by spoofing it (the NestJS docs example with `req.ips[0]` has the same problem). Low urgency: log-in happens once per session; the frequent calls (polling) are authenticated.
+- [x] **Public routes rate-limited by the real client IP** — done 2026-10-22. Checked on prod with a temporary echo endpoint: `req.ip` is Koyeb's proxy hop (`10.250.0.20`, the same for everyone); **`CF-Connecting-IP`** is the real client IP and **can't be forged** — Cloudflare refuses a request that sends its own (`error code: 1000`); `X-Forwarded-For` keeps whatever the client sent on the left and appends the real IP, `True-Client-IP` / `Forwarded` pass the client's value through — none of those are used. No CF header (local) → `req.ip`. Don't set `trust proxy` (Express would trust the client's leftmost `X-Forwarded-For`). Covered by `user-throttler.guard.spec.ts` and `rate-limit.int-spec.ts`.
