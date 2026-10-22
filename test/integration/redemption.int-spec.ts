@@ -1,4 +1,4 @@
-import * as request from "supertest";
+import request from "supertest";
 
 import { Certificate, CertificateStatus } from "../../src/certificates/entities/certificate.entity";
 import type { Merchant } from "../../src/merchants/entities/merchant.entity";

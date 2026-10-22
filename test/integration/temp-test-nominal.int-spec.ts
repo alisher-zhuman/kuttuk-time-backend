@@ -1,6 +1,6 @@
 // TEMP: covers the temporary 10 KGS nominal (VALID_NOMINALS) used to test payments on prod.
 // Delete this file together with that nominal before launch (see CLAUDE.md TODOs).
-import * as request from "supertest";
+import request from "supertest";
 
 import { Venue } from "../../src/venues/entities/venue.entity";
 import { Order } from "../../src/orders/entities/order.entity";

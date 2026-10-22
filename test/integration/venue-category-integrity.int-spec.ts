@@ -1,4 +1,4 @@
-import * as request from "supertest";
+import request from "supertest";
 import { QueryFailedError, type DataSource } from "typeorm";
 
 import { Category } from "../../src/categories/entities/category.entity";

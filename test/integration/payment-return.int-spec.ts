@@ -1,4 +1,4 @@
-import * as request from "supertest";
+import request from "supertest";
 
 import { createTestApp, type TestApp } from "../helpers/app";
 import { createVenue, createOrder, createUser } from "../helpers/factories";

@@ -1,4 +1,4 @@
-import * as request from "supertest";
+import request from "supertest";
 
 import { Order, OrderStatus } from "../../src/orders/entities/order.entity";
 import { OrdersService } from "../../src/orders/orders.service";

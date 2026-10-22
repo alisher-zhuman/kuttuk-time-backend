@@ -1,4 +1,4 @@
-import * as request from "supertest";
+import request from "supertest";
 
 import { generateCertificateCode } from "../../src/certificates/certificate-code";
 import { Certificate, CertificateStatus } from "../../src/certificates/entities/certificate.entity";

@@ -1,5 +1,5 @@
 import { JwtService } from "@nestjs/jwt";
-import * as request from "supertest";
+import request from "supertest";
 
 import { User } from "../../src/users/entities/user.entity";
 import { createTestApp, type TestApp } from "../helpers/app";

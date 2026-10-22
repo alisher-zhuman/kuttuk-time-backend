@@ -1,4 +1,4 @@
-import * as request from "supertest";
+import request from "supertest";
 
 import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../../src/venues/venue.constants";
 import { createTestApp, type TestApp } from "../helpers/app";

@@ -139,7 +139,14 @@ export const createTestApp = async (): Promise<TestApp> => {
       bot.reset();
       // TRUNCATE … RESTART IDENTITY hands out user id 1 again, so per-user rate-limit
       // counters (user:1) would otherwise carry over from the previous test.
-      app.get<ThrottlerStorageService>(getStorageToken()).storage.clear();
+      const throttlerStorage = app.get<ThrottlerStorageService>(getStorageToken());
+
+      throttlerStorage.storage.clear();
+      // Since @nestjs/throttler 6.7 the hit counts are recomputed from a second, private map —
+      // clear it too, or the counters survive the reset. Test-only; prod never resets.
+      (
+        throttlerStorage as unknown as { hitExpirations?: Map<string, unknown> }
+      ).hitExpirations?.clear();
       await truncateAll(ds);
     },
     close: () => app.close(),

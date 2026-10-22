@@ -1,4 +1,4 @@
-import * as request from "supertest";
+import request from "supertest";
 
 import { OrderStatus } from "../../src/orders/entities/order.entity";
 import { buildPayoutReport } from "../../src/payouts/payouts-report";
