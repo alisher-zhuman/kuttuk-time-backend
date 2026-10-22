@@ -513,7 +513,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 ### Before launch
 
-- [ ] **Remove the TEMP 10 KGS test nominal before launch** (added 2026-10-17 to test payments on prod — no real users yet). While it's there, the public venue list shows `minNominal: 10` ("from 10 som") for any venue that has it. Order matters — **data first, then code**: once 10 is gone from `VALID_NOMINALS`, every venue PATCH that sends the full `nominals` array (the frontend forms always do) is rejected with 400 for a venue that still has 10.
+- [ ] **The TEMP 10 KGS test nominal — kept, the user's decision (2026-10-22, «пусть остаются»), and so is the test data on prod.** Don't bring it up again unless asked. If it's ever removed (added 2026-10-17 to test payments on prod): While it's there, the public venue list shows `minNominal: 10` ("from 10 som") for any venue that has it. Order matters — **data first, then code**: once 10 is gone from `VALID_NOMINALS`, every venue PATCH that sends the full `nominals` array (the frontend forms always do) is rejected with 400 for a venue that still has 10.
   1. Find them: `SELECT id, name, nominals FROM venues WHERE 10 = ANY(nominals);` — a venue whose nominals are exactly `{10}` needs real nominals first (removing the only one would violate `venues_nominals_not_empty`, and the whole UPDATE fails).
   2. `UPDATE venues SET nominals = array_remove(nominals, 10) WHERE 10 = ANY(nominals);`
   3. Code: remove `10` from `VALID_NOMINALS` (`src/venues/venue.constants.ts`) and delete `test/integration/temp-test-nominal.int-spec.ts`. Nothing to change on the frontend — it reads the list from `GET /api/venues/options`.
