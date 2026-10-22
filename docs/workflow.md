@@ -22,8 +22,13 @@
 
 - **Чтение** из прод-БД (`psql` SELECT, `npm run report:payouts`) — можно самому.
 - **Любая запись** в прод (`npm run orders:resolve-review`, ручной UPDATE/INSERT, миграции вне деплоя) — только после явного «да» пользователя в чате.
-- Перед мержем PR с миграцией: `pg_dump` прода в `~/kuttuk-backups` (`-Fc`), проверить, что файл есть.
-- **С 2026-10-22 Koyeb деплоит `dev`** (как Vercel на фронте): **пуш в `dev` = деплой на прод**, PR в `main` не нужны. Koyeb не ждёт CI → перед пушем прогнать локально typecheck, lint, `npm test` и `npm run test:int`. Миграция → **бэкап прода до пуша**. После деплоя — проверить, что Koyeb Healthy, и таблицу `migrations`.
+- **Деплой (с 2026-10-22): Koyeb берёт ветку `dev`**, как Vercel на фронте. **Пуш в `dev` = деплой на прод.** PR в `main` не открываем; `main` больше не используется и отстаёт — так и оставляем (как на фронте).
+- **Перед каждым пушем** (Koyeb не ждёт CI — красный коммит всё равно задеплоится):
+  1. `npm run typecheck` и `npm run lint:check`;
+  2. `npm test` и `npm run test:int` (нужен запущенный Docker);
+  3. в коммите с миграцией — **сначала бэкап прода**: `docker run --rm --env-file <(grep -E '^PG' ~/.kuttuk/prod-db.env | tr -d "'\"") -v ~/.kuttuk/backups:/out postgres:18 pg_dump -Fc -f /out/prod-<дата>-<что>.dump` (локальный `pg_dump` 14 не подходит к Postgres 18), проверить, что файл есть.
+- **После пуша:** дождаться деплоя и проверить на проде то, что меняли (`curl` к адресу; при миграции — таблица `migrations`). Если в панели Koyeb спрашивает — **Trigger build**, не «Skip build».
+- Секреты прода: `~/.kuttuk/prod.env`, `~/.kuttuk/prod-db.env`, beta Finik — `~/.kuttuk/finik-beta.env` (chmod 600, вне репо); бэкапы — `~/.kuttuk/backups/`.
 - Фронт деплоится на Vercel из `dev` (осознанно): пуш фронта в `dev` = прод.
 - Koyeb Hobby засыпает без трафика: холодный старт, крон тикает только когда инстанс проснулся, Finik может ретраить webhook.
 
