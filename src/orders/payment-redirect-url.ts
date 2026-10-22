@@ -25,5 +25,9 @@ export const paymentRedirectUrl = (base: string, orderId: string): string =>
 // to paymentRedirectUrl(). Finik's intermediate redirect mangled a direct t.me link (the buyer
 // landed in the bot chat with "An error occurred"), so the final link is built on our side.
 // The public origin is taken from FINIK_WEBHOOK_URL — it must already be our exact public URL.
+// GET /api/qr/<code>.jpg on our public origin (the same origin rule as the return URL below).
+export const qrImageUrl = (webhookUrl: string, code: string): string =>
+  `${new URL(webhookUrl).origin}/api/qr/${encodeURIComponent(code)}.jpg`;
+
 export const paymentReturnUrl = (webhookUrl: string, orderId: string): string =>
   `${new URL(webhookUrl).origin}/api/payments/return/${encodeURIComponent(orderId)}`;

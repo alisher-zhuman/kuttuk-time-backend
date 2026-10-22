@@ -14,9 +14,11 @@ describe("TelegramBotService", () => {
     fetchMock = jest.spyOn(global, "fetch");
     logs = [];
     for (const level of ["log", "warn", "error"] as const) {
-      jest.spyOn(Logger.prototype, level).mockImplementation((message: unknown, ..._rest: unknown[]) => {
-        logs.push(`${level}: ${String(message)}`);
-      });
+      jest
+        .spyOn(Logger.prototype, level)
+        .mockImplementation((message: unknown, ..._rest: unknown[]) => {
+          logs.push(`${level}: ${String(message)}`);
+        });
     }
   });
 

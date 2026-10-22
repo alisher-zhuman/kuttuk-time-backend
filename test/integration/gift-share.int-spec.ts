@@ -74,17 +74,15 @@ describe("POST /api/certificates/:id/share — gift card (integration)", () => {
         payload: {
           user_id: buyer.telegramId,
           result: {
-            type: "article",
+            type: "photo",
             id: cert.id,
+            photo_url: "http://localhost/api/qr/04718263.jpg",
+            thumbnail_url: "http://localhost/api/qr/04718263.jpg",
             title: "🎁 Сертификат в Coffee <b>&</b> Co — 1000 сом",
             description: "Код 0471 8263 · до 21.10.2027",
-            thumbnail_url: "https://res.cloudinary.com/x/logo.jpg",
-            input_message_content: {
-              message_text:
-                "🎁 Тебе подарок — сертификат в <b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b> на 1000 сом\n\nКод: <code>0471 8263</code>\nДействует до 21.10.2027\n\nПокажи код на кассе.",
-              parse_mode: "HTML",
-              link_preview_options: { is_disabled: true },
-            },
+            caption:
+              "🎁 Тебе подарок — сертификат в <b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b> на 1000 сом\n\nКод: <code>0471 8263</code>\nДействует до 21.10.2027\n\nПокажи код на кассе.",
+            parse_mode: "HTML",
             reply_markup: {
               inline_keyboard: [
                 [
@@ -114,11 +112,11 @@ describe("POST /api/certificates/:id/share — gift card (integration)", () => {
     await share(cert.id, buyer, lang).expect(200);
 
     const result = t.bot.calls[0].payload.result as {
-      input_message_content: { message_text: string };
+      caption: string;
       reply_markup: { inline_keyboard: Array<Array<{ text: string }>> };
     };
 
-    expect(result.input_message_content.message_text).toContain(text);
+    expect(result.caption).toContain(text);
     expect(result.reply_markup.inline_keyboard[1][0].text).toBe(copy);
   });
 
