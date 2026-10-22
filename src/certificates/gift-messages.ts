@@ -26,7 +26,7 @@ export const giftCard = (
       return {
         title: `🎁 Сертификат в ${g.venue} — ${g.amount} сом`,
         description: `Код ${shown} · до ${until}`,
-        html: `🎁 Тебе подарок — сертификат в ${venue} на ${g.amount} сом\n\nКод: ${code}\nДействует до ${until}\n\nПокажи код на кассе.`,
+        html: `🎁 Тебе подарок — сертификат в ${venue} на ${g.amount} сом\n\nКод: ${code}\nДействует до ${until}\n\nПокажи этот QR или код на кассе.`,
         open: `Открыть ${g.venue}`,
         copy: "Скопировать код",
       };
@@ -34,7 +34,7 @@ export const giftCard = (
       return {
         title: `🎁 Certificate for ${g.venue} — ${g.amount} KGS`,
         description: `Code ${shown} · until ${until}`,
-        html: `🎁 A gift for you — a certificate for ${venue}, ${g.amount} KGS\n\nCode: ${code}\nValid until ${until}\n\nShow the code at the counter.`,
+        html: `🎁 A gift for you — a certificate for ${venue}, ${g.amount} KGS\n\nCode: ${code}\nValid until ${until}\n\nShow this QR or the code at the counter.`,
         open: `Open ${g.venue}`,
         copy: "Copy code",
       };
@@ -42,7 +42,7 @@ export const giftCard = (
       return {
         title: `🎁 ${g.venue} — ${g.amount} сомдук сертификат`,
         description: `Код ${shown} · ${until} чейин`,
-        html: `🎁 Сага белек — ${venue} мекемесиндеги ${g.amount} сомдук сертификат\n\nКод: ${code}\n${until} чейин жарактуу\n\nКодду кассада көрсөт.`,
+        html: `🎁 Сага белек — ${venue} мекемесиндеги ${g.amount} сомдук сертификат\n\nКод: ${code}\n${until} чейин жарактуу\n\nБул QR же кодду кассада көрсөт.`,
         open: `${g.venue} ачуу`,
         copy: "Кодду көчүрүү",
       };
