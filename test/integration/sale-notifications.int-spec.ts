@@ -67,8 +67,8 @@ describe("bot notifications on a sale (integration)", () => {
 
     expect(toBuyer.html).toContain(`Код: <code>${formatCertificateCode(code)}</code>`);
     expect(toBuyer.html).toContain("<b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b> на 1000 сом");
-    // validUntil = paidAt (2027-08-31 12:00 UTC) + 12 months, shown in Bishkek time.
-    expect(toBuyer.html).toContain("Действует до 31.08.2028");
+    // validUntil = paidAt (2026-10-20 12:00 UTC) + 12 months, shown in Bishkek time.
+    expect(toBuyer.html).toContain("Действует до 20.10.2027");
     expect(toBuyer.button).toEqual({
       text: "Открыть сертификат",
       url: `https://t.me/kuttuk_time_bot/app?startapp=order_${order.id}`,
