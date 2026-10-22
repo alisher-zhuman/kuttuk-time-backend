@@ -232,6 +232,29 @@ describe("venues/categories integrity — DTO validation (integration)", () => {
   });
 
   describe("categories", () => {
+    it("PATCH reorder: the full set in a new order → saved; a duplicate id → 400, nothing changed", async () => {
+      const repo = t.ds.getRepository(Category);
+      const [a, b, c] = [
+        await repo.save({ name: FULL, order: 0 }),
+        await repo.save({ name: FULL, order: 1 }),
+        await repo.save({ name: FULL, order: 2 }),
+      ];
+
+      await admin(http().patch("/api/admin/categories/reorder"))
+        .send({ ids: [a.id, a.id, b.id] })
+        .expect(400);
+      expect((await repo.find({ order: { id: "ASC" } })).map((x) => x.order)).toEqual([0, 1, 2]);
+
+      await admin(http().patch("/api/admin/categories/reorder"))
+        .send({ ids: [c.id, a.id, b.id] })
+        .expect(200);
+      expect((await repo.find({ order: { order: "ASC" } })).map((x) => x.id)).toEqual([
+        c.id,
+        a.id,
+        b.id,
+      ]);
+    });
+
     it("POST 201 with all three languages", async () => {
       await admin(http().post("/api/admin/categories")).send({ name: FULL }).expect(201);
     });

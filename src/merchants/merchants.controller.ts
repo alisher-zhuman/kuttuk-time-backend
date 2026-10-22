@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, Param, UseGuards, ParseIntPipe } from "@nestjs/common";
+import { Controller, Get, Patch, Body, Param, UseGuards } from "@nestjs/common";
 import {
   ApiTags,
   ApiOperation,
@@ -8,6 +8,8 @@ import {
   ApiForbiddenResponse,
   ApiNotFoundResponse,
 } from "@nestjs/swagger";
+
+import { ParseIdPipe } from "@/common/pipes/parse-id.pipe";
 
 import { MerchantsService } from "./merchants.service";
 import { UpdateVenueDto } from "@/venues/dto/update-venue.dto";
@@ -74,7 +76,7 @@ export class MerchantsController {
   })
   @ApiNotFoundResponse({ description: "No merchant, or the venue isn't yours" })
   updateOwnVenue(
-    @Param("venueId", ParseIntPipe) venueId: number,
+    @Param("venueId", new ParseIdPipe()) venueId: number,
     @Body() dto: UpdateVenueDto,
     @GetUser() user: CurrentUser,
   ) {

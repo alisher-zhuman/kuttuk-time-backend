@@ -10,6 +10,8 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 
+import { ParseIdPipe } from "@/common/pipes/parse-id.pipe";
+
 import { MerchantCabinetService } from "./merchant-cabinet.service";
 import { GetUser } from "@/auth/get-user.decorator";
 import { CurrentUser } from "@/auth/interfaces/current-user.interface";
@@ -53,7 +55,7 @@ export class MerchantCabinetController {
   summary(
     @GetUser() user: CurrentUser,
     @Query("week") week?: string,
-    @Query("venueId", new ParseIntPipe({ optional: true })) venueId?: number,
+    @Query("venueId", new ParseIdPipe({ optional: true })) venueId?: number,
   ) {
     return this.cabinet.summary(user.telegramId, { week, venueId });
   }
@@ -93,7 +95,7 @@ export class MerchantCabinetController {
     @Query("status") status?: string,
     @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
     @Query("cursor") cursor?: string,
-    @Query("venueId", new ParseIntPipe({ optional: true })) venueId?: number,
+    @Query("venueId", new ParseIdPipe({ optional: true })) venueId?: number,
   ) {
     return this.cabinet.list(user.telegramId, { status, limit, cursor, venueId });
   }

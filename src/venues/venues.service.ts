@@ -9,6 +9,7 @@ import { AdminUpdateVenueDto } from "./dto/admin-update-venue.dto";
 import { Merchant } from "@/merchants/entities/merchant.entity";
 import { CloudinaryService } from "@/cloudinary/cloudinary.service";
 import { resolveTranslation } from "@/common/utils/resolve-translation";
+import { isDbId } from "@/common/pipes/parse-id.pipe";
 import { definedFields } from "@/common/utils/defined-fields";
 
 // The storefront as its owner / the admin edit it (raw translations).
@@ -102,13 +103,14 @@ export class VenuesService {
     nominals: number[];
     validityMonths: number;
   }> {
-    const numericId = Number(idOrSlug);
     const qb = this.visible();
 
-    if (isNaN(numericId)) {
-      qb.andWhere("venue.slug = :slug", { slug: idOrSlug });
+    // Only a plain positive int4 is an id ("1e3", "1.5", "99999999999" were Number()-ed into ids
+    // and the last one failed in Postgres as a 500); anything else is a slug.
+    if (isDbId(idOrSlug)) {
+      qb.andWhere("venue.id = :id", { id: Number(idOrSlug) });
     } else {
-      qb.andWhere("venue.id = :id", { id: numericId });
+      qb.andWhere("venue.slug = :slug", { slug: idOrSlug });
     }
 
     const venue = await qb.getOne();

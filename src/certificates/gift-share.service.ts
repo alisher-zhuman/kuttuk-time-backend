@@ -61,7 +61,10 @@ export class GiftShareService {
     }
 
     if (row.status !== "active") {
-      throw new ConflictException({ message: `Certificate is ${row.status}`, error: row.status });
+      // Same error codes as redemption.
+      const error = row.status === "used" ? "already_used" : "expired";
+
+      throw new ConflictException({ message: `Certificate is ${row.status}`, error });
     }
 
     const card = giftCard(language, row);

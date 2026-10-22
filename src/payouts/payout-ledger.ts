@@ -85,6 +85,27 @@ export const weekPayouts = async (
   return byMerchant;
 };
 
+// Per merchant: the share still owed for paid orders before `beforeDate` (a Bishkek calendar date)
+// that no payout covers — debts left over from weeks already reported.
+export const unpaidBefore = async (
+  em: EntityManager,
+  beforeDate: string,
+): Promise<Array<{ merchantName: string; due: number }>> => {
+  const rows: Array<{ merchantName: string; unpaid: string }> = await em.query(
+    `SELECT m."name" AS "merchantName", sum(o."amount")::bigint AS "unpaid"
+       FROM "orders" o JOIN "merchants" m ON m."id" = o."merchantId"
+      WHERE o."status" = 'paid' AND o."payoutId" IS NULL
+        AND o."paidAt" < ($1::date)::timestamp AT TIME ZONE 'Asia/Bishkek'
+      GROUP BY m."id", m."name"
+      ORDER BY m."id"`,
+    [beforeDate],
+  );
+
+  return rows
+    .map((row) => ({ merchantName: row.merchantName, due: splitGross(Number(row.unpaid)).payout }))
+    .filter((row) => row.due > 0);
+};
+
 // Record that the merchant was paid for its not-yet-paid-out orders of the week. The amount is
 // computed here from those orders — never taken from the client. The orders are locked, so two
 // simultaneous marks can't both cover them: the second finds nothing left → NothingToPayOutError.

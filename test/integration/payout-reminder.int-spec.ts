@@ -79,9 +79,29 @@ describe("Monday payout reminder to the admin (integration)", () => {
     expect(await reminder().run(bishkek("2026-10-26T11:00:00"))).toBeNull();
     expect(t.bot.sent).toHaveLength(1);
 
-    // Next Monday: the week 26.10–01.11 has no sales → claimed, nothing sent.
-    expect(await reminder().run(bishkek("2026-11-02T10:00:00"))).toBe(0);
-    expect(t.bot.sent).toHaveLength(1);
+    // Next Monday: no sales in 26.10–01.11, but last week's 900 still isn't paid out → said so.
+    expect(await reminder().run(bishkek("2026-11-02T10:00:00"))).toBe(1);
+    expect(t.bot.sent[1].html).toBe(
+      "💸 За 26.10.2026–01.11.2026 выплачивать нечего.\n\n⏳ Не выплачено за прошлые недели:\n• Coffee — 900 сом",
+    );
+  });
+
+  it("a week with nothing due, nothing older and nothing to review → claimed, nothing sent", async () => {
+    expect(await reminder().run(MONDAY_10)).toBe(0);
+    expect(await reminder().run(bishkek("2026-10-26T11:00:00"))).toBeNull();
+    expect(t.bot.sent).toHaveLength(0);
+  });
+
+  it("not delivered to any admin → the claim is released and the next hour retries", async () => {
+    await sale("Coffee", 1000);
+
+    t.bot.deliver = false;
+    expect(await reminder().run(MONDAY_10)).toBe(0);
+    expect(await t.ds.query(`SELECT count(*)::int AS n FROM bot_digests`)).toEqual([{ n: 0 }]);
+
+    t.bot.deliver = true;
+    expect(await reminder().run(bishkek("2026-10-26T11:00:00"))).toBe(1);
+    expect(await t.ds.query(`SELECT count(*)::int AS n FROM bot_digests`)).toEqual([{ n: 1 }]);
   });
 
   it.each([

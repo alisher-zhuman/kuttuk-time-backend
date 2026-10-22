@@ -33,6 +33,21 @@ describe("venues & merchants API (integration)", () => {
     await t?.close();
   });
 
+  describe("ids out of range", () => {
+    it("a huge or non-plain number is a slug (404), never a 500; admin :id → 400", async () => {
+      const buyer = await createUser(t.ds);
+      const admin = await createUser(t.ds, { role: "admin" });
+
+      for (const idOrSlug of ["99999999999", "1e3", "1.5", "0"]) {
+        await as(buyer, http().get(`/api/venues/${idOrSlug}`)).expect(404);
+      }
+
+      await as(admin, http().get("/api/admin/venues/99999999999")).expect(400);
+      await as(admin, http().get("/api/admin/venues?merchantId=99999999999")).expect(400);
+      await as(buyer, http().get("/api/venues?category=-1")).expect(400);
+    });
+  });
+
   describe("buyer storefront", () => {
     it("shows a venue only while it and its merchant are both active (list, by id, by slug)", async () => {
       const buyer = await createUser(t.ds);

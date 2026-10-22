@@ -1,4 +1,5 @@
 import { Controller, Post, Body, HttpCode, Headers } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { ApiTags, ApiOperation, ApiOkResponse, ApiUnauthorizedResponse } from "@nestjs/swagger";
 
 import { AuthService } from "./auth.service";
@@ -12,6 +13,10 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  // Keyed by req.ip — on Koyeb that's the proxy node, shared by everyone behind it (CLAUDE.md
+  // TODOs). The default 60/min could block real users during a rush; initData's HMAC already
+  // makes guessing pointless, so a high ceiling only stops floods.
+  @Throttle({ default: { limit: 600, ttl: 60_000 } })
   @Post("log-in")
   @HttpCode(200)
   @ApiOperation({
