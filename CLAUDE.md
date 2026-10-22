@@ -95,7 +95,7 @@ Our net revenue:        +80 KGS (~8% net)
 - **PostgreSQL** via TypeORM 0.3
 - **Passport JWT** — authentication via Telegram initData (HMAC-SHA256)
 - **Cloudinary** — image storage (auto-converts to WebP)
-- **Swagger** — auto-docs at `/api`
+- **Swagger** — auto-docs at `/api`, **outside production only** (since 2026-10-22)
 - **Throttler** — 60 requests / 60 sec per route by default; **keyed per user** for authenticated requests (`user:<id>`), by IP for public ones (see TODOs)
 
 ## Commands & conventions
@@ -178,7 +178,7 @@ A three-way review (security, money/correctness, code quality) with each finding
 - **Monday reminder:** claim only right before sending; **released if no admin got it** (retried next hour); lists debts left from earlier weeks too.
 - **One source** for the effective certificate status / `usedAt` rule (`src/certificates/effective-status.ts`) and for Mini App links (`miniAppLink()` in `src/orders/payment-redirect-url.ts`).
 - **TypeScript `strict: true`.** Indexes for hot queries (migration `HotQueryIndexes`).
-- **Not changed, on purpose:** full codes in the merchant's certificate list (tapping a row redeems; low risk); undo of a payout mark (SQL); per-instalment flooring (no fractions with today's nominals). **Pending Alisher's decision:** rotate `JWT_SECRET` now (whoever has it can mint an admin token), Swagger off in prod.
+- **Not changed, on purpose:** full codes in the merchant's certificate list (tapping a row redeems; low risk); undo of a payout mark (SQL); per-instalment flooring (no fractions with today's nominals). **Alisher's decisions (2026-10-22):** `JWT_SECRET` is **not** rotated now (risk explained — whoever has it can mint an admin token; stays in the pre-launch secrets rotation). **Swagger is off in production** (`NODE_ENV=production` → `/api` and `/api-json` are 404; locally `http://localhost:3000/api` as before).
 
 ## Roles
 
