@@ -30,6 +30,9 @@ export enum OrderStatus {
 @Check("orders_payout_only_paid", `"payoutId" IS NULL OR "status" = 'paid'`)
 @Index(["userId", "createdAt"])
 @Index(["status", "expiresAt"])
+// Payouts and the cabinet summary (by the sale-time owner and paidAt), the admin list.
+@Index(["merchantId", "paidAt"])
+@Index(["createdAt", "id"])
 export class Order {
   // Generated in the app (randomUUID) so it can be sent to Finik as PaymentId.
   @PrimaryColumn("uuid")

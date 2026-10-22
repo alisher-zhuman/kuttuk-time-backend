@@ -3,6 +3,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToOne,
@@ -20,6 +21,9 @@ export enum CertificateStatus {
 }
 
 @Entity("certificates")
+// GET /certificates/my (by owner), the merchant cabinet list (by venue, newest first).
+@Index(["ownerUserId", "createdAt"])
+@Index(["venueId", "createdAt"])
 // used ⇔ usedAt is set. The frontend parses GET /certificates/my with a schema that requires
 // usedAt on used, so a used row without it would break the whole list.
 @Check("certificates_used_at_iff_used", `("status" = 'used') = ("usedAt" IS NOT NULL)`)
