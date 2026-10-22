@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Headers, ParseIntPipe } from "@nestjs/common";
+import { Controller, Get, Param, Query, Headers } from "@nestjs/common";
 import {
   ApiTags,
   ApiOperation,
@@ -8,6 +8,8 @@ import {
   ApiNotFoundResponse,
   ApiQuery,
 } from "@nestjs/swagger";
+
+import { ParseIdPipe } from "@/common/pipes/parse-id.pipe";
 
 import { VenuesService } from "./venues.service";
 import { Public } from "@/auth/public.decorator";
@@ -48,7 +50,7 @@ export class VenuesController {
   findAll(
     @Headers("accept-language") acceptLanguage: string = "kg",
     @Query("search") search?: string,
-    @Query("category", new ParseIntPipe({ optional: true })) category?: number,
+    @Query("category", new ParseIdPipe({ optional: true })) category?: number,
   ) {
     const lang = (acceptLanguage ?? "kg").slice(0, 2);
     return this.venuesService.findAll(lang, search, category);

@@ -131,7 +131,7 @@ describe("POST /api/certificates/:id/share — gift card (integration)", () => {
   });
 
   it.each([
-    ["used", { status: CertificateStatus.Used, usedAt: new Date() }],
+    ["already_used", { status: CertificateStatus.Used, usedAt: new Date() }],
     ["expired", { validUntil: new Date(Date.now() - 1000) }],
     ["expired", { status: CertificateStatus.Expired }],
   ])("not active → 409 %s", async (error, fields) => {

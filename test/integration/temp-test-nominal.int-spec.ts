@@ -5,7 +5,7 @@ import request from "supertest";
 import { Venue } from "../../src/venues/entities/venue.entity";
 import { Order } from "../../src/orders/entities/order.entity";
 import { createTestApp, type TestApp } from "../helpers/app";
-import { createMerchant, createUser, createVenue } from "../helpers/factories";
+import { createMerchant, createUser, createVenue, createCategory } from "../helpers/factories";
 
 describe("TEMP 10 KGS test nominal (integration)", () => {
   let t: TestApp;
@@ -33,7 +33,7 @@ describe("TEMP 10 KGS test nominal (integration)", () => {
       .send({
         name: "Test Coffee",
         description: { ru: "Тест", kg: "Тест", en: "Test" },
-        categories: [1],
+        categories: [(await createCategory(t.ds)).id],
         nominals: [10, 500],
         validityMonths: 12,
         logo: "https://res.cloudinary.com/test/image/upload/v1/kuttuk-time/x.webp",

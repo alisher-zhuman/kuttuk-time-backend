@@ -200,6 +200,20 @@ describe("POST /api/auth/log-in — Telegram initData (integration)", () => {
       // Deliberate: a deactivated merchant still sees its cabinet and redeems what it sold.
       expect((await logIn(signed(555)).expect(200)).body.role).toBe("merchant");
     });
+
+    it("an owner with no merchant any more (telegramId moved by the admin) goes back to user", async () => {
+      await createUser(t.ds, { telegramId: 555, role: "merchant" });
+      await createMerchant(t.ds, { telegramId: 556 });
+
+      expect((await logIn(signed(555)).expect(200)).body.role).toBe("user");
+      expect((await users().findOneByOrFail({ telegramId: 555 })).role).toBe("user");
+    });
+
+    it("an admin without a merchant stays admin", async () => {
+      await createUser(t.ds, { telegramId: 1, role: "admin" });
+
+      expect((await logIn(signed(1)).expect(200)).body.role).toBe("admin");
+    });
   });
 
   describe("BOT_TOKEN missing", () => {

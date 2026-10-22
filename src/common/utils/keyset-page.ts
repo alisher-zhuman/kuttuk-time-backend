@@ -19,23 +19,32 @@ export const pageLimit = (limit?: number): number => {
   return value;
 };
 
-// Opaque to the client: "<createdAt ISO>|<id>" in base64url.
-export const encodeCursor = (createdAt: Date, id: string): string =>
-  Buffer.from(`${createdAt.toISOString()}|${id}`).toString("base64url");
+// The cursor timestamp straight from Postgres, to the microsecond. A JS Date keeps only
+// milliseconds: a cursor built from it (".123") sorts *before* a row stored at ".123456", so rows
+// older than the page's last one but in the same millisecond were silently skipped. Select it as
+// `${CURSOR_AT('c."createdAt"')} AS "cursorAt"` next to the row.
+export const CURSOR_AT = (column: string) =>
+  `to_char(${column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
-export const decodeCursor = (cursor: string): { createdAt: Date; id: string } => {
-  const [iso, id] = Buffer.from(cursor, "base64url").toString("utf8").split("|");
-  const createdAt = new Date(iso ?? "");
+const CURSOR_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 
-  if (Number.isNaN(createdAt.getTime()) || !id || !UUID.test(id)) {
+// Opaque to the client: "<createdAt, µs, UTC>|<id>" in base64url.
+export const encodeCursor = (at: string, id: string): string =>
+  Buffer.from(`${at}|${id}`).toString("base64url");
+
+// `at` goes back to SQL as $n::timestamptz — the exact stored value.
+export const decodeCursor = (cursor: string): { at: string; id: string } => {
+  const [at, id] = Buffer.from(cursor, "base64url").toString("utf8").split("|");
+
+  if (!at || !CURSOR_TIME.test(at) || Number.isNaN(Date.parse(at)) || !id || !UUID.test(id)) {
     throw new BadRequestException("Invalid cursor");
   }
 
-  return { createdAt, id };
+  return { at, id };
 };
 
 // The page and the cursor to the next one, from rows fetched with LIMIT limit + 1.
-export const toPage = <T extends { createdAt: Date; id: string }>(
+export const toPage = <T extends { cursorAt: string; id: string }>(
   rows: T[],
   limit: number,
 ): { page: T[]; nextCursor: string | null } => {
@@ -44,6 +53,6 @@ export const toPage = <T extends { createdAt: Date; id: string }>(
 
   return {
     page,
-    nextCursor: rows.length > limit && last ? encodeCursor(last.createdAt, last.id) : null,
+    nextCursor: rows.length > limit && last ? encodeCursor(last.cursorAt, last.id) : null,
   };
 };

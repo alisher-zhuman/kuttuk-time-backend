@@ -5,7 +5,6 @@ import {
   Patch,
   Body,
   Param,
-  ParseIntPipe,
   ParseBoolPipe,
   Query,
   UseGuards,
@@ -23,6 +22,8 @@ import {
   ApiConflictResponse,
   ApiQuery,
 } from "@nestjs/swagger";
+
+import { ParseIdPipe } from "@/common/pipes/parse-id.pipe";
 
 import { VenuesService } from "./venues.service";
 import { CreateVenueDto } from "./dto/create-venue.dto";
@@ -88,9 +89,9 @@ export class AdminVenuesController {
   @ApiForbiddenResponse({ description: "Requires admin role", schema: { example: FORBIDDEN } })
   findAll(
     @Query("search") search?: string,
-    @Query("category", new ParseIntPipe({ optional: true })) category?: number,
+    @Query("category", new ParseIdPipe({ optional: true })) category?: number,
     @Query("isActive", new ParseBoolPipe({ optional: true })) isActive?: boolean,
-    @Query("merchantId", new ParseIntPipe({ optional: true })) merchantId?: number,
+    @Query("merchantId", new ParseIdPipe({ optional: true })) merchantId?: number,
   ) {
     return this.venuesService.findAllAdmin({ search, category, isActive, merchantId });
   }
@@ -104,7 +105,7 @@ export class AdminVenuesController {
   @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
   @ApiForbiddenResponse({ description: "Requires admin role", schema: { example: FORBIDDEN } })
   @ApiNotFoundResponse({ description: "Venue not found", schema: { example: NOT_FOUND } })
-  findOne(@Param("id", ParseIntPipe) id: number) {
+  findOne(@Param("id", new ParseIdPipe()) id: number) {
     return this.venuesService.findOneAdmin(id);
   }
 
@@ -134,7 +135,7 @@ export class AdminVenuesController {
   @ApiForbiddenResponse({ description: "Requires admin role", schema: { example: FORBIDDEN } })
   @ApiNotFoundResponse({ description: "Venue not found", schema: { example: NOT_FOUND } })
   @ApiConflictResponse({ description: "slug already in use", schema: { example: SLUG_CONFLICT } })
-  update(@Param("id", ParseIntPipe) id: number, @Body() dto: AdminUpdateVenueDto) {
+  update(@Param("id", new ParseIdPipe()) id: number, @Body() dto: AdminUpdateVenueDto) {
     return this.venuesService.updateAdmin(id, dto);
   }
 }

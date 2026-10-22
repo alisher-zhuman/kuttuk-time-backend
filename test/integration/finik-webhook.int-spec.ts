@@ -64,7 +64,7 @@ describe("POST /api/finik/webhook (integration)", () => {
 
       await post(body, headers).expect(200, { ok: true });
 
-      const paidAt = new Date(Date.UTC(2027, 7, 31, 12, 0, 0));
+      const paidAt = new Date(Date.UTC(2026, 9, 20, 12, 0, 0));
       const paid = await reload(order.id);
 
       expect(paid).toMatchObject({
@@ -85,8 +85,8 @@ describe("POST /api/finik/webhook (integration)", () => {
         usedAt: null,
       });
       expect(certs[0].code).toMatch(CODE);
-      // Aug 31 + 6 months → Feb 29 (2028 is a leap year).
-      expect(certs[0].validUntil.toISOString()).toBe("2028-02-29T12:00:00.000Z");
+      // paidAt + 6 months (month-end clamping is covered by add-months.spec.ts).
+      expect(certs[0].validUntil.toISOString()).toBe("2027-04-20T12:00:00.000Z");
       expect(certs[0].validUntil).toEqual(addMonths(paidAt, venue.validityMonths));
 
       const [event] = await events().find();
@@ -193,15 +193,63 @@ describe("POST /api/finik/webhook (integration)", () => {
       ).toBe(true);
     });
 
-    it("an invalid request is audited too, with the body as received", async () => {
+    it("an invalid request is audited too, but without its body (anyone can send one)", async () => {
       const { order } = await setup();
-      const body = finikWebhookBody(order);
+      const body = finikWebhookBody(order, { junk: "x".repeat(50_000) });
 
       await post(body, { ...signWebhook(body), signature: "bm9wZQ==" }).expect(401);
 
       const [event] = await events().find();
 
-      expect(event).toMatchObject({ signatureValid: false, result: "invalid_signature", body });
+      expect(event).toMatchObject({
+        signatureValid: false,
+        result: "invalid_signature",
+        body: { omitted: "invalid_signature" },
+      });
+    });
+  });
+
+  describe("a validly signed payment that isn't ours", () => {
+    it("to another Finik account (data.accountId) → ignored: order untouched, no certificate", async () => {
+      const { order } = await setup();
+      const body = finikWebhookBody(order, {
+        data: { ...(finikWebhookBody(order).data as object), accountId: "someone-else" },
+      });
+
+      await post(body, signWebhook(body)).expect(200);
+
+      expect((await reload(order.id)).status).toBe(OrderStatus.Pending);
+      expect(await certificates().count()).toBe(0);
+      expect((await events().find())[0].result).toBe("ignored_foreign_account");
+    });
+
+    it("without data.accountId → ignored too", async () => {
+      const { order } = await setup();
+      const body = finikWebhookBody(order, { data: { name_en: "KuttukTime" } });
+
+      await post(body, signWebhook(body)).expect(200);
+
+      expect((await reload(order.id)).status).toBe(OrderStatus.Pending);
+    });
+  });
+
+  describe("an implausible transactionDate", () => {
+    it.each([
+      ["seconds instead of ms (→ 1970)", Math.floor(Date.UTC(2026, 9, 20) / 1000)],
+      ["a week in the future", Date.now() + 7 * 24 * 60 * 60 * 1000],
+      ["garbage", "not a date"],
+    ])("%s → paid now instead, certificate valid from now", async (_label, transactionDate) => {
+      const { order } = await setup();
+      const body = finikWebhookBody(order, { transactionDate });
+      const before = Date.now();
+
+      await post(body, signWebhook(body)).expect(200);
+
+      const paid = await reload(order.id);
+
+      expect(paid.status).toBe(OrderStatus.Paid);
+      expect(paid.paidAt!.getTime()).toBeGreaterThanOrEqual(before - 1000);
+      expect(paid.paidAt!.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
     });
   });
 
@@ -395,7 +443,7 @@ describe("POST /api/finik/webhook (integration)", () => {
 
       expect(await reload(order.id)).toMatchObject({
         status: OrderStatus.NeedsReview,
-        paidAt: new Date(Date.UTC(2027, 7, 31, 12, 0, 0)),
+        paidAt: new Date(Date.UTC(2026, 9, 20, 12, 0, 0)),
         finikTransactionId: `320259584_${order.id}_DEBIT`,
       });
       expect(await certificates().count()).toBe(0);

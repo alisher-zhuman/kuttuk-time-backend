@@ -4,7 +4,7 @@ import { Cron, CronExpression } from "@nestjs/schedule";
 import { InjectDataSource } from "@nestjs/typeorm";
 import type { DataSource } from "typeorm";
 
-import { payoutProgress } from "./payout-ledger";
+import { payoutProgress, unpaidBefore } from "./payout-ledger";
 import { payoutReminderMessage } from "./payout-reminder-messages";
 import { buildPayoutReport, readOnly, weekOf } from "./payouts-report";
 import type { Language } from "@/common/translations";
@@ -52,6 +52,31 @@ export class PayoutReminderService {
       .toISOString()
       .slice(0, 10);
     const period = await weekOf(this.dataSource, lastWeekDay);
+    const [handled]: Array<{ id: number }> = await this.dataSource.query(
+      `SELECT "id" FROM "bot_digests" WHERE "kind" = $1 AND "periodFrom" = $2::date`,
+      [KIND, period.from],
+    );
+
+    if (handled) {
+      return null;
+    }
+
+    const report = await buildPayoutReport(this.dataSource, period);
+    const { progress, older } = await readOnly(this.dataSource, async (em) => ({
+      progress: await payoutProgress(em, period),
+      // Paid orders of earlier weeks still not paid out (a late webhook, a resolved
+      // needs_review landing in a week already marked) — otherwise nobody would ever be told.
+      older: await unpaidBefore(em, period.from),
+    }));
+    const due = report.rows
+      .map((row) => ({
+        merchantName: row.merchantName,
+        due: progress.get(row.merchantId)?.due ?? row.payout,
+      }))
+      .filter((row) => row.due > 0);
+    const nothing = due.length === 0 && older.length === 0 && report.needsReview.length === 0;
+
+    // Claimed right before sending — not before the report (a failing query would lose the week).
     const [claimed]: Array<{ id: number }> = await this.dataSource.query(
       `INSERT INTO "bot_digests" ("kind", "periodFrom") VALUES ($1, $2::date)
        ON CONFLICT ON CONSTRAINT "bot_digests_kind_period" DO NOTHING RETURNING "id"`,
@@ -59,19 +84,10 @@ export class PayoutReminderService {
     );
 
     if (!claimed) {
-      return null;
+      return null; // an overlapping run got there first
     }
 
-    const report = await buildPayoutReport(this.dataSource, period);
-    const progress = await readOnly(this.dataSource, (em) => payoutProgress(em, period));
-    const due = report.rows
-      .map((row) => ({
-        merchantName: row.merchantName,
-        due: progress.get(row.merchantId)?.due ?? row.payout,
-      }))
-      .filter((row) => row.due > 0);
-
-    if (due.length === 0 && report.needsReview.length === 0) {
+    if (nothing) {
       this.logger.log(`Payout reminder ${period.from}: nothing due, nothing to review`);
 
       return 0;
@@ -81,25 +97,37 @@ export class PayoutReminderService {
       await this.dataSource.query(
         `SELECT "telegramId"::text AS "telegramId", "language" FROM "users" WHERE "role" = 'admin'`,
       );
+    let delivered = 0;
 
     for (const admin of admins) {
       const message = payoutReminderMessage(admin.language ?? "kg", {
         ...period,
         due,
+        older,
         needsReviewCount: report.needsReview.length,
       });
 
-      await this.bot.send({
+      const sent = await this.bot.send({
         chatId: Number(admin.telegramId),
         html: message.html,
         button: { text: message.button, url: this.finik.redirectUrl },
       });
+
+      delivered += sent ? 1 : 0;
+    }
+
+    // Nobody got it (Telegram down, no admin chat) → release the claim, the next hour retries.
+    if (delivered === 0) {
+      await this.dataSource.query(`DELETE FROM "bot_digests" WHERE "id" = $1`, [claimed.id]);
+      this.logger.warn(`Payout reminder ${period.from}: not delivered to any admin, will retry`);
+
+      return 0;
     }
 
     this.logger.log(
-      `Payout reminder ${period.from}: ${due.length} merchant(s) due, sent to ${admins.length} admin(s)`,
+      `Payout reminder ${period.from}: ${due.length} merchant(s) due, ${older.length} with older debts, sent to ${delivered} admin(s)`,
     );
 
-    return admins.length;
+    return delivered;
   }
 }

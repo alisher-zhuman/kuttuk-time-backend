@@ -5,6 +5,7 @@ import type { Request, Response, NextFunction } from "express";
 
 import { AppModule } from "./app.module";
 import { configureApp } from "./app.setup";
+import { miniAppLink } from "./orders/payment-redirect-url";
 
 const bootstrap = async () => {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -30,7 +31,10 @@ const bootstrap = async () => {
       return next();
     }
 
-    return res.redirect(302, `https://t.me/kuttuk_time_bot/app?startapp=${slug}`);
+    return res.redirect(
+      302,
+      miniAppLink(process.env.FINIK_REDIRECT_URL ?? "https://t.me/kuttuk_time_bot/app", slug),
+    );
   });
 
   configureApp(app);

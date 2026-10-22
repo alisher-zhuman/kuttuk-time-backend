@@ -2,7 +2,11 @@ import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import type { DataSource } from "typeorm";
 
-export type EffectiveCertificateStatus = "active" | "used" | "expired";
+import {
+  effectiveStatusSql,
+  usedAtField,
+  type EffectiveCertificateStatus,
+} from "./effective-status";
 
 export interface MyCertificate {
   id: string;
@@ -30,9 +34,7 @@ interface Row {
   venueLogo: string;
 }
 
-// "active" in the DB isn't necessarily valid: past validUntil it is expired. There's no cron
-// for certificates — the effective status is computed on read, here and in SQL only.
-const EFFECTIVE_STATUS = `CASE WHEN c."status" = 'active' AND c."validUntil" < now() THEN 'expired' ELSE c."status"::text END`;
+const EFFECTIVE_STATUS = effectiveStatusSql("c");
 
 @Injectable()
 export class CertificatesService {
@@ -61,7 +63,7 @@ export class CertificatesService {
       amount: row.amount,
       status: row.status,
       validUntil: row.validUntil,
-      ...(row.status === "used" && row.usedAt ? { usedAt: row.usedAt } : {}),
+      ...usedAtField(row.status, row.usedAt),
       createdAt: row.createdAt,
       venue: {
         id: row.venueId,

@@ -10,8 +10,10 @@ import { InjectDataSource } from "@nestjs/typeorm";
 import type { DataSource } from "typeorm";
 
 import { giftCard } from "./gift-messages";
+import { effectiveStatusSql } from "./effective-status";
 import type { Language } from "@/common/translations";
 import { finikConfig } from "@/finik/finik.config";
+import { miniAppLink } from "@/orders/payment-redirect-url";
 import { inlineKeyboard, TelegramBotService } from "@/telegram/telegram-bot.service";
 
 export interface PreparedGift {
@@ -47,8 +49,7 @@ export class GiftShareService {
       logo: string;
     }> = await this.dataSource.query(
       `SELECT c."code", c."amount", c."validUntil",
-              CASE WHEN c."status" = 'active' AND c."validUntil" < now() THEN 'expired'
-                   ELSE c."status"::text END AS "status",
+              ${effectiveStatusSql("c")} AS "status",
               v."name" AS "venue", v."slug", v."logo"
          FROM "certificates" c JOIN "venues" v ON v."id" = c."venueId"
         WHERE c."id" = $1 AND c."ownerUserId" = $2`,
@@ -61,13 +62,14 @@ export class GiftShareService {
     }
 
     if (row.status !== "active") {
-      throw new ConflictException({ message: `Certificate is ${row.status}`, error: row.status });
+      // Same error codes as redemption.
+      const error = row.status === "used" ? "already_used" : "expired";
+
+      throw new ConflictException({ message: `Certificate is ${row.status}`, error });
     }
 
     const card = giftCard(language, row);
-    const open = new URL(this.finik.redirectUrl);
-
-    open.searchParams.set("startapp", row.slug);
+    const open = miniAppLink(this.finik.redirectUrl, row.slug);
 
     const prepared = await this.bot.request<{ id: string; expiration_date: number }>(
       "savePreparedInlineMessage",
@@ -86,7 +88,7 @@ export class GiftShareService {
             link_preview_options: { is_disabled: true },
           },
           reply_markup: inlineKeyboard([
-            { text: card.open, url: open.toString() },
+            { text: card.open, url: open },
             { text: card.copy, copyText: row.code },
           ]),
         },

@@ -18,6 +18,8 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 
+import { ParseIdPipe } from "@/common/pipes/parse-id.pipe";
+
 import { AdminOrdersService } from "./admin-orders.service";
 import { OrderStatus } from "./entities/order.entity";
 import { Roles } from "@/auth/roles.decorator";
@@ -60,8 +62,8 @@ export class AdminOrdersController {
   @ApiForbiddenResponse({ description: "Requires admin role" })
   list(
     @Query("status") status?: string,
-    @Query("venueId", new ParseIntPipe({ optional: true })) venueId?: number,
-    @Query("merchantId", new ParseIntPipe({ optional: true })) merchantId?: number,
+    @Query("venueId", new ParseIdPipe({ optional: true })) venueId?: number,
+    @Query("merchantId", new ParseIdPipe({ optional: true })) merchantId?: number,
     @Query("search") search?: string,
     @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
     @Query("cursor") cursor?: string,

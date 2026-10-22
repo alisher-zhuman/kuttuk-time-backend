@@ -58,8 +58,11 @@ export class CategoriesService {
       throw new BadRequestException("ids must match the full set of existing category ids");
     }
 
+    // Sequential: one transaction = one connection, no concurrent queries on it.
     await this.dataSource.transaction(async (manager) => {
-      await Promise.all(dto.ids.map((id, order) => manager.update(Category, id, { order })));
+      for (const [order, id] of dto.ids.entries()) {
+        await manager.update(Category, id, { order });
+      }
     });
 
     this.logger.log(`Categories reordered: ${dto.ids.join(",")}`);

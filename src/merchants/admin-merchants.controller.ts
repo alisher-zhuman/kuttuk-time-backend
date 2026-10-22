@@ -5,7 +5,6 @@ import {
   Patch,
   Body,
   Param,
-  ParseIntPipe,
   ParseBoolPipe,
   Query,
   UseGuards,
@@ -22,6 +21,8 @@ import {
   ApiConflictResponse,
   ApiQuery,
 } from "@nestjs/swagger";
+
+import { ParseIdPipe } from "@/common/pipes/parse-id.pipe";
 
 import { MerchantsService } from "./merchants.service";
 import { CreateMerchantDto } from "./dto/create-merchant.dto";
@@ -98,7 +99,7 @@ export class AdminMerchantsController {
   @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
   @ApiForbiddenResponse({ description: "Requires admin role", schema: { example: FORBIDDEN } })
   @ApiNotFoundResponse({ description: "Merchant not found", schema: { example: NOT_FOUND } })
-  findOne(@Param("id", ParseIntPipe) id: number) {
+  findOne(@Param("id", new ParseIdPipe()) id: number) {
     return this.merchantsService.findOneAdmin(id);
   }
 
@@ -133,7 +134,7 @@ export class AdminMerchantsController {
     description: "telegramId already in use",
     schema: { example: TG_CONFLICT },
   })
-  update(@Param("id", ParseIntPipe) id: number, @Body() dto: AdminUpdateMerchantDto) {
+  update(@Param("id", new ParseIdPipe()) id: number, @Body() dto: AdminUpdateMerchantDto) {
     return this.merchantsService.updateAdmin(id, dto);
   }
 }

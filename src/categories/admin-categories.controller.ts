@@ -6,7 +6,6 @@ import {
   Delete,
   Body,
   Param,
-  ParseIntPipe,
   UseGuards,
   HttpCode,
 } from "@nestjs/common";
@@ -22,6 +21,8 @@ import {
   ApiNotFoundResponse,
   ApiBadRequestResponse,
 } from "@nestjs/swagger";
+
+import { ParseIdPipe } from "@/common/pipes/parse-id.pipe";
 
 import { CategoriesService } from "./categories.service";
 import { CreateCategoryDto } from "./dto/create-category.dto";
@@ -110,7 +111,7 @@ export class AdminCategoriesController {
   @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
   @ApiForbiddenResponse({ description: "Requires admin role", schema: { example: FORBIDDEN } })
   @ApiNotFoundResponse({ description: "Category not found", schema: { example: NOT_FOUND } })
-  updateName(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateCategoryDto) {
+  updateName(@Param("id", new ParseIdPipe()) id: number, @Body() dto: UpdateCategoryDto) {
     return this.categoriesService.updateName(id, dto);
   }
 
@@ -125,7 +126,7 @@ export class AdminCategoriesController {
   @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
   @ApiForbiddenResponse({ description: "Requires admin role", schema: { example: FORBIDDEN } })
   @ApiNotFoundResponse({ description: "Category not found", schema: { example: NOT_FOUND } })
-  remove(@Param("id", ParseIntPipe) id: number) {
+  remove(@Param("id", new ParseIdPipe()) id: number) {
     return this.categoriesService.remove(id);
   }
 }

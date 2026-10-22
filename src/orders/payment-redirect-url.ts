@@ -2,16 +2,24 @@
 // the Mini App opens the order screen for startapp=order_<uuid>.
 export const ORDER_START_PARAM_PREFIX = "order_";
 
-// The final destination: the Mini App, straight on this order.
-// Built with URL/searchParams so an existing query in FINIK_REDIRECT_URL survives;
-// an existing startapp is replaced.
-export const paymentRedirectUrl = (base: string, orderId: string): string => {
+// The Mini App link (FINIK_REDIRECT_URL = t.me/<bot>/app) opened on a start param: a venue
+// slug, or order_<uuid>. The one place that builds it — with URL/searchParams, so an existing
+// query in the base survives and an existing startapp is replaced. No param → the bare link.
+export const miniAppLink = (base: string, startParam?: string): string => {
+  if (!startParam) {
+    return base;
+  }
+
   const url = new URL(base);
 
-  url.searchParams.set("startapp", `${ORDER_START_PARAM_PREFIX}${orderId}`);
+  url.searchParams.set("startapp", startParam);
 
   return url.toString();
 };
+
+// The final destination after paying: the Mini App, straight on this order.
+export const paymentRedirectUrl = (base: string, orderId: string): string =>
+  miniAppLink(base, `${ORDER_START_PARAM_PREFIX}${orderId}`);
 
 // What Finik gets as RedirectUrl: our own GET /api/payments/return/:orderId, which then 302s
 // to paymentRedirectUrl(). Finik's intermediate redirect mangled a direct t.me link (the buyer

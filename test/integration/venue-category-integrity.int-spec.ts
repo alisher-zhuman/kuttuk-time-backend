@@ -5,7 +5,7 @@ import { Category } from "../../src/categories/entities/category.entity";
 import { Venue } from "../../src/venues/entities/venue.entity";
 import { createTestApp, type TestApp } from "../helpers/app";
 import { openTestDataSource, truncateAll } from "../helpers/db";
-import { createMerchant, createUser, createVenue } from "../helpers/factories";
+import { createMerchant, createUser, createVenue, createCategory } from "../helpers/factories";
 
 const FULL = { ru: "Кофе", kg: "Кофе", en: "Coffee" };
 
@@ -120,7 +120,7 @@ describe("venues/categories integrity — DTO validation (integration)", () => {
   const validVenue = async (overrides: Record<string, unknown> = {}) => ({
     name: "Sierra Coffee",
     description: FULL,
-    categories: [1],
+    categories: [(await createCategory(t.ds)).id],
     nominals: [500, 1000],
     validityMonths: 12,
     logo: "https://res.cloudinary.com/test/image/upload/v1/kuttuk-time/x.webp",
@@ -232,6 +232,29 @@ describe("venues/categories integrity — DTO validation (integration)", () => {
   });
 
   describe("categories", () => {
+    it("PATCH reorder: the full set in a new order → saved; a duplicate id → 400, nothing changed", async () => {
+      const repo = t.ds.getRepository(Category);
+      const [a, b, c] = [
+        await repo.save({ name: FULL, order: 0 }),
+        await repo.save({ name: FULL, order: 1 }),
+        await repo.save({ name: FULL, order: 2 }),
+      ];
+
+      await admin(http().patch("/api/admin/categories/reorder"))
+        .send({ ids: [a.id, a.id, b.id] })
+        .expect(400);
+      expect((await repo.find({ order: { id: "ASC" } })).map((x) => x.order)).toEqual([0, 1, 2]);
+
+      await admin(http().patch("/api/admin/categories/reorder"))
+        .send({ ids: [c.id, a.id, b.id] })
+        .expect(200);
+      expect((await repo.find({ order: { order: "ASC" } })).map((x) => x.id)).toEqual([
+        c.id,
+        a.id,
+        b.id,
+      ]);
+    });
+
     it("POST 201 with all three languages", async () => {
       await admin(http().post("/api/admin/categories")).send({ name: FULL }).expect(201);
     });

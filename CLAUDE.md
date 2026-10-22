@@ -162,6 +162,24 @@ Schema changes go through TypeORM migrations in `src/database/migrations/`. Shar
 
 ---
 
+## Backend review (2026-10-22) — rules that came out of it
+
+A three-way review (security, money/correctness, code quality) with each finding re-checked by hand. What it changed, and the rules to keep:
+- **Finik webhook — the money must be ours:** a validly signed webhook whose `data.accountId` (inside the signed body) isn't `FINIK_ACCOUNT_ID` is **ignored** (`ignored_foreign_account`) — otherwise anyone with their own Finik account could create a payment there with our order id as `PaymentId` and our webhook URL, pay themselves, and get a real certificate. All 6 real prod webhooks carry our account id.
+- **Finik audit:** the body is stored only for **signed** requests (unsigned ones are anyone's — `{ "omitted": "invalid_signature" }` instead), so junk can't fill the DB through a public unthrottled route.
+- **`paidAt` sanity:** `transactionDate` outside **[now − 30 d, now + 1 d]** (seconds instead of ms → 1970, …) falls back to now + an error log — it decides the payout week and `validUntil`.
+- **Logos:** a changed logo must be **our upload** — `https://res.cloudinary.com/<CLOUDINARY_CLOUD_NAME>/image/upload/v…/kuttuk-time/<id>.<ext>` (checked in `VenuesService`, not the DTO: env isn't loaded when decorators run); the old file is deleted only if it's in `kuttuk-time/` and **no other venue** shows it. Before: any `res.cloudinary.com` URL → on the next change the server deleted that file (another venue's logo). An unchanged legacy logo can be re-sent.
+- **Category ids** on a venue must exist (int[] has no FK) → else 400.
+- **Keyset cursor carries microseconds** (`CURSOR_AT()` in `src/common/utils/keyset-page.ts`): `createdAt` is `timestamptz` with µs, a JS `Date` keeps ms — a cursor built from it skipped every older row in the same millisecond. The cursor time now comes from Postgres and goes back as the exact value.
+- **Ids:** `ParseIdPipe` (`src/common/pipes/parse-id.pipe.ts`) for every db id in a path or query — a positive int4, else 400 (huge numbers used to reach Postgres → 500); `GET /venues/:idOrSlug` treats only a plain int4 as an id.
+- **Roles at log-in:** an owner with **no merchant row at all** (telegramId moved by the admin) goes back to `user`; a *deactivated* merchant keeps `merchant` (cabinet, redemption); `admin` is never touched.
+- **Log-in throttle 600/min** (keyed by the shared proxy IP; the HMAC makes guessing pointless).
+- **Category reorder:** `@ArrayUnique` + sequential updates. **Never `Promise.all` queries on one transaction's `EntityManager`** — one connection, concurrent queries (a pg deprecation, an error in pg@9).
+- **Monday reminder:** claim only right before sending; **released if no admin got it** (retried next hour); lists debts left from earlier weeks too.
+- **One source** for the effective certificate status / `usedAt` rule (`src/certificates/effective-status.ts`) and for Mini App links (`miniAppLink()` in `src/orders/payment-redirect-url.ts`).
+- **TypeScript `strict: true`.** Indexes for hot queries (migration `HotQueryIndexes`).
+- **Not changed, on purpose:** full codes in the merchant's certificate list (tapping a row redeems; low risk); undo of a payout mark (SQL); per-instalment flooring (no fractions with today's nominals). **Pending Alisher's decision:** rotate `JWT_SECRET` now (whoever has it can mint an admin token), Swagger off in prod.
+
 ## Roles
 
 | Role | Who | Permissions |

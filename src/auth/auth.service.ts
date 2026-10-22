@@ -44,26 +44,30 @@ export class AuthService implements OnModuleInit {
 
     let user = await this.userRepository.findOne({ where: { telegramId } });
 
-    const merchant = await this.merchantRepository.findOne({
-      where: { telegramId, isActive: true },
-    });
+    // Any status: a deactivated merchant keeps its role (cabinet, redemption); only an owner
+    // with no merchant at all any more (telegramId changed by the admin) goes back to "user".
+    const owned = await this.merchantRepository.findOne({ where: { telegramId } });
+    const merchant = owned?.isActive ? owned : null;
 
     if (!user) {
       const role = merchant ? "merchant" : "user";
       user = this.userRepository.create({ telegramId, role, language });
       user = await this.userRepository.save(user);
     } else {
-      const promote = merchant && user.role === "user";
+      const promote = merchant !== null && user.role === "user";
+      const demote = owned === null && user.role === "merchant";
       const relang = language !== null && language !== user.language;
 
-      if (promote || relang) {
+      if (promote || demote || relang) {
+        const role = promote ? ("merchant" as const) : demote ? ("user" as const) : undefined;
+
         await this.userRepository.update(user.id, {
-          ...(promote ? { role: "merchant" as const } : {}),
+          ...(role ? { role } : {}),
           ...(relang ? { language } : {}),
         });
 
-        if (promote) {
-          user.role = "merchant";
+        if (role) {
+          user.role = role;
         }
       }
     }

@@ -19,6 +19,8 @@ import { Merchant } from "@/merchants/entities/merchant.entity";
 // GIN index created by hand on prod (see Baseline migration); TypeORM can't declare GIN,
 // so it must not try to manage (drop) it.
 @Index("venues_categories_idx", { synchronize: false })
+// A merchant's venues (cabinet, admin, redemption scope).
+@Index(["merchantId"])
 // Declared here so schema diffs stay clean; TypeORM matches CHECKs by name.
 @Check("venues_description_langs", `"description" ?& ARRAY['ru', 'kg', 'en']`)
 @Check("venues_nominals_not_empty", `cardinality("nominals") > 0`)

@@ -10,6 +10,8 @@ export interface PayoutReminder {
   to: string;
   // Merchants still owed money for the week (due > 0), in report order.
   due: Array<{ merchantName: string; due: number }>;
+  // Still owed from earlier weeks.
+  older?: Array<{ merchantName: string; due: number }>;
   needsReviewCount: number;
 }
 
@@ -27,6 +29,7 @@ export const payoutReminderMessage = (
       more: (n: number) => `… и ещё ${n}`,
       total: `Итого: <b>${total} сом</b>`,
       review: `⚠️ На проверке: ${r.needsReviewCount} — не входит в выплату, сначала разобрать.`,
+      older: "⏳ Не выплачено за прошлые недели:",
       cur: "сом",
       button: "Открыть приложение",
     },
@@ -36,6 +39,7 @@ export const payoutReminderMessage = (
       more: (n: number) => `… and ${n} more`,
       total: `Total: <b>${total} KGS</b>`,
       review: `⚠️ Needs review: ${r.needsReviewCount} — not included, resolve first.`,
+      older: "⏳ Still unpaid from earlier weeks:",
       cur: "KGS",
       button: "Open the app",
     },
@@ -45,6 +49,7 @@ export const payoutReminderMessage = (
       more: (n: number) => `… дагы ${n}`,
       total: `Жалпы: <b>${total} сом</b>`,
       review: `⚠️ Текшерүүдө: ${r.needsReviewCount} — төлөп берүүгө кирбейт, адегенде чечиңиз.`,
+      older: "⏳ Мурунку апталар үчүн төлөнө элек:",
       cur: "сом",
       button: "Колдонмону ачуу",
     },
@@ -59,6 +64,19 @@ export const payoutReminderMessage = (
   }
 
   const parts = r.due.length > 0 ? [t.head, lines.join("\n"), t.total] : [t.none];
+
+  const older = r.older ?? [];
+
+  if (older.length > 0) {
+    parts.push(
+      [
+        t.older,
+        ...older
+          .slice(0, MAX_LINES)
+          .map((m) => `• ${escapeHtml(m.merchantName)} — ${m.due} ${t.cur}`),
+      ].join("\n"),
+    );
+  }
 
   if (r.needsReviewCount > 0) {
     parts.push(t.review);

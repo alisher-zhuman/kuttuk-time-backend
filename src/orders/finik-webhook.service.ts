@@ -1,4 +1,5 @@
-import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { Inject, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import type { ConfigType } from "@nestjs/config";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { randomUUID } from "node:crypto";
 import { DataSource, type EntityManager, Repository } from "typeorm";
@@ -8,6 +9,7 @@ import { lockOrder, payAndIssueCertificate } from "./order-fulfillment";
 import { SaleNotifier } from "./sale-notifier";
 import { FinikWebhookEvent } from "@/finik/entities/finik-webhook-event.entity";
 import { FinikWebhookVerifier, type IncomingWebhook } from "@/finik/finik-webhook.verifier";
+import { finikConfig } from "@/finik/finik.config";
 
 const SUCCESS_STATUSES = new Set(["success", "succeeded"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -22,15 +24,32 @@ const asRecord = (value: unknown): Record<string, unknown> | null =>
     ? (value as Record<string, unknown>)
     : null;
 
-// Finik sends unix ms (number); a numeric string or an ISO date is tolerated too.
-const paidAtFrom = (transactionDate: unknown): Date => {
+const DAY_MS = 24 * 60 * 60 * 1000;
+// A plausible payment time: not older than this (a retry or a re-sent webhook can be days late),
+// not in the future beyond clock skew.
+const PAID_AT_MAX_AGE_MS = 30 * DAY_MS;
+const PAID_AT_MAX_AHEAD_MS = DAY_MS;
+
+// Finik sends unix ms (number); a numeric string or an ISO date is tolerated too. paidAt decides
+// the payout week and validUntil, so an implausible value (seconds instead of ms → 1970, a
+// timezone-less string read hours off into the future, …) falls back to now — returned with
+// `suspicious` so the caller logs it.
+const paidAtFrom = (
+  transactionDate: unknown,
+  now = Date.now(),
+): { paidAt: Date; suspicious: boolean } => {
   const value =
     typeof transactionDate === "string" && /^\d+$/.test(transactionDate)
       ? Number(transactionDate)
       : transactionDate;
   const date = typeof value === "number" || typeof value === "string" ? new Date(value) : null;
+  const time = date?.getTime() ?? Number.NaN;
 
-  return date && !Number.isNaN(date.getTime()) ? date : new Date();
+  if (Number.isNaN(time) || time < now - PAID_AT_MAX_AGE_MS || time > now + PAID_AT_MAX_AHEAD_MS) {
+    return { paidAt: new Date(now), suspicious: transactionDate !== undefined };
+  }
+
+  return { paidAt: date!, suspicious: false };
 };
 
 @Injectable()
@@ -43,17 +62,20 @@ export class FinikWebhookService {
     @InjectRepository(FinikWebhookEvent)
     private readonly eventRepo: Repository<FinikWebhookEvent>,
     private readonly saleNotifier: SaleNotifier,
+    @Inject(finikConfig.KEY) private readonly finik: ConfigType<typeof finikConfig>,
   ) {}
 
   async handle(webhook: IncomingWebhook): Promise<void> {
     const signatureValid = this.verifier.verify(webhook);
 
-    // Written first and outside the payment transaction, so it survives a rollback.
+    // Written first and outside the payment transaction, so it survives a rollback. The body
+    // is kept only for signed requests (needed to re-verify a dispute): an unsigned one is
+    // anyone's — storing it would let junk fill the database through a public route.
     const event = await this.eventRepo.save({
       id: randomUUID(),
       signatureValid,
       headers: this.verifier.auditHeaders(webhook.headers),
-      body: webhook.body ?? null,
+      body: signatureValid ? (webhook.body ?? null) : { omitted: "invalid_signature" },
       result: "received",
       orderId: null,
     });
@@ -108,6 +130,19 @@ export class FinikWebhookService {
       return { result: `ignored_status: ${String(body.status).slice(0, 100)}`, orderId: order.id };
     }
 
+    // The signature only proves Finik sent it, not that the money came to *our* account: someone
+    // with their own Finik account could create a payment there with our order's id as its
+    // PaymentId and our webhook URL. The account id is inside the signed body.
+    const accountId = asRecord(body.data)?.accountId;
+
+    if (accountId !== this.finik.accountId) {
+      this.logger.error(
+        `Finik webhook for order ${order.id}: payment to another account (${JSON.stringify(accountId)}) — ignored`,
+      );
+
+      return { result: "ignored_foreign_account", orderId: order.id };
+    }
+
     // Terminal for the webhook: a duplicate delivery or an order already resolved by hand.
     if (
       order.status === OrderStatus.Paid ||
@@ -118,7 +153,13 @@ export class FinikWebhookService {
     }
 
     const finikTransactionId = typeof body.id === "string" ? body.id : null;
-    const paidAt = paidAtFrom(body.transactionDate);
+    const { paidAt, suspicious } = paidAtFrom(body.transactionDate);
+
+    if (suspicious) {
+      this.logger.error(
+        `Order ${order.id}: implausible transactionDate ${JSON.stringify(body.transactionDate)} — using now`,
+      );
+    }
 
     if (body.amount !== order.amount) {
       await em.update(Order, order.id, {
