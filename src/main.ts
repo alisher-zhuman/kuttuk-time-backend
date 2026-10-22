@@ -10,15 +10,6 @@ import { miniAppLink } from "./orders/payment-redirect-url";
 const bootstrap = async () => {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") ?? [];
-
-  // TODO: switch to `origin: allowedOrigins` before prod launch
-  void allowedOrigins;
-  app.enableCors({
-    origin: true,
-    credentials: true,
-  });
-
   // Slug redirect — runs before NestJS routing so it doesn't interfere with global prefix
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.method !== "GET" || req.path === "/" || req.path.startsWith("/api")) {

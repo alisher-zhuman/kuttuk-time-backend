@@ -466,7 +466,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `CLOUDINARY_API_SECRET` | `...` | |
 | `PORT` | `3000` | `8000` on Koyeb |
 | `NODE_ENV` | `development` | `production` in prod |
-| `ALLOWED_ORIGINS` | `http://localhost:5173` | add the vercel URL in prod |
+| `ALLOWED_ORIGINS` | `http://localhost:5173` | comma-separated browser origins allowed by CORS; unset → `http://localhost:5173` outside production, **none in production** |
 | `FINIK_BASE_URL` | `https://beta.api.acquiring.averspay.kg` | **required** — the app won't start without any `FINIK_*` |
 | `FINIK_API_KEY` | `...` | |
 | `FINIK_ACCOUNT_ID` | `...` | |
@@ -520,7 +520,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
   4. Already-paid 10 KGS orders/certificates are history — leave them.
 - [ ] **Rotate leaked secrets** — not now (the user's decision; the risk was explained), but before launch: `JWT_SECRET` (weak in any case), the Finik keys, `BOT_TOKEN`, `CLOUDINARY_API_SECRET`, the prod DB password. Rotating `JWT_SECRET` logs everyone out (the frontend re-logs-in on 401, so it's harmless).
 - [ ] **Always-on Koyeb instance** — Hobby sleeps without traffic: cold starts, the expiry cron only ticks while awake, and the first request after a sleep is slow. (The one duplicate webhook on prod was *not* caused by this — see **Finik webhook**.)
-- [ ] Enable `origin: allowedOrigins` in CORS (currently `origin: true`)
+- [x] **CORS** — done 2026-10-22: `origin` = `ALLOWED_ORIGINS` (`corsOrigins()` in `src/app.setup.ts`, applied in `configureApp`, so the test app has it too); unset → `http://localhost:5173` outside production, nothing in production (+ an error at boot); `credentials: false` (auth is a bearer token, no cookies). Vercel preview URLs can't call the prod API.
 - [ ] Bakai / Freedom not started (real Finik webhooks already verify on prod).
 
 ### Later
