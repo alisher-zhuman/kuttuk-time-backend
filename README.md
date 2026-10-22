@@ -2,7 +2,7 @@
 
 REST API for **KuttukTime** — a Telegram Mini App for buying and gifting gift certificates from local businesses in Kyrgyzstan (coffee shops, restaurants, spas, gyms). No sign-up: the buyer logs in with Telegram, pays through Finik, gets an 8-digit code (and its QR) and gifts it to a friend in a chat; the venue's owner redeems it at the counter; the platform pays the venue 90% weekly.
 
-- **Production:** `https://kuttuk-time.koyeb.app` (Koyeb, deploys `main`)
+- **Production:** `https://kuttuk-time.koyeb.app` (Koyeb, deploys **`dev`**)
 - **Frontend:** `../frontend` (React, Telegram Mini App, deployed on Vercel)
 - **Full context** — product decisions, every endpoint, the database, runbooks: [`CLAUDE.md`](CLAUDE.md). Task queue and current state: [`docs/workflow.md`](docs/workflow.md).
 
@@ -52,4 +52,4 @@ Roles: `user` (buyer), `merchant` (a venue owner — assigned at log-in when the
 
 ## Deployment
 
-Push / merge to `main` → Koyeb rebuilds and redeploys. Pending migrations run on boot (`DB_SYNC=false`), each in its own transaction; a failing one stops the app from starting. **Take a `pg_dump` of prod before merging a migration.** Environment variables live in the Koyeb dashboard and are never committed. CI (GitHub Actions): lint, typecheck, unit, integration, `npm audit`.
+**Push to `dev` → Koyeb rebuilds and redeploys prod** (no PRs to `main`; Koyeb doesn't wait for CI, so run the tests before pushing). Pending migrations run on boot (`DB_SYNC=false`), each in its own transaction; a failing one stops the app from starting. **Take a `pg_dump` of prod before pushing a migration.** Environment variables live in the Koyeb dashboard and are never committed. CI (GitHub Actions): lint, typecheck, unit, integration, `npm audit`.

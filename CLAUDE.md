@@ -9,7 +9,7 @@
 **Core idea:** the user buys a certificate and gifts it in 30 seconds. No sign-up, no phone number — everything runs through Telegram.
 
 **Production:** `https://kuttuk-time.koyeb.app` (Koyeb, Frankfurt, Free tier)
-**CI/CD:** push to `main` → automatic redeploy
+**CI/CD:** **push to `dev` → Koyeb redeploys prod** (since 2026-10-22 Koyeb's source branch is `dev`, like Vercel for the frontend; no PRs to `main`). Koyeb does **not** wait for CI — run the tests locally before pushing, and take a `pg_dump` of prod **before pushing** a migration
 
 ---
 
