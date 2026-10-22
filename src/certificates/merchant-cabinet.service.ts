@@ -3,8 +3,9 @@ import { InjectDataSource } from "@nestjs/typeorm";
 import type { DataSource, EntityManager } from "typeorm";
 
 import { ownMerchantId } from "./own-merchant";
+import { effectiveStatusSql, usedAtField } from "./effective-status";
 import { CURSOR_AT, decodeCursor, pageLimit, toPage } from "@/common/utils/keyset-page";
-import type { EffectiveCertificateStatus } from "./certificates.service";
+import type { EffectiveCertificateStatus } from "./effective-status";
 import type { MerchantCertificate } from "./redemption.service";
 import {
   currentWeek,
@@ -36,7 +37,7 @@ export interface MerchantCertificatePage {
 
 export const CABINET_STATUSES: EffectiveCertificateStatus[] = ["active", "used", "expired"];
 
-const EFFECTIVE_STATUS = `CASE WHEN c."status" = 'active' AND c."validUntil" < now() THEN 'expired' ELSE c."status"::text END`;
+const EFFECTIVE_STATUS = effectiveStatusSql("c");
 
 // ?venueId= must be one of the caller's venues; another merchant's looks like a missing one.
 const assertOwnVenue = async (
@@ -173,7 +174,7 @@ export class MerchantCabinetService {
         amount: row.amount,
         status: row.status,
         validUntil: row.validUntil,
-        ...(row.status === "used" && row.usedAt ? { usedAt: row.usedAt } : {}),
+        ...usedAtField(row.status, row.usedAt),
         createdAt: row.createdAt,
         venue: { id: row.venueId, name: row.venueName },
       })),

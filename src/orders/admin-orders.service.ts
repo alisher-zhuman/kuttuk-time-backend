@@ -4,7 +4,8 @@ import type { DataSource } from "typeorm";
 
 import { OrderStatus } from "./entities/order.entity";
 import { normalizeCertificateCode } from "@/certificates/certificate-code";
-import type { EffectiveCertificateStatus } from "@/certificates/certificates.service";
+import { effectiveStatusSql, usedAtField } from "@/certificates/effective-status";
+import type { EffectiveCertificateStatus } from "@/certificates/effective-status";
 import { CURSOR_AT, decodeCursor, pageLimit, toPage } from "@/common/utils/keyset-page";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -152,8 +153,7 @@ export class AdminOrdersService {
     > = await this.dataSource.query(
       `SELECT q.*, o."expiresAt", o."finikTransactionId", u."id" AS "userId",
               u."telegramId"::text AS "telegramId",
-              CASE WHEN c."status" = 'active' AND c."validUntil" < now() THEN 'expired'
-                   ELSE c."status"::text END AS "certificateStatus",
+              ${effectiveStatusSql("c")} AS "certificateStatus",
               c."validUntil", c."usedAt"
          FROM (${SELECT} WHERE o."id" = $1) q
          JOIN "orders" o ON o."id" = q."id"
@@ -188,7 +188,7 @@ export class AdminOrdersService {
               code: row.certificateCode,
               status: row.certificateStatus,
               validUntil: row.validUntil,
-              ...(row.certificateStatus === "used" && row.usedAt ? { usedAt: row.usedAt } : {}),
+              ...usedAtField(row.certificateStatus, row.usedAt),
             },
           }
         : {}),

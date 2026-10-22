@@ -10,8 +10,9 @@ import type { DataSource } from "typeorm";
 
 import { normalizeCertificateCode } from "./certificate-code";
 import { ownMerchantId } from "./own-merchant";
+import { effectiveStatusSql, usedAtField } from "./effective-status";
 import { RedemptionNotifier } from "./redemption-notifier";
-import type { EffectiveCertificateStatus } from "./certificates.service";
+import type { EffectiveCertificateStatus } from "./effective-status";
 
 export interface MerchantCertificate {
   code: string;
@@ -37,8 +38,7 @@ interface Row {
 
 // Same effective status as GET /certificates/my: a stored "active" past validUntil is expired.
 const SELECT = `SELECT c."code", c."amount",
-         CASE WHEN c."status" = 'active' AND c."validUntil" < now() THEN 'expired'
-              ELSE c."status"::text END AS "status",
+         ${effectiveStatusSql("c")} AS "status",
          c."validUntil", c."usedAt", c."createdAt", v."id" AS "venueId", v."name" AS "venueName"`;
 
 // A merchant redeems the certificates of the venues it owns now — incl. ones sold before a
@@ -50,7 +50,7 @@ const toView = (row: Row): MerchantCertificate => ({
   amount: row.amount,
   status: row.status,
   validUntil: row.validUntil,
-  ...(row.status === "used" && row.usedAt ? { usedAt: row.usedAt } : {}),
+  ...usedAtField(row.status, row.usedAt),
   createdAt: row.createdAt,
   venue: { id: row.venueId, name: row.venueName },
 });

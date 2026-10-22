@@ -13,6 +13,7 @@ import {
 import { SUPPORT_URL } from "./links";
 import { TelegramBotService } from "./telegram-bot.service";
 import { finikConfig } from "@/finik/finik.config";
+import { miniAppLink } from "@/orders/payment-redirect-url";
 
 const SLUG = /^[a-z0-9-]{1,64}$/;
 
@@ -85,18 +86,9 @@ export class BotUpdatesService {
     }
   }
 
-  // The Mini App link; with a slug — that venue (the same startapp=<slug> as the GET /:slug
-  // redirect). FINIK_REDIRECT_URL is the bare Mini App link (t.me/<bot>/app).
+  // The Mini App link; with a slug — that venue (the same startapp=<slug> as GET /:slug).
   private appLink(slug?: string): string {
-    if (!slug) {
-      return this.finik.redirectUrl;
-    }
-
-    const url = new URL(this.finik.redirectUrl);
-
-    url.searchParams.set("startapp", slug);
-
-    return url.toString();
+    return miniAppLink(this.finik.redirectUrl, slug);
   }
 
   private async visibleVenue(slug: string): Promise<{ name: string } | null> {

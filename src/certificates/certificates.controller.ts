@@ -42,7 +42,7 @@ export class CertificatesController {
           status: "active",
           validUntil: "2027-10-15T10:05:12.000Z",
           createdAt: "2026-10-15T10:05:12.000Z",
-          merchant: {
+          venue: {
             id: 9,
             name: "Sierra Coffee",
             slug: "sierra-coffee",
