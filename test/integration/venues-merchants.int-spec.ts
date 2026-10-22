@@ -75,6 +75,38 @@ describe("venues & merchants API (integration)", () => {
     });
   });
 
+  describe("venue name length", () => {
+    it("options carry the limit; a longer name → 400 on owner PATCH, admin create and admin PATCH", async () => {
+      const admin = await createUser(t.ds, { role: "admin" });
+      const { nameMaxLength } = (await http().get("/api/venues/options").expect(200)).body;
+      const long = "x".repeat(nameMaxLength + 1);
+
+      expect(nameMaxLength).toBe(100);
+
+      await as(owner, http().patch(`/api/merchants/me/venues/${venue.id}`))
+        .send({ name: long })
+        .expect(400);
+      await as(admin, http().patch(`/api/admin/venues/${venue.id}`))
+        .send({ name: long })
+        .expect(400);
+      await as(admin, http().post("/api/admin/venues"))
+        .send({
+          merchantId: merchant.id,
+          name: long,
+          description: DESCRIPTION,
+          categories: [],
+          nominals: [500],
+          validityMonths: 12,
+          logo: "https://res.cloudinary.com/test/image/upload/v1/kuttuk-time/x.webp",
+          slug: "long-name",
+        })
+        .expect(400);
+      await as(owner, http().patch(`/api/merchants/me/venues/${venue.id}`))
+        .send({ name: "x".repeat(nameMaxLength) })
+        .expect(200);
+    });
+  });
+
   describe("owner: /api/merchants/me", () => {
     it("GET → the account and all its venues, inactive ones included", async () => {
       const second = await createVenue(t.ds, { merchantId: merchant.id, isActive: false });

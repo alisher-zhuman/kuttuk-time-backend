@@ -9,12 +9,18 @@ import {
   ArrayUnique,
   Matches,
   IsNotIn,
+  MaxLength,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 import type { Translations } from "@/common/translations";
 import { IsTranslations } from "@/common/validators";
-import { RESERVED_SLUGS, VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../venue.constants";
+import {
+  RESERVED_SLUGS,
+  VALID_NOMINALS,
+  VALID_VALIDITY_MONTHS,
+  VENUE_NAME_MAX,
+} from "../venue.constants";
 
 export class CreateVenueDto {
   @ApiProperty({ example: 9, description: "The owning merchant (business account)" })
@@ -25,6 +31,7 @@ export class CreateVenueDto {
   @ApiProperty({ example: "Sierra Coffee" })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(VENUE_NAME_MAX)
   name!: string;
 
   @ApiProperty({

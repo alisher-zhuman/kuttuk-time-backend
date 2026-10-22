@@ -10,18 +10,25 @@ import {
   IsIn,
   Matches,
   IsNotIn,
+  MaxLength,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 import type { Translations } from "@/common/translations";
 import { IsOptionalNotNull, IsTranslations } from "@/common/validators";
-import { RESERVED_SLUGS, VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../venue.constants";
+import {
+  RESERVED_SLUGS,
+  VALID_NOMINALS,
+  VALID_VALIDITY_MONTHS,
+  VENUE_NAME_MAX,
+} from "../venue.constants";
 
 export class AdminUpdateVenueDto {
   @ApiProperty({ example: "Sierra Coffee", required: false })
   @IsOptionalNotNull()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(VENUE_NAME_MAX)
   name?: string;
 
   @ApiProperty({

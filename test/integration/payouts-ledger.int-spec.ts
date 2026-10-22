@@ -85,6 +85,26 @@ describe("marking payouts (integration)", () => {
     });
   });
 
+  it("expectedPayout: a matching amount records it; a sale paid meanwhile → 409 amount_changed, nothing recorded", async () => {
+    await sale(1000);
+
+    // The admin saw 900, then another sale was paid before they confirmed.
+    await sale(100);
+
+    const changed = await mark({ expectedPayout: 900 }).expect(409);
+
+    expect(changed.body).toMatchObject({ error: "amount_changed" });
+    expect(changed.body.message).toContain("990");
+    expect(await t.ds.query(`SELECT count(*)::int AS n FROM payouts`)).toEqual([{ n: 0 }]);
+    expect(
+      await t.ds.query(`SELECT count(*)::int AS n FROM orders WHERE "payoutId" IS NOT NULL`),
+    ).toEqual([{ n: 0 }]);
+
+    expect((await mark({ expectedPayout: 990 }).expect(201)).body).toMatchObject({ payout: 990 });
+    await mark({ expectedPayout: -1 }).expect(400);
+    await mark({ expectedPayout: 1.5 }).expect(400);
+  });
+
   it("a second mark → 409 nothing_to_pay_out; 5 simultaneous marks → exactly one payout", async () => {
     await sale(1000);
 

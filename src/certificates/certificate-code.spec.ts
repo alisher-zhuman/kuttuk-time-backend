@@ -23,9 +23,8 @@ describe("generateCertificateCode", () => {
     expect(generateCertificateCode(() => 0)).toBe("00000000");
   });
 
-  it("does not repeat on a sample of 5000", () => {
-    expect(new Set(codes).size).toBe(codes.length);
-  });
+  // No "no repeats in a sample" test: with 10^8 codes, 5000 of them share one ~12% of the time
+  // (birthday paradox) — it was flaky. Uniqueness is the DB's job (UNIQUE + ON CONFLICT retry).
 });
 
 describe("normalizeCertificateCode", () => {

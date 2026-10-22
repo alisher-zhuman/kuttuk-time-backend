@@ -7,18 +7,20 @@ import {
   IsInt,
   IsIn,
   Matches,
+  MaxLength,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 import type { Translations } from "@/common/translations";
 import { IsOptionalNotNull, IsTranslations } from "@/common/validators";
-import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../venue.constants";
+import { VALID_NOMINALS, VALID_VALIDITY_MONTHS, VENUE_NAME_MAX } from "../venue.constants";
 
 export class UpdateVenueDto {
   @ApiProperty({ example: "Sierra Coffee", required: false })
   @IsOptionalNotNull()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(VENUE_NAME_MAX)
   name?: string;
 
   @ApiProperty({
