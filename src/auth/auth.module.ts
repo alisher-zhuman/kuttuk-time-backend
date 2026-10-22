@@ -7,7 +7,6 @@ import { User } from "../users/entities/user.entity";
 import { Merchant } from "../merchants/entities/merchant.entity";
 import { AuthService } from "./auth.service";
 import { AuthController } from "./auth.controller";
-import { DebugIpController } from "./debug-ip.controller";
 import { JwtStrategy } from "./jwt.strategy";
 import { JwtGuard } from "./jwt.guard";
 
@@ -26,7 +25,7 @@ import { JwtGuard } from "./jwt.guard";
     }),
   ],
   providers: [AuthService, JwtStrategy, JwtGuard],
-  controllers: [AuthController, DebugIpController],
+  controllers: [AuthController],
   exports: [AuthService, JwtGuard],
 })
 export class AuthModule {}
