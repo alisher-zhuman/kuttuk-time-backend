@@ -403,7 +403,7 @@ Since there's no sign-up, the bot chat is effectively the user's only "account".
 
 ## Design
 
-UI is finalized: purple `#8B5CF6` / pink `#EC4899`, light/dark themes.
+UI is finalized, light/dark themes. **The source of truth is the frontend's tokens** (`../frontend/src/app/styles/index.css`), decided 2026-10-22: primary `#5a4be8` (light) / `#8b7dfb` (dark), accent `#ff6b5e` / `#ff8a7e`. (The old note «purple `#8B5CF6` / pink `#EC4899`» was out of date.) Hint / secondary text colours were darkened for WCAG AA contrast after the Lighthouse audit (2026-10-22).
 
 ---
 
