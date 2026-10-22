@@ -5,7 +5,7 @@ import { Category } from "../../src/categories/entities/category.entity";
 import { Venue } from "../../src/venues/entities/venue.entity";
 import { createTestApp, type TestApp } from "../helpers/app";
 import { openTestDataSource, truncateAll } from "../helpers/db";
-import { createMerchant, createUser, createVenue } from "../helpers/factories";
+import { createMerchant, createUser, createVenue, createCategory } from "../helpers/factories";
 
 const FULL = { ru: "Кофе", kg: "Кофе", en: "Coffee" };
 
@@ -120,7 +120,7 @@ describe("venues/categories integrity — DTO validation (integration)", () => {
   const validVenue = async (overrides: Record<string, unknown> = {}) => ({
     name: "Sierra Coffee",
     description: FULL,
-    categories: [1],
+    categories: [(await createCategory(t.ds)).id],
     nominals: [500, 1000],
     validityMonths: 12,
     logo: "https://res.cloudinary.com/test/image/upload/v1/kuttuk-time/x.webp",

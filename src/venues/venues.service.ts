@@ -183,6 +183,8 @@ export class VenuesService {
 
   async create(dto: CreateVenueDto): Promise<VenueDetail & { merchantId: number }> {
     await this.assertMerchantExists(dto.merchantId);
+    this.assertOwnLogo(dto.logo);
+    await this.assertCategoriesExist(dto.categories);
 
     const saved = await this.venueRepo.save(this.venueRepo.create(dto));
 
@@ -215,8 +217,46 @@ export class VenuesService {
     }
   }
 
+  // Uploads land in our own cloud's kuttuk-time/ folder (CloudinaryService). Anything else —
+  // another account's image, or another folder — is refused: on the next logo change the old
+  // file is deleted, so a foreign URL would let a merchant delete arbitrary files of ours.
+  private assertOwnLogo(logo: string): void {
+    const cloud = process.env.CLOUDINARY_CLOUD_NAME?.trim() ?? "";
+    const own = new RegExp(
+      `^https://res\\.cloudinary\\.com/${cloud.replace(/[^A-Za-z0-9_-]/g, "")}/image/upload/v\\d+/kuttuk-time/[A-Za-z0-9_-]+\\.[a-z]+$`,
+    );
+
+    if (!cloud || !own.test(logo)) {
+      throw new BadRequestException("logo must be an image uploaded via POST /api/upload");
+    }
+  }
+
+  // categories is an int[] without an FK — check the ids exist, or a stale / made-up id sticks.
+  private async assertCategoriesExist(ids?: number[]): Promise<void> {
+    if (!ids || ids.length === 0) {
+      return;
+    }
+
+    const [{ n }]: Array<{ n: number }> = await this.venueRepo.query(
+      `SELECT count(*)::int AS n FROM "categories" WHERE "id" = ANY($1::int[])`,
+      [ids],
+    );
+
+    if (n !== new Set(ids).size) {
+      throw new BadRequestException("Unknown category id");
+    }
+  }
+
   private async applyUpdate(venue: Venue, dto: UpdateVenueDto | AdminUpdateVenueDto) {
     const oldLogo = venue.logo;
+
+    // Only a changed logo is checked: the forms send the whole venue back, and a few old logos
+    // predate the folder rule.
+    if (dto.logo !== undefined && dto.logo !== oldLogo) {
+      this.assertOwnLogo(dto.logo);
+    }
+
+    await this.assertCategoriesExist(dto.categories);
 
     Object.assign(venue, definedFields(dto));
 
@@ -228,8 +268,10 @@ export class VenuesService {
     // save (e.g. 409 on slug) would leave the DB pointing at a deleted image.
     if (dto.logo && oldLogo && oldLogo !== dto.logo) {
       const publicId = this.extractCloudinaryPublicId(oldLogo);
+      // Only our own uploads, and only if no other venue still shows that image.
+      const shared = await this.venueRepo.exists({ where: { logo: oldLogo } });
 
-      if (publicId) {
+      if (publicId?.startsWith("kuttuk-time/") && !shared) {
         // The update is already saved; a leftover file is harmless, so don't fail the request
         await this.cloudinaryService
           .deleteFile(publicId)

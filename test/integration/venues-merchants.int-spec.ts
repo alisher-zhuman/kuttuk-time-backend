@@ -4,7 +4,7 @@ import { Venue } from "../../src/venues/entities/venue.entity";
 import type { Merchant } from "../../src/merchants/entities/merchant.entity";
 import type { User } from "../../src/users/entities/user.entity";
 import { createTestApp, type TestApp } from "../helpers/app";
-import { createMerchant, createUser, createVenue } from "../helpers/factories";
+import { createMerchant, createUser, createVenue, createCategory } from "../helpers/factories";
 
 const DESCRIPTION = { ru: "Кофе", kg: "Кофе", en: "Coffee" };
 
@@ -187,7 +187,7 @@ describe("venues & merchants API (integration)", () => {
       const body = {
         name: "Second Shop",
         description: DESCRIPTION,
-        categories: [1],
+        categories: [(await createCategory(t.ds)).id],
         nominals: [500],
         validityMonths: 12,
         logo: "https://res.cloudinary.com/test/image/upload/v1/kuttuk-time/x.webp",

@@ -4,6 +4,7 @@ import type { DataSource } from "typeorm";
 import { User } from "../../src/users/entities/user.entity";
 import { Merchant } from "../../src/merchants/entities/merchant.entity";
 import { Venue } from "../../src/venues/entities/venue.entity";
+import { Category } from "../../src/categories/entities/category.entity";
 import { Order, OrderStatus } from "../../src/orders/entities/order.entity";
 import { Certificate, CertificateStatus } from "../../src/certificates/entities/certificate.entity";
 
@@ -82,4 +83,14 @@ export const createCertificate = (
     validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
     usedAt: null,
     ...fields,
+  });
+
+export const createCategory = (
+  ds: DataSource,
+  overrides: Partial<Category> = {},
+): Promise<Category> =>
+  ds.getRepository(Category).save({
+    name: { ru: "Кофе", kg: "Кофе", en: "Coffee" },
+    order: next(),
+    ...overrides,
   });

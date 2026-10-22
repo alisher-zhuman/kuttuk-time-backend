@@ -10,6 +10,7 @@ import { configureApp } from "../../src/app.setup";
 import { FinikService } from "../../src/finik/finik.service";
 import type { CreatePaymentInput } from "../../src/finik/finik.service";
 import { TelegramBotService, type BotMessage } from "../../src/telegram/telegram-bot.service";
+import { CloudinaryService } from "../../src/cloudinary/cloudinary.service";
 import type { User } from "../../src/users/entities/user.entity";
 import { assertTestDatabase, truncateAll } from "./db";
 
@@ -71,6 +72,32 @@ export class FakeTelegramBot {
   }
 }
 
+// Records uploads / deletions instead of calling Cloudinary.
+export class FakeCloudinary {
+  uploads: string[] = [];
+  deleted: string[] = [];
+
+  async uploadFile(file: { originalname: string }) {
+    const publicId = `kuttuk-time/fake${this.uploads.length + 1}`;
+
+    this.uploads.push(file.originalname);
+
+    return {
+      public_id: publicId,
+      secure_url: `https://res.cloudinary.com/test/image/upload/v1/${publicId}.webp`,
+    };
+  }
+
+  async deleteFile(publicId: string): Promise<void> {
+    this.deleted.push(publicId);
+  }
+
+  reset(): void {
+    this.uploads = [];
+    this.deleted = [];
+  }
+}
+
 // For fire-and-forget work (bot messages after a webhook): poll until the condition holds.
 export const waitFor = async (condition: () => boolean, timeoutMs = 2000): Promise<void> => {
   const deadline = Date.now() + timeoutMs;
@@ -89,23 +116,27 @@ export interface TestApp {
   ds: DataSource;
   finik: FakeFinikService;
   bot: FakeTelegramBot;
+  cloudinary: FakeCloudinary;
   tokenFor: (user: User) => string;
   reset: () => Promise<void>;
   close: () => Promise<void>;
 }
 
-// The real AppModule (migrations run on boot via DB_SYNC=false), with three substitutions:
-// Finik and the Telegram bot are faked, and the scheduler doesn't register @Cron jobs — a cron firing mid-test
+// The real AppModule (migrations run on boot via DB_SYNC=false), with four substitutions:
+// Finik, the Telegram bot and Cloudinary are faked, and the scheduler doesn't register @Cron jobs — a cron firing mid-test
 // could change data under it; cron logic is tested by calling the method directly.
 export const createTestApp = async (): Promise<TestApp> => {
   const finik = new FakeFinikService();
   const bot = new FakeTelegramBot();
+  const cloudinary = new FakeCloudinary();
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(FinikService)
     .useValue(finik)
     .overrideProvider(TelegramBotService)
     .useValue(bot)
+    .overrideProvider(CloudinaryService)
+    .useValue(cloudinary)
     .overrideProvider("SCHEDULE_MODULE_OPTIONS")
     .useValue({ cronJobs: false, intervals: false, timeouts: false })
     .compile();
@@ -133,10 +164,12 @@ export const createTestApp = async (): Promise<TestApp> => {
     ds,
     finik,
     bot,
+    cloudinary,
     tokenFor: (user) => jwt.sign({ userId: user.id, role: user.role, telegramId: user.telegramId }),
     reset: async () => {
       finik.reset();
       bot.reset();
+      cloudinary.reset();
       // TRUNCATE … RESTART IDENTITY hands out user id 1 again, so per-user rate-limit
       // counters (user:1) would otherwise carry over from the previous test.
       const throttlerStorage = app.get<ThrottlerStorageService>(getStorageToken());
