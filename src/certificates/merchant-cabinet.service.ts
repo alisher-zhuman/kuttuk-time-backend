@@ -3,7 +3,7 @@ import { InjectDataSource } from "@nestjs/typeorm";
 import type { DataSource, EntityManager } from "typeorm";
 
 import { ownMerchantId } from "./own-merchant";
-import { decodeCursor, pageLimit, toPage } from "@/common/utils/keyset-page";
+import { CURSOR_AT, decodeCursor, pageLimit, toPage } from "@/common/utils/keyset-page";
 import type { EffectiveCertificateStatus } from "./certificates.service";
 import type { MerchantCertificate } from "./redemption.service";
 import {
@@ -139,12 +139,13 @@ export class MerchantCabinetService {
       validUntil: Date;
       usedAt: Date | null;
       createdAt: Date;
+      cursorAt: string;
       venueId: number;
       venueName: string;
     }> = await this.dataSource.query(
       `SELECT * FROM (
          SELECT c."id", c."code", c."amount", ${EFFECTIVE_STATUS} AS "status",
-                c."validUntil", c."usedAt", c."createdAt",
+                c."validUntil", c."usedAt", c."createdAt", ${CURSOR_AT('c."createdAt"')} AS "cursorAt",
                 v."id" AS "venueId", v."name" AS "venueName"
            FROM "certificates" c
            JOIN "venues" v ON v."id" = c."venueId" AND v."merchantId" = $1
@@ -156,7 +157,7 @@ export class MerchantCabinetService {
        LIMIT $5`,
       [
         merchantId,
-        after?.createdAt ?? null,
+        after?.at ?? null,
         after?.id ?? null,
         opts.status ?? null,
         limit + 1,

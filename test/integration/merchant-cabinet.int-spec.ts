@@ -310,6 +310,35 @@ describe("merchant cabinet (integration)", () => {
       expect(seen).toEqual(newestFirst);
     });
 
+    it("keyset pagination keeps rows that share a millisecond (cursor carries microseconds)", async () => {
+      const made = [
+        await sale(1000, new Date(Date.now() - DAY)),
+        await sale(1000, new Date(Date.now() - DAY)),
+        await sale(1000, new Date(Date.now() - DAY)),
+      ];
+
+      // Same millisecond, different microseconds — what bulk inserts / now() produce.
+      for (const [i, us] of ["123456", "123300", "100000"].entries()) {
+        await t.ds.query(`UPDATE certificates SET "createdAt" = $1 WHERE id = $2`, [
+          `2026-10-20 10:00:00.${us}+00`,
+          made[i]!.id,
+        ]);
+      }
+
+      const seen: string[] = [];
+      let cursor: string | null = null;
+
+      do {
+        const query: string = cursor ? `?limit=1&cursor=${encodeURIComponent(cursor)}` : "?limit=1";
+        const res = await get(`/api/merchants/me/certificates${query}`).expect(200);
+
+        seen.push(...res.body.items.map((c: { code: string }) => c.code));
+        cursor = res.body.nextCursor;
+      } while (cursor);
+
+      expect(seen).toEqual(made.map((c) => c!.code));
+    });
+
     it.each([
       ["status", "?status=pending"],
       ["limit 0", "?limit=0"],

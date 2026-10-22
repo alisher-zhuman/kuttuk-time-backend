@@ -5,7 +5,7 @@ import type { DataSource } from "typeorm";
 import { OrderStatus } from "./entities/order.entity";
 import { normalizeCertificateCode } from "@/certificates/certificate-code";
 import type { EffectiveCertificateStatus } from "@/certificates/certificates.service";
-import { decodeCursor, pageLimit, toPage } from "@/common/utils/keyset-page";
+import { CURSOR_AT, decodeCursor, pageLimit, toPage } from "@/common/utils/keyset-page";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES = Object.values(OrderStatus) as string[];
@@ -54,6 +54,7 @@ interface Row {
   amount: number;
   status: OrderStatus;
   createdAt: Date;
+  cursorAt: string;
   paidAt: Date | null;
   venueId: number;
   venueName: string;
@@ -65,6 +66,7 @@ interface Row {
 
 // merchant = orders.merchantId, the owner at the moment of the sale (the one it's paid out to).
 const SELECT = `SELECT o."id", o."amount", o."status", o."createdAt", o."paidAt", o."payoutId",
+         ${CURSOR_AT('o."createdAt"')} AS "cursorAt",
          v."id" AS "venueId", v."name" AS "venueName",
          m."id" AS "merchantId", m."name" AS "merchantName",
          c."code" AS "certificateCode"
@@ -125,7 +127,7 @@ export class AdminOrdersService {
         opts.merchantId ?? null,
         search?.orderId ?? null,
         search?.code ?? null,
-        after?.createdAt ?? null,
+        after?.at ?? null,
         after?.id ?? null,
         limit + 1,
       ],
