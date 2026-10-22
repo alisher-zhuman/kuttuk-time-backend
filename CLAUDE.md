@@ -79,8 +79,8 @@ Our net revenue:        +80 KGS (~8% net)
 
 **Open — not decided, don't implement without discussing:**
 - Undoing a mistaken redemption.
-- Refunds to the buyer (an expired unused certificate, a merchant that closes).
-- Money flow: today everything lands on the sole proprietorship (ИП) and the merchant's 90% is paid out by hand. NBKR (National Bank of the Kyrgyz Republic) requirements for payment aggregators haven't been checked; ask Finik about split payments.
+- Refunds to the buyer — **draft rules in `docs/refunds.md`** (2026-10-22: unused active → yes within 14 days; expired → no; venue closed / refused service → yes, recovered from the merchant; redeemed → no). Built when the first case comes (the user's decision); legal check before launch.
+- Money flow: today everything lands on the sole proprietorship (ИП) and the merchant's 90% is paid out by hand. **The user's call (2026-10-22): settled on Finik's side, not our concern.**
 
 ---
 
