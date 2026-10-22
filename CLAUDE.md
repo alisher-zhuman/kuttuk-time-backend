@@ -69,11 +69,11 @@ Our net revenue:        +80 KGS (~8% net)
   - visibility to buyers = `venue.isActive AND merchant.isActive`; `merchant.isActive = false` also blocks the owner from editing its venues, but the cabinet and redemption keep working;
   - no per-venue breakdown in the payout report until someone asks.
 - **Redemption is all-or-nothing.** No partial redemption.
-- **Redemption is by code, and final** (decided 2026-10-20): the merchant owner types the code (8 digits, spaces / dashes ignored) → sees amount / status / validity → taps "Redeem". No undo in the app — a mistaken redemption is fixed by hand (a script like `orders:resolve-review`, if it's ever needed); there's no money motive to undo, since payouts are per sale. QR scanning comes later and needs no backend change (it just fills the same code).
+- **Redemption is by code, and final** (decided 2026-10-20): the merchant owner types the code (8 digits, spaces / dashes ignored) → sees amount / status / validity → taps "Redeem". No undo in the app — a mistaken redemption is fixed by hand (a script like `orders:resolve-review`, if it's ever needed); there's no money motive to undo, since payouts are per sale. QR scanning is built (frontend, 2026-10-21: Telegram `qrScanner` fills the same code, it ignores QRs that aren't 8 digits) — no backend change.
 - **The merchant is paid for the sale, not for the redemption.** If the customer spends more than the nominal, they pay the difference to the merchant directly.
 - **Payouts** (decided 2026-10-20, implemented as `npm run report:payouts`, `src/payouts/payouts-report.ts`):
   - only orders with `status = 'paid'` count, by `paidAt`; `needs_review` is **not** paid out until resolved by hand (the report lists them separately); `pending`/`expired`/`refunded` never count (`refunded` isn't listed either);
-  - the merchant gets **90%** of the order amount, the platform keeps a **10%** commission — one constant for everyone (`PLATFORM_COMMISSION_PERCENT`; a per-merchant rate may be needed later, see TODOs). Finik's ~2% fee comes out of the platform's share and isn't part of the merchant report;
+  - the merchant gets **90%** of the order amount, the platform keeps a **10%** commission — one constant for everyone (`PLATFORM_COMMISSION_PERCENT`; a per-merchant rate may be needed later, see TODOs). Finik's ~2% fee comes out of the platform's share and isn't part of the merchant report — the merchant always gets a clean 90% (re-checked 2026-10-22 when Alisher asked: recommended to keep — one simple number to sell, payouts don't vary with Finik's fee; net margin ≈ 8%, so a lower rate only per merchant, not for everyone; Finik's exact rate is in their contract, `~2%` is an estimate);
   - the period is a week, **Monday 00:00 – Sunday 23:59:59 in Asia/Bishkek**;
   - money is whole KGS; the payout is **floored on the merchant's total for the period** and the commission is the rest, so `payout + commission = gross` exactly and the merchant loses less than 1 KGS per period (flooring each order would lose up to 1 KGS per order). With today's nominals (multiples of 10) there are no fractions at all.
 
@@ -299,24 +299,15 @@ A three-way review (security, money/correctness, code quality) with each finding
 
 ## Project status — where we stopped
 
-- **2026-07-02 → 07-14:** active development. Last feature: `GET /merchants/me` (07-10). PR #34 merged to `main` on 07-14. Frontend's last commit before the break: 07-15 (merchant profile edit).
-- **~2.5-month break.**
-- **2026-09-30:** full review + fix pass (RolesGuard ignored class-level `@Roles` → any user could reach `/api/admin/*`; JWT lived 7d instead of 2h; initData had no `auth_date` expiry; 5xx weren't logged; upload without file → 500; inactive merchants visible by id/slug; weak merchant DTO validation; old logo deleted before save). Frontend got a similar pass the same day. Merged to `main` via PR #35 the same day — **`main` has everything up to 09-30** (Koyeb deploys `main`). Local `main` can be stale — `git fetch` before comparing.
-- **2026-10-12:** Finik access arrived. Built on `dev`: Finik config + signer + `createPayment`, Orders/Certificates (`POST /api/orders`, `GET /api/orders/:id`, expiry cron), TypeORM migrations with a prod baseline. `FinikModule` is now part of the app (via `OrdersModule`), so **the app won't start without `FINIK_*` env** — don't merge to `main` before they're set on Koyeb.
-- **Also 2026-10-12:** the Finik webhook (signature check, audit, `paid` + certificate, `needs_review` on amount mismatch). Not yet verified against a **real** Finik webhook — the doc's test vector doesn't match their beta key; the first real one lands in `finik_webhook_events` either way.
-- **Next:** redemption ("mark as used") and the merchant cabinet; a real end-to-end payment on Finik beta.
-- **Before merging `dev` → `main`** (the 10-12 work): full `pg_dump` of prod, rotate the prod DB password + update `DATABASE_*` on Koyeb, set `FINIK_*` on Koyeb, CI green — then merge. The first boot records `Baseline` and creates `orders`/`certificates`/`finik_webhook_events`. Frontend: buy button + certificates tab still need wiring to the new endpoints.
+**The live status and the task queue are in `docs/workflow.md`** («Очередь задач») — read it first; this section is only the summary.
 
-## What still needs building (MVP)
+- **2026-10-22:** the MVP is built and on prod — Finik payments + webhook, certificates (8-digit codes, QR), «Подарить» (a prepared inline message with the code's QR photo), redemption by code / QR, the merchant cabinet (summary, paginated certificates, several venues, the venue's share link for socials), payouts (report, marking, the owner's bot notice, the Monday reminder to admins), the admin orders list, bot notifications (sale, redemption, payout, expiry) and `/start`. Backend and frontend reviews done; Lighthouse done; frontend has tests (Vitest + MSW, Playwright on mocks) in CI.
+- **Prod data is demo data** (the user's decision): test orders and the 10 KGS nominal stay; venues have stock photos instead of logos (`docs/demo.md`).
+- **Deliberately not now** (the user's decisions 2026-10-22): secrets rotation, always-on Koyeb (later), staging (Finik beta keys work — `~/.kuttuk/finik-beta.env`), refunds (rules drafted in `docs/refunds.md`, built on the first case).
 
-The main things not yet implemented:
+## What still needs building
 
-1. **Orders module** — ✅ orders, certificates issued on payment (webhook); ✅ redemption by code (merchant API); still missing: the merchant cabinet UI
-2. **Payment integration** — Finik: ✅ payment creation + webhook (not yet tried with a real Finik webhook). Bakai / Freedom: not started
-3. **Merchant cabinet** — ✅ backend and frontend: redemption by code, weekly summary, certificate list (paginated), several venues, sale notifications; still missing: QR scanning
-4. **Weekly reports** — automatic calculation and merchant notification every Monday
-
----
+Nothing for the MVP. Next, when needed: refunds (`docs/refunds.md`), staging, Bakai / Freedom, the «когда понадобится» list in `docs/workflow.md` and the TODOs below.
 
 ## Testing
 
@@ -389,7 +380,7 @@ Since there's no sign-up, the bot chat is effectively the user's only "account".
 
 **Soon (5–10 merchants, 100+ orders/week):**
 - Reminder about an expiring certificate (N days before `validityMonths` ends)
-- Weekly digest to the merchant on Mondays, in sync with the payout (see Weekly reports above)
+- ~~Weekly digest to the merchant on Mondays~~ — decided not to (duplicates the payout notice); the expiry reminder is built
 - `/my_certificates` — shortcut command to show purchased codes without opening the mini app
 
 **Later (20–50+ merchants, scale):**
@@ -527,11 +518,11 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 Ordered by priority. (The admin «Выплаты» and «Заказы» endpoints asked by the frontend are built — 2026-10-21, see **API**.)
 
-- [ ] **QR scanning at redemption** — frontend only (Telegram `qrScanner` fills the same code, no backend change). The rest of the cabinet is done (2026-10-20/21: redemption, summary, paginated list, venues, sale notifications). Undoing a mistaken redemption stays an open question (a manual script if needed).
+- [x] **QR scanning at redemption** — done on the frontend (2026-10-21). Undoing a mistaken redemption stays an open question (a manual script if needed).
 - [ ] **Staging:** a test bot + Finik beta. Redemption was built without it — the user decided to test on prod (only he uses it; all merchants are test ones). Return to it before launch.
 - [ ] **Bot notifications — the rest** (sale, redemption, payout notices, the expiry reminder and the Monday reminder to the admin are built, see **Bot**). A weekly digest to merchants — decided not to (duplicates the payout notice).
 - [ ] **Resolving `needs_review` from the admin** (issue / refund buttons) — after the admin orders list (built 2026-10-21) and the refund decision; today it's the `orders:resolve-review` CLI (see the **needs_review runbook**).
-- [ ] **Payouts:** the weekly report, the admin screen and **marking payouts** exist (2026-10-21; `payouts` table, `orders.payoutId`, a bot message to the owner); the transfer itself stays manual until the money-flow decision (**Product decisions**). Next: a Monday reminder/digest, undo of a mistaken mark (today SQL), merchant notification of the weekly sum, and recording what was paid (today nothing marks an order as paid out).
+- [ ] **Payouts:** the weekly report, the admin screen and **marking payouts** exist (2026-10-21; `payouts` table, `orders.payoutId`, a bot message to the owner); the transfer itself stays manual until the money-flow decision (**Product decisions**). The Monday reminder to admins and the owner's payout notice are built, `orders.payoutId` records what was paid. Left: undo of a mistaken mark (today SQL) — «когда понадобится».
 - [ ] **Per-merchant commission rate** — today one `PLATFORM_COMMISSION_PERCENT = 10` for everyone (the risk table already says it may drop to 7–8%). Would need a `merchants.commissionPercent` column (with the rate as of the sale, so past reports don't change).
 - [ ] `GET /api/certificates/my` has no pagination — fine at current volume (a buyer has a handful); add cursor pagination (`createdAt`, `id`) before it gets long
 - [x] **Nest 12** — done 2026-10-22 (see **Stack**). Was: the remaining `npm audit` highs in prod deps (`multer` inside `@nestjs/platform-express`, `js-yaml`/`lodash` via `@nestjs/swagger`) are only fixed by the major upgrade.
