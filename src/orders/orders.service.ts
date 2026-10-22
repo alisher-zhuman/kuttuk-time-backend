@@ -15,6 +15,8 @@ import { LessThan, Repository } from "typeorm";
 import { Order, OrderStatus } from "./entities/order.entity";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { Certificate } from "@/certificates/entities/certificate.entity";
+import { effectiveStatusSql, usedAtField } from "@/certificates/effective-status";
+import type { EffectiveCertificateStatus } from "@/certificates/effective-status";
 import { Venue } from "@/venues/entities/venue.entity";
 import { User } from "@/users/entities/user.entity";
 import type { Language } from "@/common/translations";
@@ -39,8 +41,15 @@ export interface OrderView {
   paymentUrl: string | null;
   expiresAt: Date;
   paidAt: Date | null;
-  // id — for "Подарить" (POST /certificates/:id/share) straight from the order screen.
-  certificate: { id: string; code: string; validUntil: Date } | null;
+  // id — for "Подарить" (POST /certificates/:id/share) straight from the order screen; status —
+  // the effective one, so a used / expired certificate isn't shown as valid (usedAt only for used).
+  certificate: {
+    id: string;
+    code: string;
+    validUntil: Date;
+    status: EffectiveCertificateStatus;
+    usedAt?: Date;
+  } | null;
 }
 
 @Injectable()
@@ -143,10 +152,20 @@ export class OrdersService {
       throw new NotFoundException("Order not found");
     }
 
-    const certificate =
+    const [certificate]: Array<{
+      id: string;
+      code: string;
+      validUntil: Date;
+      status: EffectiveCertificateStatus;
+      usedAt: Date | null;
+    }> =
       order.status === OrderStatus.Paid
-        ? await this.certificateRepo.findOne({ where: { orderId: order.id } })
-        : null;
+        ? await this.certificateRepo.query(
+            `SELECT c."id", c."code", c."validUntil", c."usedAt", ${effectiveStatusSql("c")} AS "status"
+               FROM "certificates" c WHERE c."orderId" = $1`,
+            [order.id],
+          )
+        : [];
 
     return {
       orderId: order.id,
@@ -157,7 +176,13 @@ export class OrdersService {
       expiresAt: order.expiresAt,
       paidAt: order.paidAt,
       certificate: certificate
-        ? { id: certificate.id, code: certificate.code, validUntil: certificate.validUntil }
+        ? {
+            id: certificate.id,
+            code: certificate.code,
+            validUntil: certificate.validUntil,
+            status: certificate.status,
+            ...usedAtField(certificate.status, certificate.usedAt),
+          }
         : null,
     };
   }

@@ -41,7 +41,7 @@ describe("OrdersService", () => {
     update: jest.fn(async () => ({ affected: 1 })),
     findOne: jest.fn(),
   };
-  const certificateRepo = { findOne: jest.fn() };
+  const certificateRepo = { query: jest.fn() };
   const venueRepo = { findOne: jest.fn() };
   const finikService = { createPayment: jest.fn() };
 
@@ -224,7 +224,7 @@ describe("OrdersService", () => {
         paymentUrl: "https://pay.finik.kg/qr/abc",
         certificate: null,
       });
-      expect(certificateRepo.findOne).not.toHaveBeenCalled();
+      expect(certificateRepo.query).not.toHaveBeenCalled();
     });
 
     it("returns the certificate code for a paid order and hides the payment URL", async () => {
@@ -232,7 +232,9 @@ describe("OrdersService", () => {
       const validUntil = new Date("2027-10-12T10:05:00.000Z");
 
       orderRepo.findOne.mockResolvedValue(order({ status: OrderStatus.Paid, paidAt }));
-      certificateRepo.findOne.mockResolvedValue({ id: "c-1", code: "04718263", validUntil });
+      certificateRepo.query.mockResolvedValue([
+        { id: "c-1", code: "04718263", validUntil, status: "active", usedAt: null },
+      ]);
 
       const view = await service.findOwn(USER_ID, order().id);
 
@@ -240,7 +242,7 @@ describe("OrdersService", () => {
         status: "paid",
         paidAt,
         paymentUrl: null,
-        certificate: { id: "c-1", code: "04718263", validUntil },
+        certificate: { id: "c-1", code: "04718263", validUntil, status: "active" },
       });
     });
 

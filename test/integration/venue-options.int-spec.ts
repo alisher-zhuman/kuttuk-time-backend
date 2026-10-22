@@ -1,6 +1,10 @@
 import request from "supertest";
 
-import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "../../src/venues/venue.constants";
+import {
+  VALID_NOMINALS,
+  VALID_VALIDITY_MONTHS,
+  VENUE_NAME_MAX,
+} from "../../src/venues/venue.constants";
 import { createTestApp, type TestApp } from "../helpers/app";
 import { createVenue, createUser } from "../helpers/factories";
 
@@ -29,6 +33,7 @@ describe("GET /api/venues/options (integration)", () => {
     expect(res.body).toEqual({
       nominals: ascending(VALID_NOMINALS),
       validityMonths: ascending(VALID_VALIDITY_MONTHS),
+      nameMaxLength: VENUE_NAME_MAX,
     });
     expect(res.body.nominals).toEqual(ascending(res.body.nominals));
   });

@@ -13,7 +13,7 @@ import { ParseIdPipe } from "@/common/pipes/parse-id.pipe";
 
 import { VenuesService } from "./venues.service";
 import { Public } from "@/auth/public.decorator";
-import { VALID_NOMINALS, VALID_VALIDITY_MONTHS } from "./venue.constants";
+import { VALID_NOMINALS, VALID_VALIDITY_MONTHS, VENUE_NAME_MAX } from "./venue.constants";
 
 const UNAUTHORIZED = { statusCode: 401, message: "Unauthorized", error: "Unauthorized" };
 const NOT_FOUND = { statusCode: 404, message: "Venue not found", error: "Not Found" };
@@ -61,17 +61,20 @@ export class VenuesController {
   @Get("options")
   @Public()
   @ApiOperation({
-    summary: "Allowed venue values (nominals, validity months)",
+    summary: "Allowed venue values (nominals, validity months, name length)",
     description:
       "**Public.** The single source of truth for the venue forms — the frontend doesn't keep its own lists. Sorted ascending.",
   })
   @ApiOkResponse({
-    schema: { example: { nominals: [500, 1000, 2000], validityMonths: [3, 6, 12, 24] } },
+    schema: {
+      example: { nominals: [500, 1000, 2000], validityMonths: [3, 6, 12, 24], nameMaxLength: 100 },
+    },
   })
-  getOptions(): { nominals: number[]; validityMonths: number[] } {
+  getOptions(): { nominals: number[]; validityMonths: number[]; nameMaxLength: number } {
     return {
       nominals: [...VALID_NOMINALS].sort((a, b) => a - b),
       validityMonths: [...VALID_VALIDITY_MONTHS].sort((a, b) => a - b),
+      nameMaxLength: VENUE_NAME_MAX,
     };
   }
 

@@ -7,6 +7,7 @@ import type { MarkPaidOutDto } from "./dto/mark-paid-out.dto";
 import {
   markPaidOut,
   NothingToPayOutError,
+  PayoutAmountChangedError,
   payoutProgress,
   weekPayouts,
   type RecordedPayoutItem,
@@ -110,6 +111,7 @@ export class AdminPayoutsService {
         period,
         note: dto.note,
         paidBy: adminUserId,
+        expectedPayout: dto.expectedPayout,
       });
 
       this.logger.log(
@@ -134,6 +136,10 @@ export class AdminPayoutsService {
     } catch (error) {
       if (error instanceof NothingToPayOutError) {
         throw new ConflictException({ message: error.message, error: "nothing_to_pay_out" });
+      }
+
+      if (error instanceof PayoutAmountChangedError) {
+        throw new ConflictException({ message: error.message, error: "amount_changed" });
       }
 
       throw error;

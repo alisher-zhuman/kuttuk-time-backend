@@ -10,3 +10,7 @@ export const VALID_VALIDITY_MONTHS = [3, 6, 12, 24];
 // (GET /api/venues/:idOrSlug and the startapp=<slug> deep link would break).
 // "me" isn't a venues route; it stays reserved since it always was (no slug can hold it).
 export const RESERVED_SLUGS = ["me", "options"];
+
+// A venue name goes into Telegram texts with hard limits (the redemption confirm popup: 256
+// chars in all), so it stays short.
+export const VENUE_NAME_MAX = 100;

@@ -82,7 +82,7 @@ export class AdminPayoutsController {
   @ApiOperation({
     summary: "Mark a merchant's week as paid out",
     description:
-      "**Roles:** `admin` only. Call after transferring the money by hand. Covers the merchant's paid orders of that week not paid out yet; the amount is computed on the server (never sent by the client). The owner gets a bot message. Nothing left to pay → 409 `nothing_to_pay_out` (a double click can't pay twice). No undo.",
+      "**Roles:** `admin` only. Call after transferring the money by hand. Covers the merchant's paid orders of that week not paid out yet; the amount is computed on the server; send `expectedPayout` (the amount shown and transferred) — if the server's differs → 409 `amount_changed`, nothing recorded (reload the report and confirm the new amount). The owner gets a bot message. Nothing left to pay → 409 `nothing_to_pay_out` (a double click can't pay twice). No undo.",
   })
   @ApiCreatedResponse({
     schema: {
@@ -102,7 +102,7 @@ export class AdminPayoutsController {
     },
   })
   @ApiBadRequestResponse({ description: "Bad body / week, or merchantId doesn't exist" })
-  @ApiConflictResponse({ description: "error: nothing_to_pay_out" })
+  @ApiConflictResponse({ description: "error: nothing_to_pay_out | amount_changed" })
   @ApiForbiddenResponse({ description: "Requires admin role" })
   markPaidOut(@Body() dto: MarkPaidOutDto, @GetUser() user: CurrentUser) {
     return this.payouts.markPaidOut(dto, user.userId);

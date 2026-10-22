@@ -2,6 +2,7 @@ import request from "supertest";
 
 import { Order, OrderStatus } from "../../src/orders/entities/order.entity";
 import { OrdersService } from "../../src/orders/orders.service";
+import { CertificateStatus } from "../../src/certificates/entities/certificate.entity";
 import { FinikNetworkError } from "../../src/finik/finik.errors";
 import { createTestApp, type TestApp } from "../helpers/app";
 import {
@@ -227,8 +228,62 @@ describe("Orders API (integration)", () => {
         status: "paid",
         paymentUrl: null,
         // id — for "Подарить" (POST /certificates/:id/share) from the order screen.
-        certificate: { id: cert.id, code: "12345678", validUntil: cert.validUntil.toISOString() },
+        certificate: {
+          id: cert.id,
+          code: "12345678",
+          validUntil: cert.validUntil.toISOString(),
+          status: "active",
+        },
       });
+      expect(res.body.certificate).not.toHaveProperty("usedAt");
+    });
+
+    it("the certificate's effective status: used (with usedAt) and expired (active past validUntil)", async () => {
+      const user = await createUser(t.ds);
+      const venue = await createVenue(t.ds);
+      const paid = () =>
+        createOrder(t.ds, {
+          userId: user.id,
+          venueId: venue.id,
+          status: OrderStatus.Paid,
+          paidAt: new Date(),
+        });
+      const usedAt = new Date("2026-10-20T08:00:00Z");
+      const [usedOrder, expiredOrder] = [await paid(), await paid()];
+
+      await createCertificate(t.ds, {
+        orderId: usedOrder.id,
+        venueId: venue.id,
+        ownerUserId: user.id,
+        code: "11111111",
+        status: CertificateStatus.Used,
+        usedAt,
+      });
+      await createCertificate(t.ds, {
+        orderId: expiredOrder.id,
+        venueId: venue.id,
+        ownerUserId: user.id,
+        code: "22222222",
+        validUntil: new Date(Date.now() - 1000),
+      });
+
+      const get = async (id: string) =>
+        (
+          await http()
+            .get(`/api/orders/${id}`)
+            .auth(t.tokenFor(user), { type: "bearer" })
+            .expect(200)
+        ).body.certificate;
+
+      expect(await get(usedOrder.id)).toMatchObject({
+        status: "used",
+        usedAt: usedAt.toISOString(),
+      });
+
+      const expired = await get(expiredOrder.id);
+
+      expect(expired.status).toBe("expired");
+      expect(expired).not.toHaveProperty("usedAt");
     });
 
     it("200 with status refunded as is (no certificate, no payment URL)", async () => {

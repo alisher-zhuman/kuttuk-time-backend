@@ -11,6 +11,14 @@ import { IN_PERIOD, PLATFORM_COMMISSION_PERCENT, type PayoutPeriod } from "./pay
 
 export class NothingToPayOutError extends Error {}
 
+// The admin confirmed one amount, but the orders left to pay out add up to another (a sale was
+// paid, or another mark took some, after the screen was loaded) — nothing is recorded.
+export class PayoutAmountChangedError extends Error {
+  constructor(readonly payout: number) {
+    super(`The amount to pay out is now ${payout} KGS`);
+  }
+}
+
 // The same rule as paidSales(): floor the merchant's share on the total, commission = the rest.
 export const splitGross = (gross: number): { payout: number; commission: number } => {
   const payout = Math.floor((gross * (100 - PLATFORM_COMMISSION_PERCENT)) / 100);
@@ -111,7 +119,14 @@ export const unpaidBefore = async (
 // simultaneous marks can't both cover them: the second finds nothing left → NothingToPayOutError.
 export const markPaidOut = (
   ds: DataSource,
-  input: { merchantId: number; period: PayoutPeriod; note?: string | null; paidBy: number },
+  input: {
+    merchantId: number;
+    period: PayoutPeriod;
+    note?: string | null;
+    paidBy: number;
+    // What the admin saw and transferred; a different server amount → PayoutAmountChangedError.
+    expectedPayout?: number;
+  },
 ): Promise<Payout> =>
   ds.transaction(async (em) => {
     const { merchantId, period } = input;
@@ -130,6 +145,12 @@ export const markPaidOut = (
     }
 
     const gross = orders.reduce((sum, order) => sum + order.amount, 0);
+    const split = splitGross(gross);
+
+    if (input.expectedPayout !== undefined && input.expectedPayout !== split.payout) {
+      throw new PayoutAmountChangedError(split.payout);
+    }
+
     const payout = em.create(Payout, {
       id: randomUUID(),
       merchantId,
@@ -137,7 +158,7 @@ export const markPaidOut = (
       periodTo: period.to,
       ordersCount: orders.length,
       gross,
-      ...splitGross(gross),
+      ...split,
       note: input.note?.trim() || null,
       paidBy: input.paidBy,
     });
