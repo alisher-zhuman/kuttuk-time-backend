@@ -1,4 +1,4 @@
-import * as request from "supertest";
+import request from "supertest";
 
 import { OrderStatus } from "../../src/orders/entities/order.entity";
 import type { Merchant } from "../../src/merchants/entities/merchant.entity";

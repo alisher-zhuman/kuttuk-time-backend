@@ -8,13 +8,16 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "target": "ES2024",
+    // TypeScript 6 turned strict on by default; keep the pre-upgrade checks (only strictNullChecks).
+    "strict": false,
     "strictNullChecks": true,
+    // TypeScript 6 no longer picks up every @types package by default.
+    "types": ["node", "jest"],
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
     "skipLibCheck": true,
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   }
 }

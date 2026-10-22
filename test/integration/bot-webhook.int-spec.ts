@@ -1,4 +1,4 @@
-import * as request from "supertest";
+import request from "supertest";
 
 import { botWebhookSecret } from "../../src/telegram/bot-webhook-secret";
 import { createTestApp, waitFor, type TestApp } from "../helpers/app";

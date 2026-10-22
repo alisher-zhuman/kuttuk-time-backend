@@ -1,4 +1,4 @@
-import * as request from "supertest";
+import request from "supertest";
 
 import { formatCertificateCode } from "../../src/certificates/certificate-code";
 import { User } from "../../src/users/entities/user.entity";

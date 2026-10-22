@@ -1,4 +1,4 @@
-import * as request from "supertest";
+import request from "supertest";
 
 import type { Venue } from "../../src/venues/entities/venue.entity";
 import type { User } from "../../src/users/entities/user.entity";

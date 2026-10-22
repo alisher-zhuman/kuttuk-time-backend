@@ -1,4 +1,4 @@
-import * as request from "supertest";
+import request from "supertest";
 
 import * as certificateCode from "../../src/certificates/certificate-code";
 import { Certificate } from "../../src/certificates/entities/certificate.entity";

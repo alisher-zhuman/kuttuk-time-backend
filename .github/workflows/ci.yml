@@ -24,7 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           # testcontainers 12 needs >= 22.22; "22" resolves to the latest 22.x.
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - run: npm ci

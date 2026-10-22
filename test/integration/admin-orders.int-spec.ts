@@ -1,4 +1,4 @@
-import * as request from "supertest";
+import request from "supertest";
 
 import { CertificateStatus } from "../../src/certificates/entities/certificate.entity";
 import { OrderResolutionAction } from "../../src/orders/entities/order-resolution.entity";
