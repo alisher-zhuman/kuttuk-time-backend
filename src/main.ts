@@ -39,16 +39,20 @@ const bootstrap = async () => {
 
   configureApp(app);
 
-  const config = new DocumentBuilder()
-    .setTitle("KuttukTime API")
-    .setDescription("Gift certificate platform for local businesses in Kyrgyzstan")
-    .setVersion("1.0")
-    .addBearerAuth()
-    .build();
+  // Swagger only outside production (decided 2026-10-22): in prod it published the whole API
+  // map, admin routes included, to anyone. Locally: http://localhost:3000/api.
+  if (process.env.NODE_ENV !== "production") {
+    const config = new DocumentBuilder()
+      .setTitle("KuttukTime API")
+      .setDescription("Gift certificate platform for local businesses in Kyrgyzstan")
+      .setVersion("1.0")
+      .addBearerAuth()
+      .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+    const document = SwaggerModule.createDocument(app, config);
 
-  SwaggerModule.setup("api", app, document);
+    SwaggerModule.setup("api", app, document);
+  }
 
   await app.listen(process.env.PORT ?? 3000);
 };

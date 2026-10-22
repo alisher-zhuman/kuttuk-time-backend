@@ -13,7 +13,7 @@ import { giftCard } from "./gift-messages";
 import { effectiveStatusSql } from "./effective-status";
 import type { Language } from "@/common/translations";
 import { finikConfig } from "@/finik/finik.config";
-import { miniAppLink } from "@/orders/payment-redirect-url";
+import { miniAppLink, qrImageUrl } from "@/orders/payment-redirect-url";
 import { inlineKeyboard, TelegramBotService } from "@/telegram/telegram-bot.service";
 
 export interface PreparedGift {
@@ -46,11 +46,10 @@ export class GiftShareService {
       status: string;
       venue: string;
       slug: string;
-      logo: string;
     }> = await this.dataSource.query(
       `SELECT c."code", c."amount", c."validUntil",
               ${effectiveStatusSql("c")} AS "status",
-              v."name" AS "venue", v."slug", v."logo"
+              v."name" AS "venue", v."slug"
          FROM "certificates" c JOIN "venues" v ON v."id" = c."venueId"
         WHERE c."id" = $1 AND c."ownerUserId" = $2`,
       [certificateId, ownerUserId],
@@ -70,23 +69,24 @@ export class GiftShareService {
 
     const card = giftCard(language, row);
     const open = miniAppLink(this.finik.redirectUrl, row.slug);
+    const qr = qrImageUrl(this.finik.webhookUrl, row.code);
 
     const prepared = await this.bot.request<{ id: string; expiration_date: number }>(
       "savePreparedInlineMessage",
       {
         user_id: ownerTelegramId,
+        // A photo of the code's QR with the text as its caption: the friend doesn't see the
+        // certificate in the app (it stays the buyer's), so this message is what they show at
+        // the counter — the cashier scans it. Telegram takes an inline photo only as a JPEG URL.
         result: {
-          type: "article",
+          type: "photo",
           id: certificateId,
+          photo_url: qr,
+          thumbnail_url: qr,
           title: card.title,
           description: card.description,
-          // Cloudinary serves any format by extension; JPEG previews most reliably in the picker.
-          thumbnail_url: row.logo.replace(/\.webp$/i, ".jpg"),
-          input_message_content: {
-            message_text: card.html,
-            parse_mode: "HTML",
-            link_preview_options: { is_disabled: true },
-          },
+          caption: card.html,
+          parse_mode: "HTML",
           reply_markup: inlineKeyboard([
             { text: card.open, url: open },
             { text: card.copy, copyText: row.code },
