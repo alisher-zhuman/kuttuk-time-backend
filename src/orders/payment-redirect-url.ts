@@ -1,6 +1,9 @@
 // Must match ORDER_START_PARAM_PREFIX in ../frontend src/shared/constants/base.ts:
 // the Mini App opens the order screen for startapp=order_<uuid>.
 export const ORDER_START_PARAM_PREFIX = "order_";
+// The same file on the frontend: startapp=my_certificates opens «Мои сертификаты» (for a
+// certificate whose owner isn't the buyer - they can't open the order screen).
+export const MY_CERTIFICATES_START_PARAM = "my_certificates";
 
 // The Mini App link (FINIK_REDIRECT_URL = t.me/<bot>/app) opened on a start param: a venue
 // slug, or order_<uuid>. The one place that builds it - with URL/searchParams, so an existing

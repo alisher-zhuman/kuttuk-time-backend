@@ -30,7 +30,7 @@ export class CertificatesController {
   @ApiOperation({
     summary: "Own certificates",
     description:
-      "**Roles:** any. Only certificates owned by the caller. `status` is effective: `active` past `validUntil` is returned as `expired`. `usedAt` is present only for `used`. Sorted: active first, then newest first.",
+      "**Roles:** any. Certificates owned by the caller, plus the ones they gave away and someone claimed (`giftedAt`). `status` is effective: `active` past `validUntil` is returned as `expired`. `usedAt` is present only for `used`. Sorted: own active first, then newest first.",
   })
   @ApiOkResponse({
     schema: {
@@ -62,7 +62,7 @@ export class CertificatesController {
   @ApiOperation({
     summary: "Prepare a gift card to send to a friend (Telegram shareMessage)",
     description:
-      '**Roles:** any - the certificate\'s owner. The server stores a ready card with Telegram (`savePreparedInlineMessage`: venue, amount, code, an "Open <venue>" button and a "Copy code" button, in the `Accept-Language` language) and returns its id; the Mini App calls `shareMessage(preparedMessageId)` and the user picks a chat. Ask for a new one per tap - it expires. Only an active certificate.',
+      '**Roles:** any - the certificate\'s owner. The server stores a ready card with Telegram (`savePreparedInlineMessage`: the QR, venue, amount, code, a "Claim gift" button (`startapp=gift_<token>`, see `/gifts`) and a "Copy code" button, in the `Accept-Language` language) and returns its id; the Mini App calls `shareMessage(preparedMessageId)` and the user picks a private chat. Ask for a new one per tap - it expires; a new card replaces the previous unclaimed link. Only an active certificate.',
   })
   @ApiOkResponse({
     schema: { example: { preparedMessageId: "aBcD123", expiresAt: "2026-10-22T12:00:00.000Z" } },

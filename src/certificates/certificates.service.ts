@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
-import type { DataSource } from "typeorm";
+import type { DataSource, EntityManager } from "typeorm";
 
 import {
   effectiveStatusSql,
@@ -16,6 +16,9 @@ export interface MyCertificate {
   validUntil: Date;
   // Present only for "used" - the key is absent otherwise (frontend contract).
   usedAt?: Date;
+  // Present only when the caller gave it away and the friend claimed it: the certificate is the
+  // friend's now, the caller sees it as «Подарен» (no QR, no code shown, no «Подарить»).
+  giftedAt?: Date;
   createdAt: Date;
   venue: { id: number; name: string; slug: string; logo: string };
 }
@@ -27,6 +30,7 @@ interface Row {
   status: EffectiveCertificateStatus;
   validUntil: Date;
   usedAt: Date | null;
+  giftedAt: Date | null;
   createdAt: Date;
   venueId: number;
   venueName: string;
@@ -40,21 +44,34 @@ const EFFECTIVE_STATUS = effectiveStatusSql("c");
 export class CertificatesService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  async findMine(userId: number): Promise<MyCertificate[]> {
-    // One query with the venue joined (no N+1); sorted in SQL: active first, newest first.
-    // Inactive venues / merchants are included on purpose - the buyer still owns those certificates.
-    const rows: Row[] = await this.dataSource.query(
+  // The caller's certificates, plus the ones they gave away (with giftedAt). One query with the
+  // venue joined (no N+1); sorted in SQL: own active first, then newest first. Inactive venues /
+  // merchants are included on purpose - the owner still has those certificates.
+  // `certificateId` narrows it to one (the answer to «Забрать»).
+  async findMine(
+    userId: number,
+    certificateId?: string,
+    em: EntityManager = this.dataSource.manager,
+  ): Promise<MyCertificate[]> {
+    const rows: Row[] = await em.query(
       `SELECT c."id", c."code", c."amount", ${EFFECTIVE_STATUS} AS "status",
               c."validUntil", c."usedAt", c."createdAt",
+              CASE WHEN c."ownerUserId" = $1 THEN NULL ELSE given."claimedAt" END AS "giftedAt",
               v."id" AS "venueId", v."name" AS "venueName",
               v."slug" AS "venueSlug", v."logo" AS "venueLogo"
          FROM "certificates" c
          JOIN "venues" v ON v."id" = c."venueId"
-        WHERE c."ownerUserId" = $1
-        ORDER BY CASE WHEN ${EFFECTIVE_STATUS} = 'active' THEN 0 ELSE 1 END,
+         LEFT JOIN LATERAL (
+           SELECT g."claimedAt" FROM "certificate_gifts" g
+            WHERE g."certificateId" = c."id" AND g."fromUserId" = $1 AND g."claimedAt" IS NOT NULL
+            ORDER BY g."claimedAt" DESC LIMIT 1
+         ) given ON true
+        WHERE (c."ownerUserId" = $1 OR given."claimedAt" IS NOT NULL)
+          AND ($2::uuid IS NULL OR c."id" = $2::uuid)
+        ORDER BY CASE WHEN c."ownerUserId" = $1 AND ${EFFECTIVE_STATUS} = 'active' THEN 0 ELSE 1 END,
                  c."createdAt" DESC,
                  c."id"`,
-      [userId],
+      [userId, certificateId ?? null],
     );
 
     return rows.map((row) => ({
@@ -64,6 +81,7 @@ export class CertificatesService {
       status: row.status,
       validUntil: row.validUntil,
       ...usedAtField(row.status, row.usedAt),
+      ...(row.giftedAt ? { giftedAt: row.giftedAt } : {}),
       createdAt: row.createdAt,
       venue: {
         id: row.venueId,

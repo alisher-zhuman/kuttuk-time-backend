@@ -8,7 +8,11 @@ import { expiryMessage } from "./expiry-messages";
 import type { Language } from "@/common/translations";
 import { bishkekTime } from "@/common/utils/bishkek-format";
 import { finikConfig } from "@/finik/finik.config";
-import { paymentRedirectUrl } from "@/orders/payment-redirect-url";
+import {
+  miniAppLink,
+  MY_CERTIFICATES_START_PARAM,
+  paymentRedirectUrl,
+} from "@/orders/payment-redirect-url";
 import { TelegramBotService } from "@/telegram/telegram-bot.service";
 
 export const EXPIRY_REMINDER_DAYS = 7;
@@ -46,6 +50,7 @@ export class ExpiryRemindersService {
 
     const claimed: Array<{
       orderId: string;
+      gifted: boolean;
       code: string;
       amount: number;
       validUntil: Date;
@@ -66,9 +71,10 @@ export class ExpiryRemindersService {
            FROM due WHERE c."id" = due."id" AND c."expiryRemindedAt" IS NULL
          RETURNING c.*
        )
-       SELECT c."orderId", c."code", c."amount", c."validUntil", v."name" AS "venue",
+       SELECT c."orderId", c."ownerUserId" <> o."userId" AS "gifted", c."code", c."amount", c."validUntil", v."name" AS "venue",
               u."telegramId"::text AS "telegramId", u."language"
          FROM claimed c
+         JOIN "orders" o ON o."id" = c."orderId"
          JOIN "venues" v ON v."id" = c."venueId"
          JOIN "users" u ON u."id" = c."ownerUserId"`,
       [now, EXPIRY_REMINDER_DAYS, BATCH],
@@ -82,7 +88,10 @@ export class ExpiryRemindersService {
         html: message.html,
         button: {
           text: message.button,
-          url: paymentRedirectUrl(this.finik.redirectUrl, certificate.orderId),
+          // A gift's owner isn't the buyer - the order screen isn't theirs to open.
+          url: certificate.gifted
+            ? miniAppLink(this.finik.redirectUrl, MY_CERTIFICATES_START_PARAM)
+            : paymentRedirectUrl(this.finik.redirectUrl, certificate.orderId),
         },
       });
     }

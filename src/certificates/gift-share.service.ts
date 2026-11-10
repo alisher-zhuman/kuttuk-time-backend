@@ -7,10 +7,13 @@ import {
 } from "@nestjs/common";
 import type { ConfigType } from "@nestjs/config";
 import { InjectDataSource } from "@nestjs/typeorm";
-import type { DataSource } from "typeorm";
+import { randomUUID } from "node:crypto";
+import { IsNull, type DataSource } from "typeorm";
 
 import { giftCard } from "./gift-messages";
 import { effectiveStatusSql } from "./effective-status";
+import { CertificateGift } from "./entities/certificate-gift.entity";
+import { generateGiftToken, GIFT_START_PARAM_PREFIX, giftTokenHash } from "./gift-token";
 import type { Language } from "@/common/translations";
 import { finikConfig } from "@/finik/finik.config";
 import { miniAppLink, qrImageUrl } from "@/orders/payment-redirect-url";
@@ -22,9 +25,11 @@ export interface PreparedGift {
 }
 
 // "Подарить": the backend stores a ready card with Telegram (savePreparedInlineMessage) and the
-// Mini App opens Telegram's chat picker with it (shareMessage) - the buyer sends it to a friend
-// as themselves. A new card per tap: Telegram expires them. Only the owner's active certificates
-// (the code in the card is what the friend redeems; ownership isn't transferred).
+// Mini App opens Telegram's chat picker with it (shareMessage) - the owner sends it to a friend
+// as themselves. A new card per tap: Telegram expires them. Only the owner's active certificates.
+// The card carries the code (redeemable as is) and a «Забрать подарок» link (startapp=gift_<token>,
+// see GiftsService) that moves the certificate to the friend. Each new card replaces the link of
+// the previous one that nobody claimed - sent to the wrong person → send again.
 @Injectable()
 export class GiftShareService {
   constructor(
@@ -68,16 +73,17 @@ export class GiftShareService {
     }
 
     const card = giftCard(language, row);
-    const open = miniAppLink(this.finik.redirectUrl, row.slug);
+    const token = generateGiftToken();
+    const claim = miniAppLink(this.finik.redirectUrl, `${GIFT_START_PARAM_PREFIX}${token}`);
     const qr = qrImageUrl(this.finik.webhookUrl, row.code);
 
     const prepared = await this.bot.request<{ id: string; expiration_date: number }>(
       "savePreparedInlineMessage",
       {
         user_id: ownerTelegramId,
-        // A photo of the code's QR with the text as its caption: the friend doesn't see the
-        // certificate in the app (it stays the buyer's), so this message is what they show at
-        // the counter - the cashier scans it. Telegram takes an inline photo only as a JPEG URL.
+        // A photo of the code's QR with the text as its caption: until the friend claims it,
+        // this message is what they show at the counter - the cashier scans it. Telegram takes
+        // an inline photo only as a JPEG URL.
         result: {
           type: "photo",
           id: certificateId,
@@ -88,18 +94,50 @@ export class GiftShareService {
           caption: card.html,
           parse_mode: "HTML",
           reply_markup: inlineKeyboard([
-            { text: card.open, url: open },
+            { text: card.claim, url: claim },
             { text: card.copy, copyText: row.code },
           ]),
         },
+        // A gift is for one person: in a group everyone would see the code and the link.
         allow_user_chats: true,
-        allow_group_chats: true,
+        allow_group_chats: false,
       },
       `Gift card for certificate ${certificateId}`,
     );
 
     if (!prepared?.id) {
       throw new BadGatewayException("Telegram is temporarily unavailable, please try again");
+    }
+
+    // Only now that the card exists: replace the open link, if the certificate is still theirs
+    // and active (a redemption or a claim could have landed while Telegram answered).
+    const saved = await this.dataSource.transaction(async (em) => {
+      const [locked]: Array<{ id: string }> = await em.query(
+        `SELECT c."id" FROM "certificates" c
+          WHERE c."id" = $1 AND c."ownerUserId" = $2 AND ${effectiveStatusSql("c")} = 'active'
+            FOR UPDATE`,
+        [certificateId, ownerUserId],
+      );
+
+      if (!locked) {
+        return false;
+      }
+
+      await em.delete(CertificateGift, { certificateId, claimedAt: IsNull() });
+      await em.insert(CertificateGift, {
+        id: randomUUID(),
+        certificateId,
+        fromUserId: ownerUserId,
+        tokenHash: giftTokenHash(token),
+        claimedAt: null,
+        claimedByUserId: null,
+      });
+
+      return true;
+    });
+
+    if (!saved) {
+      throw new ConflictException({ message: "Certificate is no longer active", error: "changed" });
     }
 
     return {

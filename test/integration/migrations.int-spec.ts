@@ -18,6 +18,7 @@ const MIGRATIONS = [
   "DigitCertificateCodes1792581780947",
   "BotDigests1792584683240",
   "HotQueryIndexes1792645138592",
+  "CertificateGifts1794309344224",
 ];
 
 // Revert migrations from the newest down to (and including) `name`.

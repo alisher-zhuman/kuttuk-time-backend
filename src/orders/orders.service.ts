@@ -50,6 +50,8 @@ export interface OrderView {
     validUntil: Date;
     status: EffectiveCertificateStatus;
     usedAt?: Date;
+    // The buyer gave it away and the friend claimed it - shown as «Подарен», no «Подарить».
+    giftedAt?: Date;
   } | null;
 }
 
@@ -166,12 +168,17 @@ export class OrdersService {
       validUntil: Date;
       status: EffectiveCertificateStatus;
       usedAt: Date | null;
+      giftedAt: Date | null;
     }> =
       order.status === OrderStatus.Paid
         ? await this.certificateRepo.query(
-            `SELECT c."id", c."code", c."validUntil", c."usedAt", ${effectiveStatusSql("c")} AS "status"
+            `SELECT c."id", c."code", c."validUntil", c."usedAt", ${effectiveStatusSql("c")} AS "status",
+                    CASE WHEN c."ownerUserId" = $2 THEN NULL ELSE (
+                      SELECT max(g."claimedAt") FROM "certificate_gifts" g
+                       WHERE g."certificateId" = c."id" AND g."fromUserId" = $2
+                    ) END AS "giftedAt"
                FROM "certificates" c WHERE c."orderId" = $1`,
-            [order.id],
+            [order.id, userId],
           )
         : [];
 
@@ -190,6 +197,7 @@ export class OrdersService {
             validUntil: certificate.validUntil,
             status: certificate.status,
             ...usedAtField(certificate.status, certificate.usedAt),
+            ...(certificate.giftedAt ? { giftedAt: certificate.giftedAt } : {}),
           }
         : null,
     };

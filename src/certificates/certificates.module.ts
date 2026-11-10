@@ -11,6 +11,8 @@ import { RedemptionService } from "./redemption.service";
 import { RedemptionNotifier } from "./redemption-notifier";
 import { ExpiryRemindersService } from "./expiry-reminders.service";
 import { GiftShareService } from "./gift-share.service";
+import { GiftsController } from "./gifts.controller";
+import { GiftsService } from "./gifts.service";
 import { finikConfig } from "@/finik/finik.config";
 import { TelegramModule } from "@/telegram/telegram.module";
 
@@ -22,6 +24,7 @@ import { TelegramModule } from "@/telegram/telegram.module";
     MerchantCertificatesController,
     MerchantCabinetController,
     QrController,
+    GiftsController,
   ],
   providers: [
     CertificatesService,
@@ -30,6 +33,7 @@ import { TelegramModule } from "@/telegram/telegram.module";
     MerchantCabinetService,
     ExpiryRemindersService,
     GiftShareService,
+    GiftsService,
   ],
 })
 export class CertificatesModule {}

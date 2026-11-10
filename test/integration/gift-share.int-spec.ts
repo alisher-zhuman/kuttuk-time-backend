@@ -4,6 +4,7 @@ import {
   CertificateStatus,
   type Certificate,
 } from "../../src/certificates/entities/certificate.entity";
+import { CertificateGift } from "../../src/certificates/entities/certificate-gift.entity";
 import { OrderStatus } from "../../src/orders/entities/order.entity";
 import type { User } from "../../src/users/entities/user.entity";
 import type { Venue } from "../../src/venues/entities/venue.entity";
@@ -63,6 +64,14 @@ describe("POST /api/certificates/:id/share - gift card (integration)", () => {
     const cert = await certificate();
 
     const res = await share(cert.id).expect(200);
+    const claimUrl = (
+      t.bot.calls[0].payload.result as {
+        reply_markup: { inline_keyboard: Array<Array<{ url?: string }>> };
+      }
+    ).reply_markup.inline_keyboard[0][0].url!;
+    const token = new URL(claimUrl).searchParams.get("startapp")!.replace(/^gift_/, "");
+
+    expect(token).toMatch(/^[A-Za-z0-9_-]{22}$/);
 
     expect(res.body).toEqual({
       preparedMessageId: "prepared-1",
@@ -81,14 +90,14 @@ describe("POST /api/certificates/:id/share - gift card (integration)", () => {
             title: "🎁 Сертификат в Coffee <b>&</b> Co - 1000 сом",
             description: "Код 0471 8263 · до 21.10.2027",
             caption:
-              "🎁 Тебе подарок - сертификат в <b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b> на 1000 сом\n\nКод: <code>0471 8263</code>\nДействует до 21.10.2027\n\nПокажи этот QR или код на кассе.",
+              "🎁 Тебе подарок - сертификат в <b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b> на 1000 сом\n\nКод: <code>0471 8263</code>\nДействует до 21.10.2027\n\nПокажи этот QR или код на кассе. Нажми «Забрать подарок» - и сертификат будет у тебя в приложении.",
             parse_mode: "HTML",
             reply_markup: {
               inline_keyboard: [
                 [
                   {
-                    text: "Открыть Coffee <b>&</b> Co",
-                    url: "https://t.me/kuttuk_time_bot/app?startapp=coffeeroom",
+                    text: "🎁 Забрать подарок",
+                    url: `https://t.me/kuttuk_time_bot/app?startapp=gift_${token}`,
                   },
                 ],
                 [{ text: "Скопировать код", copy_text: { text: "04718263" } }],
@@ -96,7 +105,7 @@ describe("POST /api/certificates/:id/share - gift card (integration)", () => {
             },
           },
           allow_user_chats: true,
-          allow_group_chats: true,
+          allow_group_chats: false,
         },
       },
     ]);
@@ -126,6 +135,25 @@ describe("POST /api/certificates/:id/share - gift card (integration)", () => {
 
     await share(cert.id).expect(404);
     expect(t.bot.calls).toHaveLength(0);
+    expect(await t.ds.getRepository(CertificateGift).count()).toBe(0);
+  });
+
+  it("a new card replaces the open link of the previous one; Telegram failing keeps it", async () => {
+    const cert = await certificate();
+
+    await share(cert.id).expect(200);
+    const first = await t.ds.getRepository(CertificateGift).findOneByOrFail({});
+
+    t.bot.deliver = false;
+    await share(cert.id).expect(502);
+    expect(await t.ds.getRepository(CertificateGift).find()).toEqual([first]);
+
+    t.bot.deliver = true;
+    await share(cert.id).expect(200);
+    const gifts = await t.ds.getRepository(CertificateGift).find();
+
+    expect(gifts).toHaveLength(1);
+    expect(gifts[0].tokenHash).not.toBe(first.tokenHash);
   });
 
   it.each([
