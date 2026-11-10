@@ -24,7 +24,7 @@ export interface ResolveNeedsReviewResult {
 export class ResolveNeedsReviewError extends Error {}
 
 // Manual decision on a needs_review order (a webhook came, but the paid amount didn't match):
-//  - issue:    honour it — paid + the certificate, through the same code as the webhook;
+//  - issue:    honour it - paid + the certificate, through the same code as the webhook;
 //  - refunded: the money was returned outside the system (Finik has no refund API).
 // One transaction with the order row locked, so it can't race a late webhook retry.
 // Anything but needs_review → error, nothing changes.
@@ -41,7 +41,7 @@ export const resolveNeedsReview = (
 
     if (order.status !== OrderStatus.NeedsReview) {
       throw new ResolveNeedsReviewError(
-        `Order ${order.id} is "${order.status}", not "needs_review" — nothing changed`,
+        `Order ${order.id} is "${order.status}", not "needs_review" - nothing changed`,
       );
     }
 

@@ -28,7 +28,7 @@ export interface TelegramUpdate {
 }
 
 // The bot doesn't chat: /start gets a welcome with an "open the app" button (straight into a
-// venue for /start <slug>), anything else — the same button and the support contact. Private
+// venue for /start <slug>), anything else - the same button and the support contact. Private
 // chats only. Best-effort: never throws (the webhook already answered 200).
 @Injectable()
 export class BotUpdatesService {
@@ -86,7 +86,7 @@ export class BotUpdatesService {
     }
   }
 
-  // The Mini App link; with a slug — that venue (the same startapp=<slug> as GET /:slug).
+  // The Mini App link; with a slug - that venue (the same startapp=<slug> as GET /:slug).
   private appLink(slug?: string): string {
     return miniAppLink(this.finik.redirectUrl, slug);
   }
@@ -102,7 +102,7 @@ export class BotUpdatesService {
   }
 
   // The menu button in this chat's language. The Bot API has one default text for everyone
-  // (set by bot:setup), but a per-chat button can have its own — so set it here. Needs the
+  // (set by bot:setup), but a per-chat button can have its own - so set it here. Needs the
   // Mini App's https URL (MINI_APP_URL); without it the default button stays.
   private async setMenuButton(chatId: number, lang: ReturnType<typeof botLanguage>): Promise<void> {
     const url = process.env.MINI_APP_URL?.trim();

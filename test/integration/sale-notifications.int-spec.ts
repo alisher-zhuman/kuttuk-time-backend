@@ -76,7 +76,7 @@ describe("bot notifications on a sale (integration)", () => {
     // Copies exactly the code (digits, no spaces).
     expect(toBuyer.buttons).toEqual([{ text: "Скопировать код", copyText: code }]);
 
-    expect(toOwner.html).toBe("🎉 New sale: <b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b> — 1000 KGS");
+    expect(toOwner.html).toBe("🎉 New sale: <b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b> - 1000 KGS");
     expect(toOwner.html).not.toContain(code);
     expect(toOwner.button).toEqual({
       text: "Open cabinet",

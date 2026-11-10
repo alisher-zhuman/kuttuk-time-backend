@@ -1,6 +1,6 @@
 // Integration tests: test/**/*.int-spec.ts against a real Postgres.
-// A separate config (not Jest `projects`) because these must run in a single worker —
-// tests share one database and are isolated by TRUNCATE — while `maxWorkers` is global in Jest.
+// A separate config (not Jest `projects`) because these must run in a single worker -
+// tests share one database and are isolated by TRUNCATE - while `maxWorkers` is global in Jest.
 /** @type {import('jest').Config} */
 module.exports = {
   rootDir: ".",

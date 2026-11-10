@@ -19,7 +19,7 @@ export enum OrderStatus {
   Pending = "pending",
   Paid = "paid",
   Expired = "expired",
-  // Paid, but the amount didn't match — no certificate; resolve by hand.
+  // Paid, but the amount didn't match - no certificate; resolve by hand.
   NeedsReview = "needs_review",
   // Terminal: a needs_review order whose money was returned outside the system (resolved by hand).
   Refunded = "refunded",

@@ -59,7 +59,7 @@ describe("payouts report (integration)", () => {
 
   describe("weekOf (computed in SQL)", () => {
     it.each(["2026-10-19", "2026-10-21", "2026-10-25"])(
-      "%s → the whole Mon–Sun week",
+      "%s → the whole Mon-Sun week",
       async (date) => {
         await expect(weekOf(ds, date)).resolves.toEqual(WEEK);
       },

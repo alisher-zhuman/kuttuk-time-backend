@@ -134,7 +134,7 @@ describe("GET /api/certificates/my (integration)", () => {
       expect(byId.get(id)).not.toHaveProperty("usedAt");
     }
 
-    // Computed on read only — the stored status is untouched.
+    // Computed on read only - the stored status is untouched.
     const [{ status }] = await t.ds.query(`SELECT status FROM certificates WHERE id = $1`, [
       lapsed.id,
     ]);

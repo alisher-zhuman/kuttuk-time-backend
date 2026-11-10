@@ -81,7 +81,7 @@ describe("merchant cabinet (integration)", () => {
   });
 
   describe("GET /api/merchants/me/summary", () => {
-    it("defaults to the current Mon–Sun week in Bishkek", async () => {
+    it("defaults to the current Mon-Sun week in Bishkek", async () => {
       const res = await get("/api/merchants/me/summary").expect(200);
       const today = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString().slice(0, 10);
       const from = new Date(`${res.body.from}T00:00:00Z`);
@@ -301,7 +301,7 @@ describe("merchant cabinet (integration)", () => {
         pages++;
 
         if (pages === 1) {
-          // A new sale lands on top — it must not appear in, or shift, the remaining pages.
+          // A new sale lands on top - it must not appear in, or shift, the remaining pages.
           await sale(1000, new Date());
         }
       } while (cursor);
@@ -317,7 +317,7 @@ describe("merchant cabinet (integration)", () => {
         await sale(1000, new Date(Date.now() - DAY)),
       ];
 
-      // Same millisecond, different microseconds — what bulk inserts / now() produce.
+      // Same millisecond, different microseconds - what bulk inserts / now() produce.
       for (const [i, us] of ["123456", "123300", "100000"].entries()) {
         await t.ds.query(`UPDATE certificates SET "createdAt" = $1 WHERE id = $2`, [
           `2026-10-20 10:00:00.${us}+00`,

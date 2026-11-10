@@ -14,7 +14,7 @@ export interface MyCertificate {
   amount: number;
   status: EffectiveCertificateStatus;
   validUntil: Date;
-  // Present only for "used" — the key is absent otherwise (frontend contract).
+  // Present only for "used" - the key is absent otherwise (frontend contract).
   usedAt?: Date;
   createdAt: Date;
   venue: { id: number; name: string; slug: string; logo: string };
@@ -42,7 +42,7 @@ export class CertificatesService {
 
   async findMine(userId: number): Promise<MyCertificate[]> {
     // One query with the venue joined (no N+1); sorted in SQL: active first, newest first.
-    // Inactive venues / merchants are included on purpose — the buyer still owns those certificates.
+    // Inactive venues / merchants are included on purpose - the buyer still owns those certificates.
     const rows: Row[] = await this.dataSource.query(
       `SELECT c."id", c."code", c."amount", ${EFFECTIVE_STATUS} AS "status",
               c."validUntil", c."usedAt", c."createdAt",

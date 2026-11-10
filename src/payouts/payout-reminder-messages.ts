@@ -20,7 +20,7 @@ export const payoutReminderMessage = (
   lang: Language,
   r: PayoutReminder,
 ): { html: string; button: string } => {
-  const period = `${dmy(r.from)}–${dmy(r.to)}`;
+  const period = `${dmy(r.from)}-${dmy(r.to)}`;
   const total = r.due.reduce((sum, m) => sum + m.due, 0);
   const t = {
     ru: {
@@ -28,7 +28,7 @@ export const payoutReminderMessage = (
       none: `💸 За ${period} выплачивать нечего.`,
       more: (n: number) => `… и ещё ${n}`,
       total: `Итого: <b>${total} сом</b>`,
-      review: `⚠️ На проверке: ${r.needsReviewCount} — не входит в выплату, сначала разобрать.`,
+      review: `⚠️ На проверке: ${r.needsReviewCount} - не входит в выплату, сначала разобрать.`,
       older: "⏳ Не выплачено за прошлые недели:",
       cur: "сом",
       button: "Открыть приложение",
@@ -38,7 +38,7 @@ export const payoutReminderMessage = (
       none: `💸 Nothing to pay out for ${period}.`,
       more: (n: number) => `… and ${n} more`,
       total: `Total: <b>${total} KGS</b>`,
-      review: `⚠️ Needs review: ${r.needsReviewCount} — not included, resolve first.`,
+      review: `⚠️ Needs review: ${r.needsReviewCount} - not included, resolve first.`,
       older: "⏳ Still unpaid from earlier weeks:",
       cur: "KGS",
       button: "Open the app",
@@ -48,7 +48,7 @@ export const payoutReminderMessage = (
       none: `💸 ${period} үчүн төлөп бере турган эч нерсе жок.`,
       more: (n: number) => `… дагы ${n}`,
       total: `Жалпы: <b>${total} сом</b>`,
-      review: `⚠️ Текшерүүдө: ${r.needsReviewCount} — төлөп берүүгө кирбейт, адегенде чечиңиз.`,
+      review: `⚠️ Текшерүүдө: ${r.needsReviewCount} - төлөп берүүгө кирбейт, адегенде чечиңиз.`,
       older: "⏳ Мурунку апталар үчүн төлөнө элек:",
       cur: "сом",
       button: "Колдонмону ачуу",
@@ -57,7 +57,7 @@ export const payoutReminderMessage = (
 
   const lines = r.due
     .slice(0, MAX_LINES)
-    .map((m) => `• ${escapeHtml(m.merchantName)} — ${m.due} ${t.cur}`);
+    .map((m) => `• ${escapeHtml(m.merchantName)} - ${m.due} ${t.cur}`);
 
   if (r.due.length > MAX_LINES) {
     lines.push(t.more(r.due.length - MAX_LINES));
@@ -73,7 +73,7 @@ export const payoutReminderMessage = (
         t.older,
         ...older
           .slice(0, MAX_LINES)
-          .map((m) => `• ${escapeHtml(m.merchantName)} — ${m.due} ${t.cur}`),
+          .map((m) => `• ${escapeHtml(m.merchantName)} - ${m.due} ${t.cur}`),
       ].join("\n"),
     );
   }

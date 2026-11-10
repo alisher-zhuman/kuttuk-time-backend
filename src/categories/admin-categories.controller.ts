@@ -78,9 +78,9 @@ export class AdminCategoriesController {
   @ApiOperation({
     summary: "Reorder categories",
     description:
-      "**Roles:** `admin` only. Send ALL category ids in the desired order — array position becomes the new `order`. Response body is empty.",
+      "**Roles:** `admin` only. Send ALL category ids in the desired order - array position becomes the new `order`. Response body is empty.",
   })
-  @ApiOkResponse({ description: "Categories reordered — empty response body" })
+  @ApiOkResponse({ description: "Categories reordered - empty response body" })
   @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
   @ApiForbiddenResponse({ description: "Requires admin role", schema: { example: FORBIDDEN } })
   @ApiBadRequestResponse({
@@ -122,7 +122,7 @@ export class AdminCategoriesController {
     description:
       "**Roles:** `admin` only. Also removes this category from any merchant that has it assigned.",
   })
-  @ApiNoContentResponse({ description: "Category deleted — empty response body" })
+  @ApiNoContentResponse({ description: "Category deleted - empty response body" })
   @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })
   @ApiForbiddenResponse({ description: "Requires admin role", schema: { example: FORBIDDEN } })
   @ApiNotFoundResponse({ description: "Category not found", schema: { example: NOT_FOUND } })

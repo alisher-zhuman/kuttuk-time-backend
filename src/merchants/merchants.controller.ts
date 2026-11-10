@@ -48,7 +48,7 @@ export class MerchantsController {
   @ApiOperation({
     summary: "Own merchant account and its venues",
     description:
-      "**Roles:** `merchant` only. The account tied to your Telegram ID; `venues` — all of them, active or not.",
+      "**Roles:** `merchant` only. The account tied to your Telegram ID; `venues` - all of them, active or not.",
   })
   @ApiOkResponse({
     schema: {
@@ -66,7 +66,7 @@ export class MerchantsController {
   @ApiOperation({
     summary: "Update own venue (storefront)",
     description:
-      "**Roles:** `merchant` only. Not `slug` / `isActive` / the owner — those are admin-only.",
+      "**Roles:** `merchant` only. Not `slug` / `isActive` / the owner - those are admin-only.",
   })
   @ApiOkResponse({ schema: { example: OWN_VENUE_EXAMPLE } })
   @ApiUnauthorizedResponse({ description: "No token provided", schema: { example: UNAUTHORIZED } })

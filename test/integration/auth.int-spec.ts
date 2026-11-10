@@ -9,7 +9,7 @@ import { initDataFields, nowSec, signInitData, telegramUser } from "../helpers/i
 const BOT_TOKEN = () => process.env.BOT_TOKEN ?? "";
 const DAY = 24 * 60 * 60;
 
-describe("POST /api/auth/log-in — Telegram initData (integration)", () => {
+describe("POST /api/auth/log-in - Telegram initData (integration)", () => {
   let t: TestApp;
 
   const logIn = (initData: string) =>
@@ -223,14 +223,14 @@ describe("POST /api/auth/log-in — Telegram initData (integration)", () => {
       process.env.BOT_TOKEN = saved;
     });
 
-    // HMAC("WebAppData", "") is public knowledge — without this, anyone could forge initData
+    // HMAC("WebAppData", "") is public knowledge - without this, anyone could forge initData
     // for any telegramId, an admin included.
     it.each([
       ["empty", ""],
       ["whitespace only", "   "],
       ["not set at all", undefined],
     ])(
-      "%s: fails closed — initData signed with an empty token is rejected",
+      "%s: fails closed - initData signed with an empty token is rejected",
       async (_name, value) => {
         if (value === undefined) {
           delete process.env.BOT_TOKEN;

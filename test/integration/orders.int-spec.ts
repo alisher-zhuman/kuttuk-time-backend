@@ -123,7 +123,7 @@ describe("Orders API (integration)", () => {
         .expect(201);
 
       // Our own return endpoint on FINIK_WEBHOOK_URL's origin (http://localhost in globalSetup),
-      // not t.me directly — Finik's intermediate redirect mangled the direct link.
+      // not t.me directly - Finik's intermediate redirect mangled the direct link.
       expect(t.finik.calls.map((call) => call.redirectUrl)).toEqual([
         `http://localhost/api/payments/return/${first.body.orderId}`,
         `http://localhost/api/payments/return/${second.body.orderId}`,
@@ -227,7 +227,7 @@ describe("Orders API (integration)", () => {
       expect(res.body).toMatchObject({
         status: "paid",
         paymentUrl: null,
-        // id — for "Подарить" (POST /certificates/:id/share) from the order screen.
+        // id - for "Подарить" (POST /certificates/:id/share) from the order screen.
         certificate: {
           id: cert.id,
           code: "12345678",

@@ -179,7 +179,7 @@ describe("Migrations (integration)", () => {
       await expect(undoDownTo(ds, "SplitMerchantsAndVenues1792500000000")).rejects.toThrow(
         /owns several venues/,
       );
-      // The split itself stayed; only the later migrations were reverted — re-apply them.
+      // The split itself stayed; only the later migrations were reverted - re-apply them.
       await ds.runMigrations();
       await expect(ds.showMigrations()).resolves.toBe(false);
 

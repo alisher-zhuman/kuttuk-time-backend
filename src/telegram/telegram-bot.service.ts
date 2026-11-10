@@ -28,7 +28,7 @@ export const escapeHtml = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 // Best-effort Bot API calls: never throw, return whether Telegram accepted it. A bot can only
-// write to someone who started it or allowed it in the Mini App — otherwise Telegram answers 403,
+// write to someone who started it or allowed it in the Mini App - otherwise Telegram answers 403,
 // which is expected and only logged.
 @Injectable()
 export class TelegramBotService {
@@ -92,7 +92,7 @@ export class TelegramBotService {
 
       return null;
     } catch (error) {
-      // Only the error's name/message — never the request URL, it holds the token.
+      // Only the error's name/message - never the request URL, it holds the token.
       const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
 
       this.logger.error(`${label} failed: ${reason}`);

@@ -8,7 +8,7 @@ import { SUPPORT_URL } from "@/telegram/links";
 import { TelegramBotService } from "@/telegram/telegram-bot.service";
 
 // After a successful redemption: tell the certificate's owner. Best-effort and not awaited by the
-// caller — the merchant's answer never waits on Telegram; nothing here throws.
+// caller - the merchant's answer never waits on Telegram; nothing here throws.
 @Injectable()
 export class RedemptionNotifier {
   private readonly logger = new Logger(RedemptionNotifier.name);

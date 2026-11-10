@@ -10,5 +10,5 @@ node_modules/
 
 *.pem
 
-# Payout reports (CSV with merchant money) — never commit
+# Payout reports (CSV with merchant money) - never commit
 reports/

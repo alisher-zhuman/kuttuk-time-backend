@@ -18,7 +18,7 @@ import { CurrentUser } from "@/auth/interfaces/current-user.interface";
 import { Roles } from "@/auth/roles.decorator";
 import { RolesGuard } from "@/auth/roles.guard";
 
-// The merchant owner's cabinet: weekly summary and the list of certificates — for the whole
+// The merchant owner's cabinet: weekly summary and the list of certificates - for the whole
 // merchant (all its venues: payouts are per merchant), optionally narrowed with ?venueId=.
 // Lookup/redeem by code live in MerchantCertificatesController. Default rate limit, per user.
 @ApiTags("Merchant cabinet")
@@ -31,9 +31,9 @@ export class MerchantCabinetController {
 
   @Get("summary")
   @ApiOperation({
-    summary: "Weekly summary (Mon–Sun, Asia/Bishkek)",
+    summary: "Weekly summary (Mon-Sun, Asia/Bishkek)",
     description:
-      "**Roles:** `merchant`. `week` = any date inside the week (YYYY-MM-DD), default — the current week. Sold/payout use the same rules as the payout report (paid orders by paidAt, 90/10, floored on the total); redeemed = certificates used in that week. `paidOut` / `due` — recorded payouts and what's still owed for the week, whole merchant only (absent with `venueId`).",
+      "**Roles:** `merchant`. `week` = any date inside the week (YYYY-MM-DD), default - the current week. Sold/payout use the same rules as the payout report (paid orders by paidAt, 90/10, floored on the total); redeemed = certificates used in that week. `paidOut` / `due` - recorded payouts and what's still owed for the week, whole merchant only (absent with `venueId`).",
   })
   @ApiQuery({ name: "week", required: false, example: "2026-10-20" })
   @ApiQuery({ name: "venueId", required: false, example: 9, description: "One of your venues" })

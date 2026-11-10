@@ -2,7 +2,7 @@ import { registerDecorator, ValidateIf, type ValidationOptions } from "class-val
 
 import { LANGUAGES } from "./translations";
 
-// Exactly the keys ru/kg/en — no missing, no extra — each a non-empty (non-blank) string.
+// Exactly the keys ru/kg/en - no missing, no extra - each a non-empty (non-blank) string.
 export const isTranslations = (value: unknown): boolean => {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;

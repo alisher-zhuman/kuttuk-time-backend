@@ -8,7 +8,7 @@ import { paymentRedirectUrl } from "./payment-redirect-url";
 import { Public } from "@/auth/public.decorator";
 import { finikConfig } from "@/finik/finik.config";
 
-// Where Finik sends the buyer after paying (see paymentReturnUrl). Public — the buyer's browser
+// Where Finik sends the buyer after paying (see paymentReturnUrl). Public - the buyer's browser
 // has no JWT here; default rate limit by IP. Deliberately doesn't look the order up: the
 // response is the same whether it exists or not, so nothing is disclosed.
 @ApiExcludeController()
@@ -22,7 +22,7 @@ export class PaymentReturnController {
   @Get("return/:orderId")
   @Redirect(undefined, 302)
   return(@Param("orderId") orderId: string, @Req() req: Request): { url: string } {
-    // Full incoming URL, query included — to see what Finik appends to our RedirectUrl.
+    // Full incoming URL, query included - to see what Finik appends to our RedirectUrl.
     this.logger.log(`Payment return: ${req.originalUrl}`);
 
     return {

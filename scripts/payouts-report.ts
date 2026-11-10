@@ -54,12 +54,12 @@ const main = async () => {
 
     process.stdout.write(csv);
     process.stdout.write(
-      `\nPeriod: ${report.period.from} 00:00 – ${report.period.to} 23:59:59 (Asia/Bishkek). Saved: ${file}\n`,
+      `\nPeriod: ${report.period.from} 00:00 - ${report.period.to} 23:59:59 (Asia/Bishkek). Saved: ${file}\n`,
     );
 
     if (report.needsReview.length > 0) {
       process.stdout.write(
-        `\n⚠ ${report.needsReview.length} order(s) in needs_review — resolve them before paying out (not in the CSV):\n`,
+        `\n⚠ ${report.needsReview.length} order(s) in needs_review - resolve them before paying out (not in the CSV):\n`,
       );
 
       for (const o of report.needsReview) {

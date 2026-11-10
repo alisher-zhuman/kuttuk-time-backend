@@ -30,7 +30,7 @@ export const finikWebhookBody = (
   transactionId: order.id,
   data: {
     accountId: "test-account",
-    description: "Test Merchant — 1000 KGS",
+    description: "Test Merchant - 1000 KGS",
     webhookUrl: process.env.FINIK_WEBHOOK_URL,
     name_en: "KuttukTime",
   },

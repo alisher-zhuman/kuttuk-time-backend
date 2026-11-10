@@ -3,7 +3,7 @@
 export const ORDER_START_PARAM_PREFIX = "order_";
 
 // The Mini App link (FINIK_REDIRECT_URL = t.me/<bot>/app) opened on a start param: a venue
-// slug, or order_<uuid>. The one place that builds it — with URL/searchParams, so an existing
+// slug, or order_<uuid>. The one place that builds it - with URL/searchParams, so an existing
 // query in the base survives and an existing startapp is replaced. No param → the bare link.
 export const miniAppLink = (base: string, startParam?: string): string => {
   if (!startParam) {
@@ -24,7 +24,7 @@ export const paymentRedirectUrl = (base: string, orderId: string): string =>
 // What Finik gets as RedirectUrl: our own GET /api/payments/return/:orderId, which then 302s
 // to paymentRedirectUrl(). Finik's intermediate redirect mangled a direct t.me link (the buyer
 // landed in the bot chat with "An error occurred"), so the final link is built on our side.
-// The public origin is taken from FINIK_WEBHOOK_URL — it must already be our exact public URL.
+// The public origin is taken from FINIK_WEBHOOK_URL - it must already be our exact public URL.
 // GET /api/qr/<code>.jpg on our public origin (the same origin rule as the return URL below).
 export const qrImageUrl = (webhookUrl: string, code: string): string =>
   `${new URL(webhookUrl).origin}/api/qr/${encodeURIComponent(code)}.jpg`;

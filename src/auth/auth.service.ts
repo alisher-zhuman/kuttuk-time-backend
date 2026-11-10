@@ -9,7 +9,7 @@ import type { Language } from "@/common/translations";
 import { botToken } from "@/telegram/bot-token";
 
 // Telegram doesn't refresh initData while the Mini App stays open, and the
-// frontend re-logs-in with the same string on 401 — so this must outlast a
+// frontend re-logs-in with the same string on 401 - so this must outlast a
 // realistic session, not just the JWT TTL.
 const INIT_DATA_MAX_AGE_SEC = 24 * 60 * 60;
 // Tolerate small clock drift between Telegram and our server.
@@ -27,11 +27,11 @@ export class AuthService implements OnModuleInit {
     private readonly jwtService: JwtService,
   ) {}
 
-  // Doesn't stop the app (public routes and the Finik webhook keep working) — log-in just
-  // refuses — but makes the misconfiguration visible at boot, not at the first login.
+  // Doesn't stop the app (public routes and the Finik webhook keep working) - log-in just
+  // refuses - but makes the misconfiguration visible at boot, not at the first login.
   onModuleInit(): void {
     if (!botToken()) {
-      this.logger.error("BOT_TOKEN is not set — every log-in will be refused");
+      this.logger.error("BOT_TOKEN is not set - every log-in will be refused");
     }
   }
 
@@ -88,7 +88,7 @@ export class AuthService implements OnModuleInit {
   private verifyInitData(initData: string): number {
     const token = botToken();
 
-    // With an empty BOT_TOKEN the HMAC key would be HMAC("WebAppData", "") — public knowledge, so
+    // With an empty BOT_TOKEN the HMAC key would be HMAC("WebAppData", "") - public knowledge, so
     // anyone could forge initData for any telegramId (incl. an admin). Fail closed instead.
     if (!token) {
       this.logger.error("Log-in refused: BOT_TOKEN is not set");
@@ -104,7 +104,7 @@ export class AuthService implements OnModuleInit {
     }
 
     // Only "hash" is excluded from the data-check-string. The "signature"
-    // field (Ed25519, for third-party validation) MUST stay in — Telegram
+    // field (Ed25519, for third-party validation) MUST stay in - Telegram
     // computes the HMAC hash with it present.
     params.delete("hash");
 

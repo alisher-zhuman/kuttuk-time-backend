@@ -53,7 +53,7 @@ export class OrdersController {
   }
 
   @Get(":id")
-  // The frontend polls every 3 s while waiting for payment (20/min) — 60/min per user leaves headroom.
+  // The frontend polls every 3 s while waiting for payment (20/min) - 60/min per user leaves headroom.
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   @ApiOperation({
     summary: "Get own order (polling after payment)",

@@ -15,7 +15,7 @@ import { finikConfig } from "@/finik/finik.config";
 import { TelegramModule } from "@/telegram/telegram.module";
 
 @Module({
-  // finik.redirectUrl — the Mini App link for the reminder button.
+  // finik.redirectUrl - the Mini App link for the reminder button.
   imports: [TelegramModule, ConfigModule.forFeature(finikConfig)],
   controllers: [
     CertificatesController,

@@ -1,6 +1,6 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 
-// One row per incoming webhook request, valid or not — for reconciling with Finik.
+// One row per incoming webhook request, valid or not - for reconciling with Finik.
 @Entity("finik_webhook_events")
 export class FinikWebhookEvent {
   @PrimaryColumn("uuid")
@@ -16,7 +16,7 @@ export class FinikWebhookEvent {
   @Column({ type: "json" })
   headers!: Record<string, string>;
 
-  // json, not jsonb: jsonb reorders keys, and nested key order is part of Finik's signature —
+  // json, not jsonb: jsonb reorders keys, and nested key order is part of Finik's signature -
   // with json the stored body can still be re-verified against the original signature.
   @Column({ type: "json" })
   body!: unknown;

@@ -24,26 +24,26 @@ export const buyerMessage = (
   switch (lang) {
     case "ru":
       return {
-        html: `🎁 Ваш подарочный сертификат в ${venue} на ${sale.amount} сом\n\nКод: ${code}\nДействует до ${until}\n\nПокажите код на месте — его отметят как использованный.`,
+        html: `🎁 Ваш подарочный сертификат в ${venue} на ${sale.amount} сом\n\nКод: ${code}\nДействует до ${until}\n\nПокажите код на месте - его отметят как использованный.`,
         button: "Открыть сертификат",
         copy: "Скопировать код",
       };
     case "en":
       return {
-        html: `🎁 Your gift certificate for ${venue}, ${sale.amount} KGS\n\nCode: ${code}\nValid until ${until}\n\nShow the code at the venue — it will be marked as used.`,
+        html: `🎁 Your gift certificate for ${venue}, ${sale.amount} KGS\n\nCode: ${code}\nValid until ${until}\n\nShow the code at the venue - it will be marked as used.`,
         button: "Open certificate",
         copy: "Copy code",
       };
     case "kg":
       return {
-        html: `🎁 ${venue} мекемесиндеги ${sale.amount} сомдук белек сертификатыңыз\n\nКод: ${code}\n${until} чейин жарактуу\n\nКодду жеринде көрсөтүңүз — аны колдонулду деп белгилешет.`,
+        html: `🎁 ${venue} мекемесиндеги ${sale.amount} сомдук белек сертификатыңыз\n\nКод: ${code}\n${until} чейин жарактуу\n\nКодду жеринде көрсөтүңүз - аны колдонулду деп белгилешет.`,
         button: "Сертификатты ачуу",
         copy: "Кодду көчүрүү",
       };
   }
 };
 
-// To the venue's owner: no buyer data and no code — the code only matters when the customer
+// To the venue's owner: no buyer data and no code - the code only matters when the customer
 // comes in, and they show it then.
 export const ownerMessage = (
   lang: Language,
@@ -53,10 +53,10 @@ export const ownerMessage = (
 
   switch (lang) {
     case "ru":
-      return { html: `🎉 Новая продажа: ${venue} — ${sale.amount} сом`, button: "Открыть кабинет" };
+      return { html: `🎉 Новая продажа: ${venue} - ${sale.amount} сом`, button: "Открыть кабинет" };
     case "en":
-      return { html: `🎉 New sale: ${venue} — ${sale.amount} KGS`, button: "Open cabinet" };
+      return { html: `🎉 New sale: ${venue} - ${sale.amount} KGS`, button: "Open cabinet" };
     case "kg":
-      return { html: `🎉 Жаңы сатуу: ${venue} — ${sale.amount} сом`, button: "Кабинетти ачуу" };
+      return { html: `🎉 Жаңы сатуу: ${venue} - ${sale.amount} сом`, button: "Кабинетти ачуу" };
   }
 };

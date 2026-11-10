@@ -12,7 +12,7 @@ export class User {
     type: "bigint",
     unique: true,
     // Telegram IDs exceed int4 (>2.1B). Stored as bigint; transformer keeps
-    // it a JS number (safe — Telegram IDs are well below 2^53).
+    // it a JS number (safe - Telegram IDs are well below 2^53).
     transformer: {
       to: (value: number) => value,
       from: (value: string | null) => (value == null ? value : Number(value)),
@@ -27,7 +27,7 @@ export class User {
   })
   role!: "user" | "merchant" | "admin";
 
-  // The app language last seen from this user (log-in, purchase) — for bot messages.
+  // The app language last seen from this user (log-in, purchase) - for bot messages.
   // null until known; messages then fall back to kg, like the rest of the app.
   @Column({ type: "text", nullable: true })
   language!: Language | null;

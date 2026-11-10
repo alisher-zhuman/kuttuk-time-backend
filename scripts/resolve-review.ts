@@ -39,9 +39,9 @@ const main = async () => {
   await ds.initialize();
 
   try {
-    // refunded / order_resolutions come with a migration — refuse on a DB that doesn't have it yet.
+    // refunded / order_resolutions come with a migration - refuse on a DB that doesn't have it yet.
     if (await ds.showMigrations()) {
-      throw new Error("The database has pending migrations — deploy first, then resolve.");
+      throw new Error("The database has pending migrations - deploy first, then resolve.");
     }
 
     const result = await resolveNeedsReview(ds, {
@@ -58,7 +58,7 @@ const main = async () => {
         `paidAt  ${result.paidAt?.toISOString() ?? "-"}`,
         result.certificate
           ? `Issued  ${result.certificate.code}, valid until ${result.certificate.validUntil.toISOString()}`
-          : "No certificate issued — return the money to the buyer outside the system.",
+          : "No certificate issued - return the money to the buyer outside the system.",
         "",
       ].join("\n"),
     );

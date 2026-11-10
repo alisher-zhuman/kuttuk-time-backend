@@ -24,7 +24,7 @@ describe("certificate code (property-based)", () => {
 
           expect(code).toBe(digits.join(""));
           expect(code).toMatch(CERTIFICATE_CODE_PATTERN);
-          // Always asks for a digit over the full 0–9 range.
+          // Always asks for a digit over the full 0-9 range.
           expect(maxes).toEqual(Array(8).fill(10));
         },
       ),

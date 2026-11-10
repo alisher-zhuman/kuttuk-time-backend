@@ -41,7 +41,7 @@ export interface OrderView {
   paymentUrl: string | null;
   expiresAt: Date;
   paidAt: Date | null;
-  // id — for "Подарить" (POST /certificates/:id/share) straight from the order screen; status —
+  // id - for "Подарить" (POST /certificates/:id/share) straight from the order screen; status -
   // the effective one, so a used / expired certificate isn't shown as valid (usedAt only for used).
   certificate: {
     id: string;
@@ -64,7 +64,7 @@ export class OrdersService {
     @Inject(finikConfig.KEY) private readonly finik: ConfigType<typeof finikConfig>,
   ) {}
 
-  // language: the app's language at purchase — the bot sends the certificate code in it.
+  // language: the app's language at purchase - the bot sends the certificate code in it.
   async create(
     userId: number,
     dto: CreateOrderDto,
@@ -109,7 +109,7 @@ export class OrdersService {
         paymentId: order.id,
         amount: order.amount,
         nameEn: venue.name,
-        description: `${venue.name} — ${order.amount} KGS`,
+        description: `${venue.name} - ${order.amount} KGS`,
         lang: "ru",
         endDate: order.expiresAt.getTime(),
         redirectUrl: paymentReturnUrl(this.finik.webhookUrl, order.id),

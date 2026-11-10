@@ -6,7 +6,7 @@ const DEV_ORIGIN = "http://localhost:5173";
 
 // The browser origins allowed to call the API: ALLOWED_ORIGINS, comma-separated. Unset outside
 // production → the local Vite dev server; unset in production → none (and an error at boot).
-// Auth is a bearer token, not a cookie, so CORS isn't what keeps other sites out — it's hygiene.
+// Auth is a bearer token, not a cookie, so CORS isn't what keeps other sites out - it's hygiene.
 export const corsOrigins = (env: NodeJS.ProcessEnv = process.env): string[] => {
   const listed = (env.ALLOWED_ORIGINS ?? "")
     .split(",")
@@ -18,7 +18,7 @@ export const corsOrigins = (env: NodeJS.ProcessEnv = process.env): string[] => {
   }
 
   if (env.NODE_ENV === "production") {
-    new Logger("Cors").error("ALLOWED_ORIGINS is empty — no browser origin can call the API");
+    new Logger("Cors").error("ALLOWED_ORIGINS is empty - no browser origin can call the API");
 
     return [];
   }

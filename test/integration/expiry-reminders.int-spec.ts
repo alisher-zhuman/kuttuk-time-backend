@@ -11,7 +11,7 @@ import { createTestApp, type TestApp } from "../helpers/app";
 import { createCertificate, createOrder, createUser, createVenue } from "../helpers/factories";
 
 const DAY = 24 * 60 * 60 * 1000;
-// 12:00 in Bishkek — inside the daytime window.
+// 12:00 in Bishkek - inside the daytime window.
 const NOON = new Date("2026-10-21T06:00:00Z");
 
 describe("expiry reminders (integration)", () => {
@@ -118,7 +118,7 @@ describe("expiry reminders (integration)", () => {
     expect(t.bot.sent).toHaveLength(2);
   });
 
-  it("a refused message (403) still counts as reminded — no retries", async () => {
+  it("a refused message (403) still counts as reminded - no retries", async () => {
     const soon = await certificate(new Date(NOON.getTime() + DAY));
 
     t.bot.deliver = false;

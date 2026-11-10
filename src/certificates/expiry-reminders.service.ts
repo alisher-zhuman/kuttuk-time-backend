@@ -17,9 +17,9 @@ export const EXPIRY_REMINDER_HOURS = { from: 9, to: 21 } as const;
 const BATCH = 100;
 
 // "Expires soon" reminders: an active, unredeemed certificate with ≤ 7 days left gets one
-// message to its owner. Hourly rather than daily — Koyeb sleeps, so a fixed daily run could be
+// message to its owner. Hourly rather than daily - Koyeb sleeps, so a fixed daily run could be
 // missed; the window catches up on the next run. Each certificate is claimed (expiryRemindedAt)
-// before sending, so it's reminded at most once even if two runs overlap; a failed send (403 —
+// before sending, so it's reminded at most once even if two runs overlap; a failed send (403 -
 // never started the bot) isn't retried.
 @Injectable()
 export class ExpiryRemindersService {

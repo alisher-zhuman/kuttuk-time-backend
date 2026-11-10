@@ -113,7 +113,7 @@ describe("GET /api/admin/payouts (integration)", () => {
     expect(screen.merchants[0]).toMatchObject({ payout: 40, commission: 5, gross: 45 });
   });
 
-  it("defaults to the current Mon–Sun week in Bishkek", async () => {
+  it("defaults to the current Mon-Sun week in Bishkek", async () => {
     const res = await get().expect(200);
     const today = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const from = new Date(`${res.body.from}T00:00:00Z`);

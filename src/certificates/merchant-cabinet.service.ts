@@ -24,7 +24,7 @@ export interface MerchantWeekSummary {
   commission: number;
   payout: number;
   redeemed: { count: number; amount: number };
-  // Whole merchant only (absent with ?venueId= — payouts are per merchant): recorded payouts
+  // Whole merchant only (absent with ?venueId= - payouts are per merchant): recorded payouts
   // for the week, and the share of its paid orders not paid out yet.
   paidOut?: number;
   due?: number;
@@ -59,8 +59,8 @@ const assertOwnVenue = async (
 export class MerchantCabinetService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  // The Mon–Sun week (Bishkek) containing `week`, or the current one. "Sold" and "payout" come
-  // from paidSales() — the same code as the payout report, so the numbers can't drift apart.
+  // The Mon-Sun week (Bishkek) containing `week`, or the current one. "Sold" and "payout" come
+  // from paidSales() - the same code as the payout report, so the numbers can't drift apart.
   // venueId narrows everything to one of the merchant's venues.
   async summary(
     merchantTelegramId: number,

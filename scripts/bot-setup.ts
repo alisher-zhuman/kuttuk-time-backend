@@ -90,7 +90,7 @@ const main = async () => {
     };
 
     process.stdout.write(
-      `${result.ok ? "✓" : "✗"} ${method} ${JSON.stringify(shown).slice(0, 120)}${result.ok ? "" : ` — ${response.status} ${result.description ?? ""}`}\n`,
+      `${result.ok ? "✓" : "✗"} ${method} ${JSON.stringify(shown).slice(0, 120)}${result.ok ? "" : ` - ${response.status} ${result.description ?? ""}`}\n`,
     );
 
     if (!result.ok) {
@@ -110,7 +110,7 @@ const main = async () => {
 };
 
 main().catch((error: unknown) => {
-  // Only the message — a fetch error could otherwise carry the URL with the token.
+  // Only the message - a fetch error could otherwise carry the URL with the token.
   process.stderr.write(
     `bot:setup failed: ${error instanceof Error ? error.message : String(error)}\n`,
   );

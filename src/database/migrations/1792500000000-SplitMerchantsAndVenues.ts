@@ -1,8 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 // Splits the old "merchants" table into:
-//   venues    — the storefront (everything the old table had except the owner), same ids;
-//   merchants — the owner's business account (name, telegramId, isActive), one per old row,
+//   venues    - the storefront (everything the old table had except the owner), same ids;
+//   merchants - the owner's business account (name, telegramId, isActive), one per old row,
 //               with id = the venue's id, so every existing reference keeps pointing at the
 //               right row and old /:slug links keep working.
 // Done by renaming, not drop + create: no data is copied out of the storefront rows.

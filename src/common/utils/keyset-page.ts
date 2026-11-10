@@ -13,7 +13,7 @@ export const pageLimit = (limit?: number): number => {
   const value = limit ?? PAGE_DEFAULT;
 
   if (!Number.isInteger(value) || value < 1 || value > PAGE_MAX) {
-    throw new BadRequestException(`limit must be 1–${PAGE_MAX}`);
+    throw new BadRequestException(`limit must be 1-${PAGE_MAX}`);
   }
 
   return value;
@@ -32,7 +32,7 @@ const CURSOR_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 export const encodeCursor = (at: string, id: string): string =>
   Buffer.from(`${at}|${id}`).toString("base64url");
 
-// `at` goes back to SQL as $n::timestamptz — the exact stored value.
+// `at` goes back to SQL as $n::timestamptz - the exact stored value.
 export const decodeCursor = (cursor: string): { at: string; id: string } => {
   const [at, id] = Buffer.from(cursor, "base64url").toString("utf8").split("|");
 

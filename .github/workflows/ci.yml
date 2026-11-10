@@ -42,7 +42,7 @@ jobs:
       - name: npm audit (production deps, blocks on critical)
         run: npm audit --omit=dev --audit-level=critical
 
-      - name: npm audit (production deps, high — report only)
+      - name: npm audit (production deps, high - report only)
         # Remaining highs need the Nest 12 major upgrade; reported, not blocking.
         continue-on-error: true
         run: npm audit --omit=dev --audit-level=high

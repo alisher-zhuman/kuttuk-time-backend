@@ -13,7 +13,7 @@ import { Merchant } from "@/merchants/entities/merchant.entity";
 import { User } from "@/users/entities/user.entity";
 
 // One money transfer to a merchant, recorded by the admin after paying by hand. The orders it
-// covers point back via orders.payoutId — a paid order with no payoutId isn't paid out yet.
+// covers point back via orders.payoutId - a paid order with no payoutId isn't paid out yet.
 // The sums are a snapshot of those orders at the moment of marking (same 90/10 floor rule).
 @Entity("payouts")
 @Index(["merchantId", "periodFrom"])
@@ -30,7 +30,7 @@ export class Payout {
   @JoinColumn({ name: "merchantId" })
   merchant?: Merchant;
 
-  // The payout week (Mon–Sun, Bishkek), as calendar dates.
+  // The payout week (Mon-Sun, Bishkek), as calendar dates.
   @Column({ type: "date" })
   periodFrom!: string;
 

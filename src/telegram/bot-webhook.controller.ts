@@ -7,7 +7,7 @@ import { isValidWebhookSecret } from "./bot-webhook-secret";
 import { Public } from "@/auth/public.decorator";
 
 // Incoming bot updates (set by `npm run bot:setup`). Telegram proves it's Telegram with the
-// secret header; anything else → 401. Valid updates get 200 at once and are handled after —
+// secret header; anything else → 401. Valid updates get 200 at once and are handled after -
 // Telegram retries a slow or non-2xx answer, which would duplicate replies.
 @ApiExcludeController()
 @Public()

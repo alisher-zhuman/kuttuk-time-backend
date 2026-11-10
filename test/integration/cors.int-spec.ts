@@ -21,7 +21,7 @@ describe("CORS (integration)", () => {
     await t?.close();
   });
 
-  it("an allowed origin gets the CORS headers (no credentials — auth is a bearer token)", async () => {
+  it("an allowed origin gets the CORS headers (no credentials - auth is a bearer token)", async () => {
     const res = await preflight("http://localhost:5173");
 
     expect(res.status).toBe(204);

@@ -33,7 +33,7 @@ const headersPart = (headers: FinikRequest["headers"]): string => {
     throw new Error("Header 'Host' is required");
   }
 
-  // Sorted by the original key (case-sensitive), lowercased only on output — same as the library.
+  // Sorted by the original key (case-sensitive), lowercased only on output - same as the library.
   const apiHeaders = Object.keys(headers)
     .filter((key) => key.toLowerCase().startsWith("x-api-"))
     .sort()

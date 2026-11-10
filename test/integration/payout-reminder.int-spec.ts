@@ -6,7 +6,7 @@ import { createTestApp, type TestApp } from "../helpers/app";
 import { createMerchant, createOrder, createUser, createVenue } from "../helpers/factories";
 
 const bishkek = (local: string) => new Date(`${local}+06:00`);
-// Monday 2026-10-26 → reminds about the week 19–25.10.
+// Monday 2026-10-26 → reminds about the week 19-25.10.
 const MONDAY_10 = bishkek("2026-10-26T10:00:00");
 const WEEK = { from: "2026-10-19", to: "2026-10-25" };
 
@@ -60,7 +60,7 @@ describe("Monday payout reminder to the admin (integration)", () => {
     const toAdmin = t.bot.sent.find((m) => m.chatId === admin.telegramId)!;
 
     expect(toAdmin.html).toBe(
-      "💸 Пора выплатить за 19.10.2026–25.10.2026:\n\n• Coffee &lt;Ali&gt; — 27 сом\n\nИтого: <b>27 сом</b>\n\n⚠️ На проверке: 1 — не входит в выплату, сначала разобрать.",
+      "💸 Пора выплатить за 19.10.2026-25.10.2026:\n\n• Coffee &lt;Ali&gt; - 27 сом\n\nИтого: <b>27 сом</b>\n\n⚠️ На проверке: 1 - не входит в выплату, сначала разобрать.",
     );
     expect(toAdmin.button).toEqual({
       text: "Открыть приложение",
@@ -72,17 +72,17 @@ describe("Monday payout reminder to the admin (integration)", () => {
     );
   });
 
-  it("once per week: later runs that Monday send nothing; the next Monday — the next week", async () => {
+  it("once per week: later runs that Monday send nothing; the next Monday - the next week", async () => {
     await sale("Coffee", 1000);
 
     expect(await reminder().run(MONDAY_10)).toBe(1);
     expect(await reminder().run(bishkek("2026-10-26T11:00:00"))).toBeNull();
     expect(t.bot.sent).toHaveLength(1);
 
-    // Next Monday: no sales in 26.10–01.11, but last week's 900 still isn't paid out → said so.
+    // Next Monday: no sales in 26.10-01.11, but last week's 900 still isn't paid out → said so.
     expect(await reminder().run(bishkek("2026-11-02T10:00:00"))).toBe(1);
     expect(t.bot.sent[1].html).toBe(
-      "💸 За 26.10.2026–01.11.2026 выплачивать нечего.\n\n⏳ Не выплачено за прошлые недели:\n• Coffee — 900 сом",
+      "💸 За 26.10.2026-01.11.2026 выплачивать нечего.\n\n⏳ Не выплачено за прошлые недели:\n• Coffee - 900 сом",
     );
   });
 
@@ -132,7 +132,7 @@ describe("Monday payout reminder to the admin (integration)", () => {
     await reminder().run(MONDAY_10);
 
     expect(t.bot.sent[0].html).toBe(
-      "💸 За 19.10.2026–25.10.2026 выплачивать нечего.\n\n⚠️ На проверке: 1 — не входит в выплату, сначала разобрать.",
+      "💸 За 19.10.2026-25.10.2026 выплачивать нечего.\n\n⚠️ На проверке: 1 - не входит в выплату, сначала разобрать.",
     );
   });
 

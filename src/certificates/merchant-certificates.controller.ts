@@ -53,7 +53,7 @@ export class MerchantCertificatesController {
   @ApiOperation({
     summary: "Redeem own certificate (all-or-nothing, final)",
     description:
-      "**Roles:** `merchant`. Atomic: only an `active`, unexpired certificate of one of your venues becomes `used`. 409 `error: already_used` / `expired` otherwise — re-fetch `GET` for details.",
+      "**Roles:** `merchant`. Atomic: only an `active`, unexpired certificate of one of your venues becomes `used`. 409 `error: already_used` / `expired` otherwise - re-fetch `GET` for details.",
   })
   @ApiOkResponse({
     schema: { example: { ...EXAMPLE, status: "used", usedAt: "2026-10-21T12:00:00.000Z" } },

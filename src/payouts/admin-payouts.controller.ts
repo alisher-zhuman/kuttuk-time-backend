@@ -28,9 +28,9 @@ export class AdminPayoutsController {
 
   @Get()
   @ApiOperation({
-    summary: "Merchant payouts for a week (Mon–Sun, Asia/Bishkek)",
+    summary: "Merchant payouts for a week (Mon-Sun, Asia/Bishkek)",
     description:
-      "**Roles:** `admin` only. `week` = any date inside the week (YYYY-MM-DD), default — the current week. The same numbers as `npm run report:payouts` and the merchant cabinet: paid orders by paidAt, grouped by the sale-time owner, 90/10, floored on each merchant's total. `needsReviewCount` — the week's needs_review orders, not paid out until resolved. `paidOut` — recorded payouts for the week; `due` — the share of paid orders not covered by a payout yet (an order can land in a week after it was marked).",
+      "**Roles:** `admin` only. `week` = any date inside the week (YYYY-MM-DD), default - the current week. The same numbers as `npm run report:payouts` and the merchant cabinet: paid orders by paidAt, grouped by the sale-time owner, 90/10, floored on each merchant's total. `needsReviewCount` - the week's needs_review orders, not paid out until resolved. `paidOut` - recorded payouts for the week; `due` - the share of paid orders not covered by a payout yet (an order can land in a week after it was marked).",
   })
   @ApiQuery({ name: "week", required: false, example: "2026-10-21" })
   @ApiOkResponse({
@@ -82,7 +82,7 @@ export class AdminPayoutsController {
   @ApiOperation({
     summary: "Mark a merchant's week as paid out",
     description:
-      "**Roles:** `admin` only. Call after transferring the money by hand. Covers the merchant's paid orders of that week not paid out yet; the amount is computed on the server; send `expectedPayout` (the amount shown and transferred) — if the server's differs → 409 `amount_changed`, nothing recorded (reload the report and confirm the new amount). The owner gets a bot message. Nothing left to pay → 409 `nothing_to_pay_out` (a double click can't pay twice). No undo.",
+      "**Roles:** `admin` only. Call after transferring the money by hand. Covers the merchant's paid orders of that week not paid out yet; the amount is computed on the server; send `expectedPayout` (the amount shown and transferred) - if the server's differs → 409 `amount_changed`, nothing recorded (reload the report and confirm the new amount). The owner gets a bot message. Nothing left to pay → 409 `nothing_to_pay_out` (a double click can't pay twice). No undo.",
   })
   @ApiCreatedResponse({
     schema: {

@@ -261,7 +261,7 @@ describe("venues & merchants API (integration)", () => {
       expect(list.body.map((v: { id: number }) => v.id)).toEqual([venue.id, created.body.id]);
     });
 
-    it("venues: moving one to another merchant — the new owner sees it, the old one doesn't", async () => {
+    it("venues: moving one to another merchant - the new owner sees it, the old one doesn't", async () => {
       const newOwner = await createUser(t.ds, { role: "merchant" });
       const newMerchant = await createMerchant(t.ds, { telegramId: newOwner.telegramId });
 

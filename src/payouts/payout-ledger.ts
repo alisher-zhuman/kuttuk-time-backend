@@ -12,7 +12,7 @@ import { IN_PERIOD, PLATFORM_COMMISSION_PERCENT, type PayoutPeriod } from "./pay
 export class NothingToPayOutError extends Error {}
 
 // The admin confirmed one amount, but the orders left to pay out add up to another (a sale was
-// paid, or another mark took some, after the screen was loaded) — nothing is recorded.
+// paid, or another mark took some, after the screen was loaded) - nothing is recorded.
 export class PayoutAmountChangedError extends Error {
   constructor(readonly payout: number) {
     super(`The amount to pay out is now ${payout} KGS`);
@@ -94,7 +94,7 @@ export const weekPayouts = async (
 };
 
 // Per merchant: the share still owed for paid orders before `beforeDate` (a Bishkek calendar date)
-// that no payout covers — debts left over from weeks already reported.
+// that no payout covers - debts left over from weeks already reported.
 export const unpaidBefore = async (
   em: EntityManager,
   beforeDate: string,
@@ -115,7 +115,7 @@ export const unpaidBefore = async (
 };
 
 // Record that the merchant was paid for its not-yet-paid-out orders of the week. The amount is
-// computed here from those orders — never taken from the client. The orders are locked, so two
+// computed here from those orders - never taken from the client. The orders are locked, so two
 // simultaneous marks can't both cover them: the second finds nothing left → NothingToPayOutError.
 export const markPaidOut = (
   ds: DataSource,
@@ -140,7 +140,7 @@ export const markPaidOut = (
 
     if (orders.length === 0) {
       throw new NothingToPayOutError(
-        `Nothing to pay out to merchant ${merchantId} for ${period.from}–${period.to}`,
+        `Nothing to pay out to merchant ${merchantId} for ${period.from}-${period.to}`,
       );
     }
 
@@ -166,7 +166,7 @@ export const markPaidOut = (
     await em.save(payout);
 
     // Second guard, independent of the lock above: only still-unpaid orders get linked, and all
-    // of them must be — otherwise another payout took some, and this one rolls back.
+    // of them must be - otherwise another payout took some, and this one rolls back.
     const [, linked]: [unknown, number] = await em.query(
       `UPDATE "orders" SET "payoutId" = $1, "updatedAt" = now()
         WHERE "id" = ANY($2::uuid[]) AND "payoutId" IS NULL`,
@@ -175,7 +175,7 @@ export const markPaidOut = (
 
     if (linked !== orders.length) {
       throw new NothingToPayOutError(
-        `Orders of merchant ${merchantId} for ${period.from}–${period.to} were paid out concurrently`,
+        `Orders of merchant ${merchantId} for ${period.from}-${period.to} were paid out concurrently`,
       );
     }
 

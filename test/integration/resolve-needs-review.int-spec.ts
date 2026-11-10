@@ -55,7 +55,7 @@ describe("resolveNeedsReview (integration)", () => {
       const result = await resolveNeedsReview(ds, {
         orderId: order.id,
         action: OrderResolutionAction.Issue,
-        note: "Finik cabinet shows 1000 KGS — amount field was wrong in the webhook",
+        note: "Finik cabinet shows 1000 KGS - amount field was wrong in the webhook",
         resolvedBy: "alisher",
       });
 
@@ -95,7 +95,7 @@ describe("resolveNeedsReview (integration)", () => {
           fromStatus: "needs_review",
           toStatus: "paid",
           certificateCode: result.certificate!.code,
-          note: "Finik cabinet shows 1000 KGS — amount field was wrong in the webhook",
+          note: "Finik cabinet shows 1000 KGS - amount field was wrong in the webhook",
           resolvedBy: "alisher",
           resolvedAt: expect.any(Date),
         }),
@@ -159,7 +159,7 @@ describe("resolveNeedsReview (integration)", () => {
     });
   });
 
-  describe("refuses anything but needs_review — nothing changes", () => {
+  describe("refuses anything but needs_review - nothing changes", () => {
     it.each([
       [OrderStatus.Paid, OrderResolutionAction.Issue],
       [OrderStatus.Paid, OrderResolutionAction.Refunded],

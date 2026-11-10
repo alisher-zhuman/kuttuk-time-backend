@@ -33,7 +33,7 @@ export default async (): Promise<void> => {
   const b64 = (pem: string) => Buffer.from(pem).toString("base64");
 
   // Explicit process.env beats the local .env (ConfigService and dotenv both prefer it),
-  // and CI has no .env at all — so every variable the app reads is set here.
+  // and CI has no .env at all - so every variable the app reads is set here.
   Object.assign(process.env, {
     NODE_ENV: "test",
     INTEGRATION_DATABASE: TEST_DATABASE,

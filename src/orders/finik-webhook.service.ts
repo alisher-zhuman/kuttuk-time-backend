@@ -32,7 +32,7 @@ const PAID_AT_MAX_AHEAD_MS = DAY_MS;
 
 // Finik sends unix ms (number); a numeric string or an ISO date is tolerated too. paidAt decides
 // the payout week and validUntil, so an implausible value (seconds instead of ms → 1970, a
-// timezone-less string read hours off into the future, …) falls back to now — returned with
+// timezone-less string read hours off into the future, …) falls back to now - returned with
 // `suspicious` so the caller logs it.
 const paidAtFrom = (
   transactionDate: unknown,
@@ -70,7 +70,7 @@ export class FinikWebhookService {
 
     // Written first and outside the payment transaction, so it survives a rollback. The body
     // is kept only for signed requests (needed to re-verify a dispute): an unsigned one is
-    // anyone's — storing it would let junk fill the database through a public route.
+    // anyone's - storing it would let junk fill the database through a public route.
     const event = await this.eventRepo.save({
       id: randomUUID(),
       signatureValid,
@@ -137,7 +137,7 @@ export class FinikWebhookService {
 
     if (accountId !== this.finik.accountId) {
       this.logger.error(
-        `Finik webhook for order ${order.id}: payment to another account (${JSON.stringify(accountId)}) — ignored`,
+        `Finik webhook for order ${order.id}: payment to another account (${JSON.stringify(accountId)}) - ignored`,
       );
 
       return { result: "ignored_foreign_account", orderId: order.id };
@@ -157,7 +157,7 @@ export class FinikWebhookService {
 
     if (suspicious) {
       this.logger.error(
-        `Order ${order.id}: implausible transactionDate ${JSON.stringify(body.transactionDate)} — using now`,
+        `Order ${order.id}: implausible transactionDate ${JSON.stringify(body.transactionDate)} - using now`,
       );
     }
 

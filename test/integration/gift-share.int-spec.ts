@@ -10,7 +10,7 @@ import type { Venue } from "../../src/venues/entities/venue.entity";
 import { createTestApp, type TestApp } from "../helpers/app";
 import { createCertificate, createOrder, createUser, createVenue } from "../helpers/factories";
 
-describe("POST /api/certificates/:id/share — gift card (integration)", () => {
+describe("POST /api/certificates/:id/share - gift card (integration)", () => {
   let t: TestApp;
   let buyer: User;
   let venue: Venue;
@@ -78,10 +78,10 @@ describe("POST /api/certificates/:id/share — gift card (integration)", () => {
             id: cert.id,
             photo_url: "http://localhost/api/qr/04718263.jpg",
             thumbnail_url: "http://localhost/api/qr/04718263.jpg",
-            title: "🎁 Сертификат в Coffee <b>&</b> Co — 1000 сом",
+            title: "🎁 Сертификат в Coffee <b>&</b> Co - 1000 сом",
             description: "Код 0471 8263 · до 21.10.2027",
             caption:
-              "🎁 Тебе подарок — сертификат в <b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b> на 1000 сом\n\nКод: <code>0471 8263</code>\nДействует до 21.10.2027\n\nПокажи этот QR или код на кассе.",
+              "🎁 Тебе подарок - сертификат в <b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b> на 1000 сом\n\nКод: <code>0471 8263</code>\nДействует до 21.10.2027\n\nПокажи этот QR или код на кассе.",
             parse_mode: "HTML",
             reply_markup: {
               inline_keyboard: [

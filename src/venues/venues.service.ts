@@ -219,8 +219,8 @@ export class VenuesService {
     }
   }
 
-  // Uploads land in our own cloud's kuttuk-time/ folder (CloudinaryService). Anything else —
-  // another account's image, or another folder — is refused: on the next logo change the old
+  // Uploads land in our own cloud's kuttuk-time/ folder (CloudinaryService). Anything else -
+  // another account's image, or another folder - is refused: on the next logo change the old
   // file is deleted, so a foreign URL would let a merchant delete arbitrary files of ours.
   private assertOwnLogo(logo: string): void {
     const cloud = process.env.CLOUDINARY_CLOUD_NAME?.trim() ?? "";
@@ -233,7 +233,7 @@ export class VenuesService {
     }
   }
 
-  // categories is an int[] without an FK — check the ids exist, or a stale / made-up id sticks.
+  // categories is an int[] without an FK - check the ids exist, or a stale / made-up id sticks.
   private async assertCategoriesExist(ids?: number[]): Promise<void> {
     if (!ids || ids.length === 0) {
       return;
@@ -266,7 +266,7 @@ export class VenuesService {
 
     this.logger.log(`Venue updated: id=${venue.id}`);
 
-    // Delete the old logo only after the save succeeded — otherwise a failed
+    // Delete the old logo only after the save succeeded - otherwise a failed
     // save (e.g. 409 on slug) would leave the DB pointing at a deleted image.
     if (dto.logo && oldLogo && oldLogo !== dto.logo) {
       const publicId = this.extractCloudinaryPublicId(oldLogo);

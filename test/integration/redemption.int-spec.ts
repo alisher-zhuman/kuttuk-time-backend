@@ -68,7 +68,7 @@ describe("merchant redemption (integration)", () => {
   });
 
   describe("GET /api/merchants/me/certificates/:code", () => {
-    it("shows an active certificate — no usedAt key", async () => {
+    it("shows an active certificate - no usedAt key", async () => {
       const cert = await issue({ code: "12345678", amount: 2000 });
 
       const res = await lookup("12345678").expect(200);
@@ -133,7 +133,7 @@ describe("merchant redemption (integration)", () => {
   });
 
   describe("POST /api/merchants/me/certificates/:code/redeem", () => {
-    it("tells the certificate's owner in the bot — once, and only on success", async () => {
+    it("tells the certificate's owner in the bot - once, and only on success", async () => {
       await t.ds.query(`UPDATE users SET language = 'ru' WHERE id = $1`, [buyer.id]);
       await issue({ code: "12345678", amount: 500 });
 

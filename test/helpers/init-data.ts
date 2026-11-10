@@ -45,7 +45,7 @@ export const initDataFields = (
   chat_instance: "-3788475317572404878",
   chat_type: "sender",
   start_param: "order_5e1c1f5b-0a3c-4c1b-9a59-2a1d7c8a3f10",
-  // Ed25519 signature for third-party validation — part of the HMAC data-check-string.
+  // Ed25519 signature for third-party validation - part of the HMAC data-check-string.
   signature: "6fbdaab833d39f54518bd5c3eb3f511d035e68cb2LiJ_8mRSxvB2GQ4sX5bYNdaWk6xjBmqz0Rwv-Q",
   ...overrides,
 });

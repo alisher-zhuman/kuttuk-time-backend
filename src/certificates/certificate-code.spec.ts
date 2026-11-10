@@ -24,7 +24,7 @@ describe("generateCertificateCode", () => {
   });
 
   // No "no repeats in a sample" test: with 10^8 codes, 5000 of them share one ~12% of the time
-  // (birthday paradox) — it was flaky. Uniqueness is the DB's job (UNIQUE + ON CONFLICT retry).
+  // (birthday paradox) - it was flaky. Uniqueness is the DB's job (UNIQUE + ON CONFLICT retry).
 });
 
 describe("normalizeCertificateCode", () => {

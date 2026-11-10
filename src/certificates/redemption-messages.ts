@@ -16,7 +16,7 @@ export const redeemedMessage = (
   switch (lang) {
     case "ru":
       return {
-        html: `✅ Сертификат ${code} в ${venue} на ${r.amount} сом использован ${date} в ${time}.\n\nЕсли это были не вы — напишите нам.`,
+        html: `✅ Сертификат ${code} в ${venue} на ${r.amount} сом использован ${date} в ${time}.\n\nЕсли это были не вы - напишите нам.`,
         button: "Написать в поддержку",
       };
     case "en":
@@ -26,7 +26,7 @@ export const redeemedMessage = (
       };
     case "kg":
       return {
-        html: `✅ ${venue} мекемесиндеги ${r.amount} сомдук ${code} сертификаты ${date} саат ${time} колдонулду.\n\nЭгер бул сиз болбосоңуз — бизге жазыңыз.`,
+        html: `✅ ${venue} мекемесиндеги ${r.amount} сомдук ${code} сертификаты ${date} саат ${time} колдонулду.\n\nЭгер бул сиз болбосоңуз - бизге жазыңыз.`,
         button: "Колдоого жазуу",
       };
   }

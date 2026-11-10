@@ -56,14 +56,14 @@ export class VenuesController {
     return this.venuesService.findAll(lang, search, category);
   }
 
-  // Declared before ":idOrSlug" — Express matches routes in order, so "options" would
+  // Declared before ":idOrSlug" - Express matches routes in order, so "options" would
   // otherwise be taken for a venue slug (hence RESERVED_SLUGS).
   @Get("options")
   @Public()
   @ApiOperation({
     summary: "Allowed venue values (nominals, validity months, name length)",
     description:
-      "**Public.** The single source of truth for the venue forms — the frontend doesn't keep its own lists. Sorted ascending.",
+      "**Public.** The single source of truth for the venue forms - the frontend doesn't keep its own lists. Sorted ascending.",
   })
   @ApiOkResponse({
     schema: {

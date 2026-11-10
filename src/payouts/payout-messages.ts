@@ -14,7 +14,7 @@ export const payoutMessage = (
     payout: number;
   },
 ): { html: string; button: string } => {
-  const period = `${dmy(p.periodFrom)}–${dmy(p.periodTo)}`;
+  const period = `${dmy(p.periodFrom)}-${dmy(p.periodTo)}`;
 
   switch (lang) {
     case "ru":

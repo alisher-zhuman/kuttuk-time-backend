@@ -123,7 +123,7 @@ export interface TestApp {
 }
 
 // The real AppModule (migrations run on boot via DB_SYNC=false), with four substitutions:
-// Finik, the Telegram bot and Cloudinary are faked, and the scheduler doesn't register @Cron jobs — a cron firing mid-test
+// Finik, the Telegram bot and Cloudinary are faked, and the scheduler doesn't register @Cron jobs - a cron firing mid-test
 // could change data under it; cron logic is tested by calling the method directly.
 export const createTestApp = async (): Promise<TestApp> => {
   const finik = new FakeFinikService();
@@ -175,7 +175,7 @@ export const createTestApp = async (): Promise<TestApp> => {
       const throttlerStorage = app.get<ThrottlerStorageService>(getStorageToken());
 
       throttlerStorage.storage.clear();
-      // Since @nestjs/throttler 6.7 the hit counts are recomputed from a second, private map —
+      // Since @nestjs/throttler 6.7 the hit counts are recomputed from a second, private map -
       // clear it too, or the counters survive the reset. Test-only; prod never resets.
       (
         throttlerStorage as unknown as { hitExpirations?: Map<string, unknown> }

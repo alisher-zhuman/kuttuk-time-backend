@@ -5,7 +5,7 @@ import { finikConfig } from "./finik.config";
 import { FinikApiError, FinikNetworkError, FinikTimeoutError } from "./finik.errors";
 import { sign } from "./finik-signer";
 
-// Finik docs disagree between /v1/payment and /payment — waiting for their answer.
+// Finik docs disagree between /v1/payment and /payment - waiting for their answer.
 export const FINIK_PAYMENT_PATH = "/v1/payment";
 export const FINIK_TIMEOUT_MS = 15_000;
 

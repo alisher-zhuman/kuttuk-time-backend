@@ -10,7 +10,7 @@ import { miniAppLink } from "./orders/payment-redirect-url";
 const bootstrap = async () => {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Slug redirect — runs before NestJS routing so it doesn't interfere with global prefix
+  // Slug redirect - runs before NestJS routing so it doesn't interfere with global prefix
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.method !== "GET" || req.path === "/" || req.path.startsWith("/api")) {
       return next();

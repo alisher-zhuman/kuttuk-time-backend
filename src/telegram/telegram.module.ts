@@ -7,7 +7,7 @@ import { TelegramBotService } from "./telegram-bot.service";
 import { finikConfig } from "@/finik/finik.config";
 
 @Module({
-  // finik.redirectUrl — the Mini App link for the "open" buttons.
+  // finik.redirectUrl - the Mini App link for the "open" buttons.
   imports: [ConfigModule.forFeature(finikConfig)],
   controllers: [BotWebhookController],
   providers: [TelegramBotService, BotUpdatesService],

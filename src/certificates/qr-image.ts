@@ -1,7 +1,7 @@
 import { encode as encodeJpeg } from "jpeg-js";
 import { encode as encodeQr } from "uqr";
 
-// A QR of a certificate code as a JPEG — for the gift card's photo (Telegram takes only JPEG
+// A QR of a certificate code as a JPEG - for the gift card's photo (Telegram takes only JPEG
 // by URL for an inline photo). The same library as the frontend (uqr), so both encode the
 // code the same way: the 8 digits, no spaces. Black on white, a quiet zone of 4 modules.
 const MODULE_PX = 16;

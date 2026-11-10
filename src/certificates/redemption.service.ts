@@ -41,7 +41,7 @@ const SELECT = `SELECT c."code", c."amount",
          ${effectiveStatusSql("c")} AS "status",
          c."validUntil", c."usedAt", c."createdAt", v."id" AS "venueId", v."name" AS "venueName"`;
 
-// A merchant redeems the certificates of the venues it owns now — incl. ones sold before a
+// A merchant redeems the certificates of the venues it owns now - incl. ones sold before a
 // venue moved to it (it's the one serving the customer). Payouts follow orders.merchantId.
 const OWN = `JOIN "venues" v ON v."id" = c."venueId" AND v."merchantId" = $2`;
 
@@ -55,7 +55,7 @@ const toView = (row: Row): MerchantCertificate => ({
   venue: { id: row.venueId, name: row.venueName },
 });
 
-// Redemption by the merchant owner (the only role that redeems — see CLAUDE.md → Product
+// Redemption by the merchant owner (the only role that redeems - see CLAUDE.md → Product
 // decisions). All-or-nothing, final: there's no undo in the app.
 @Injectable()
 export class RedemptionService {
@@ -102,7 +102,7 @@ export class RedemptionService {
       return toView(rows[0]);
     }
 
-    // Nothing redeemed — say why. Read after the failed UPDATE, so a concurrent winner's
+    // Nothing redeemed - say why. Read after the failed UPDATE, so a concurrent winner's
     // "used" is already visible here.
     const row = await this.find(merchantId, code);
 
@@ -136,7 +136,7 @@ export class RedemptionService {
     return row;
   }
 
-  // Another merchant's certificate and a non-existent code look the same — nothing leaks.
+  // Another merchant's certificate and a non-existent code look the same - nothing leaks.
   private notFound(): NotFoundException {
     return new NotFoundException("Certificate not found");
   }

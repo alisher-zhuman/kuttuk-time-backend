@@ -13,7 +13,7 @@ const FULL = { ru: "Кофе", kg: "Кофе", en: "Coffee" };
 const violation = (code: "23502" | "23514", extra: Record<string, unknown> = {}) =>
   expect.objectContaining({ driverError: expect.objectContaining({ code, ...extra }) });
 
-describe("venues/categories integrity — DB constraints (integration)", () => {
+describe("venues/categories integrity - DB constraints (integration)", () => {
   let ds: DataSource;
   let merchantId: number;
 
@@ -110,7 +110,7 @@ describe("venues/categories integrity — DB constraints (integration)", () => {
   });
 });
 
-describe("venues/categories integrity — DTO validation (integration)", () => {
+describe("venues/categories integrity - DTO validation (integration)", () => {
   let t: TestApp;
   let adminToken: string;
 

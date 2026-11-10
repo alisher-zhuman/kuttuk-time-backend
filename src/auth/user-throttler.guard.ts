@@ -10,7 +10,7 @@ import type { CurrentUser } from "./interfaces/current-user.interface";
 // - a logged-in user → their own counter (`user:<id>`). Works only because JwtGuard is
 //   registered before this guard (app.module.ts) and has already set req.user;
 // - anyone else → the client IP Cloudflare puts in CF-Connecting-IP. Checked on prod
-//   2026-10-22: it is the real client IP, and a client can't forge it — a request that sends
+//   2026-10-22: it is the real client IP, and a client can't forge it - a request that sends
 //   its own CF-Connecting-IP is refused by Cloudflare (error 1000). X-Forwarded-For /
 //   True-Client-IP / Forwarded are NOT used: they pass the client's value through;
 // - no such header (local runs) → req.ip.

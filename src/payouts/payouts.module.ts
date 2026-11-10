@@ -8,7 +8,7 @@ import { finikConfig } from "@/finik/finik.config";
 import { TelegramModule } from "@/telegram/telegram.module";
 
 @Module({
-  // finik.redirectUrl — the Mini App link for the bot message button.
+  // finik.redirectUrl - the Mini App link for the bot message button.
   imports: [TelegramModule, ConfigModule.forFeature(finikConfig)],
   controllers: [AdminPayoutsController],
   providers: [AdminPayoutsService, PayoutReminderService],

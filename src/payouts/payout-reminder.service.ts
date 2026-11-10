@@ -12,12 +12,12 @@ import { finikConfig } from "@/finik/finik.config";
 import { TelegramBotService } from "@/telegram/telegram-bot.service";
 
 const KIND = "admin_payouts";
-// Monday, from 09:00 to 21:00 in Bishkek (UTC+6, no DST — like the payout weeks).
+// Monday, from 09:00 to 21:00 in Bishkek (UTC+6, no DST - like the payout weeks).
 const BISHKEK_OFFSET_MS = 6 * 60 * 60 * 1000;
 export const PAYOUT_REMINDER_HOURS = { from: 9, to: 21 } as const;
 
-// Monday "time to pay out" reminder to the admins: what's still due for last week (Mon–Sun),
-// and how many needs_review orders wait. Hourly on Mondays rather than once — Koyeb sleeps, so a
+// Monday "time to pay out" reminder to the admins: what's still due for last week (Mon-Sun),
+// and how many needs_review orders wait. Hourly on Mondays rather than once - Koyeb sleeps, so a
 // single run could be missed. Claimed in bot_digests before sending, so it goes out once per
 // week even across restarts; nothing due and nothing to review → claimed, nothing sent.
 @Injectable()
@@ -65,7 +65,7 @@ export class PayoutReminderService {
     const { progress, older } = await readOnly(this.dataSource, async (em) => ({
       progress: await payoutProgress(em, period),
       // Paid orders of earlier weeks still not paid out (a late webhook, a resolved
-      // needs_review landing in a week already marked) — otherwise nobody would ever be told.
+      // needs_review landing in a week already marked) - otherwise nobody would ever be told.
       older: await unpaidBefore(em, period.from),
     }));
     const due = report.rows
@@ -76,7 +76,7 @@ export class PayoutReminderService {
       .filter((row) => row.due > 0);
     const nothing = due.length === 0 && older.length === 0 && report.needsReview.length === 0;
 
-    // Claimed right before sending — not before the report (a failing query would lose the week).
+    // Claimed right before sending - not before the report (a failing query would lose the week).
     const [claimed]: Array<{ id: number }> = await this.dataSource.query(
       `INSERT INTO "bot_digests" ("kind", "periodFrom") VALUES ($1, $2::date)
        ON CONFLICT ON CONSTRAINT "bot_digests_kind_period" DO NOTHING RETURNING "id"`,

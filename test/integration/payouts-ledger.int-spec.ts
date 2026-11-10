@@ -53,7 +53,7 @@ describe("marking payouts (integration)", () => {
   it("marks the week: amount computed on the server, orders linked, the owner told in the bot", async () => {
     const orders = [await sale(15), await sale(15), await sale(15)];
 
-    // A client-sent amount is ignored (stripped by the whitelist) — the server computes it.
+    // A client-sent amount is ignored (stripped by the whitelist) - the server computes it.
     const res = await mark({ note: " Mbank 27.10 ", payout: 1_000_000 }).expect(201);
 
     expect(res.body).toEqual({
@@ -80,7 +80,7 @@ describe("marking payouts (integration)", () => {
     await waitFor(() => t.bot.sent.length === 1);
     expect(t.bot.sent[0]).toMatchObject({
       chatId: owner.telegramId,
-      html: "💸 Выплата: <b>40 сом</b> за 19.10.2026–25.10.2026\n\nПродаж: 3 на 45 сом, комиссия 5 сом",
+      html: "💸 Выплата: <b>40 сом</b> за 19.10.2026-25.10.2026\n\nПродаж: 3 на 45 сом, комиссия 5 сом",
       button: { text: "Открыть кабинет" },
     });
   });

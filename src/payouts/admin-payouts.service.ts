@@ -31,10 +31,10 @@ type Progress = { paidOut: number; due: number };
 export interface AdminWeekPayouts {
   from: string;
   to: string;
-  // payouts — what was recorded for the week (with the admin's note), oldest first.
+  // payouts - what was recorded for the week (with the admin's note), oldest first.
   merchants: Array<MerchantPayout & Progress & { payouts: RecordedPayoutItem[] }>;
   total: PayoutReport["total"] & Progress;
-  // needs_review orders of the week — not in `merchants`, resolve them before paying out.
+  // needs_review orders of the week - not in `merchants`, resolve them before paying out.
   needsReviewCount: number;
 }
 
@@ -54,7 +54,7 @@ export interface RecordedPayout {
 
 // The payout report as JSON: the same buildPayoutReport() as `npm run report:payouts` (and
 // paidSales() underneath, as the merchant cabinet), so the screen, the CSV and the cabinet
-// can't disagree — plus what's already been paid out (payouts) and what's still due.
+// can't disagree - plus what's already been paid out (payouts) and what's still due.
 @Injectable()
 export class AdminPayoutsService {
   private readonly logger = new Logger(AdminPayoutsService.name);
@@ -115,7 +115,7 @@ export class AdminPayoutsService {
       });
 
       this.logger.log(
-        `Payout ${payout.id}: merchant ${payout.merchantId} ${payout.periodFrom}–${payout.periodTo} ${payout.payout} KGS (${payout.ordersCount} orders) by user ${adminUserId}`,
+        `Payout ${payout.id}: merchant ${payout.merchantId} ${payout.periodFrom}-${payout.periodTo} ${payout.payout} KGS (${payout.ordersCount} orders) by user ${adminUserId}`,
       );
 
       void this.notifyOwner(payout.id);

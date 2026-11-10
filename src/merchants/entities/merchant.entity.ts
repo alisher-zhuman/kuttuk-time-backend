@@ -22,7 +22,7 @@ export class Merchant {
     type: "bigint",
     unique: true,
     // Telegram IDs exceed int4 (>2.1B). Stored as bigint; transformer keeps
-    // it a JS number (safe — Telegram IDs are well below 2^53).
+    // it a JS number (safe - Telegram IDs are well below 2^53).
     transformer: {
       to: (value: number) => value,
       from: (value: string | null) => (value == null ? value : Number(value)),

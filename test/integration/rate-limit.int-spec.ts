@@ -5,7 +5,7 @@ import type { User } from "../../src/users/entities/user.entity";
 import { createTestApp, type TestApp } from "../helpers/app";
 import { createVenue, createOrder, createUser } from "../helpers/factories";
 
-// In tests every request comes from 127.0.0.1 — exactly the "everyone behind one proxy IP"
+// In tests every request comes from 127.0.0.1 - exactly the "everyone behind one proxy IP"
 // situation on Koyeb. Per-user limits must hold anyway.
 describe("rate limits per user (integration)", () => {
   let t: TestApp;
@@ -42,7 +42,7 @@ describe("rate limits per user (integration)", () => {
     await t?.close();
   });
 
-  describe("POST /api/orders — 10/min per user", () => {
+  describe("POST /api/orders - 10/min per user", () => {
     it("two users, 10 orders each from the same IP: no 429 (a shared IP counter would block at 11)", async () => {
       const [alice, bob] = [await createUser(t.ds), await createUser(t.ds)];
 
@@ -87,7 +87,7 @@ describe("rate limits per user (integration)", () => {
     });
   });
 
-  describe("GET /api/orders/:id — 60/min per user", () => {
+  describe("GET /api/orders/:id - 60/min per user", () => {
     it("polling 20 times in a row (every 3 s for a minute) is fine", async () => {
       const user = await createUser(t.ds);
       const order = await createOrder(t.ds, { userId: user.id, venueId: venue.id });
@@ -126,7 +126,7 @@ describe("rate limits per user (integration)", () => {
     });
   });
 
-  describe("public routes — per client IP (CF-Connecting-IP), not the shared proxy IP", () => {
+  describe("public routes - per client IP (CF-Connecting-IP), not the shared proxy IP", () => {
     // GET /api/venues/options: public, default 60/min.
     const options = (ip?: string) => {
       const req = http().get("/api/venues/options");

@@ -101,7 +101,7 @@ describe("OrdersService", () => {
         paymentId: saved.id,
         amount: 1000,
         nameEn: "Sierra Coffee",
-        description: "Sierra Coffee — 1000 KGS",
+        description: "Sierra Coffee - 1000 KGS",
         lang: "ru",
         endDate: expiresAt.getTime(),
         // Our own return endpoint (on the webhook URL's origin), not t.me directly.

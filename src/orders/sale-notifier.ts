@@ -22,7 +22,7 @@ interface Sale {
 }
 
 // After a payment is committed: the code to the buyer, "new sale" to the venue's owner (the
-// sale-time owner, orders.merchantId). Best-effort — a lost message is acceptable, a delayed or
+// sale-time owner, orders.merchantId). Best-effort - a lost message is acceptable, a delayed or
 // failed webhook answer is not, so the caller doesn't wait for it and nothing here throws.
 @Injectable()
 export class SaleNotifier {
@@ -70,7 +70,7 @@ export class SaleNotifier {
             text: toBuyer.button,
             url: paymentRedirectUrl(this.finik.redirectUrl, orderId),
           },
-          // Copies exactly the code (digits, no spaces) — the counter accepts it as is.
+          // Copies exactly the code (digits, no spaces) - the counter accepts it as is.
           buttons: [{ text: toBuyer.copy, copyText: sale.code }],
         }),
         this.bot.send({

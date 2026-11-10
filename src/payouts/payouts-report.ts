@@ -4,7 +4,7 @@ import type { DataSource, EntityManager } from "typeorm";
 // Finik's ~2% fee comes out of the platform's share and isn't part of the merchant report.
 export const PLATFORM_COMMISSION_PERCENT = 10;
 
-// Payout weeks are Monday 00:00 – Sunday 23:59:59 in Bishkek (UTC+6, no DST).
+// Payout weeks are Monday 00:00 - Sunday 23:59:59 in Bishkek (UTC+6, no DST).
 export const PAYOUT_TIMEZONE = "Asia/Bishkek";
 
 // Calendar dates in Bishkek, inclusive: from 00:00 of `from` to the end of `to`.
@@ -65,7 +65,7 @@ export const readOnly = <T>(ds: DataSource, work: (em: EntityManager) => Promise
     return work(em);
   });
 
-// The Monday–Sunday week containing `date` — computed in SQL (Postgres weeks start on Monday).
+// The Monday-Sunday week containing `date` - computed in SQL (Postgres weeks start on Monday).
 export const weekOf = (ds: DataSource, date: string): Promise<PayoutPeriod> =>
   readOnly(ds, async (em) => {
     const [row]: Array<{ from: string; to: string }> = await em.query(
@@ -88,7 +88,7 @@ export const currentWeek = (ds: DataSource): Promise<PayoutPeriod> =>
     return row;
   });
 
-// [from 00:00, to + 1 day 00:00) in Bishkek, as timestamptz — `timestamp AT TIME ZONE zone`
+// [from 00:00, to + 1 day 00:00) in Bishkek, as timestamptz - `timestamp AT TIME ZONE zone`
 // reads a wall-clock time in that zone. $1 = from, $2 = to.
 export const IN_PERIOD = (column: string) =>
   `${column} >= ($1::date)::timestamp AT TIME ZONE '${PAYOUT_TIMEZONE}'
@@ -105,12 +105,12 @@ const assertPeriod = (period: PayoutPeriod): PayoutPeriod => {
   return { from, to };
 };
 
-// Paid sales per merchant — the single place that decides what counts and how money splits,
+// Paid sales per merchant - the single place that decides what counts and how money splits,
 // shared by the payout report (all merchants) and the merchant cabinet (one merchant, optionally
-// one of its venues). A sale belongs to orders.merchantId — the venue's owner at the moment of
-// the sale — so moving a venue to another merchant never rewrites past periods.
+// one of its venues). A sale belongs to orders.merchantId - the venue's owner at the moment of
+// the sale - so moving a venue to another merchant never rewrites past periods.
 // Paid only, by paidAt. The payout is floored on the merchant's total for the period
-// (integer division), the commission is the rest — so payout + commission = gross exactly,
+// (integer division), the commission is the rest - so payout + commission = gross exactly,
 // and the merchant loses less than 1 KGS per period instead of up to 1 KGS per order.
 // bigint integer division floors for positive values.
 export const paidSales = async (

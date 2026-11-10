@@ -75,7 +75,7 @@ export class AdminOrdersController {
   @ApiOperation({
     summary: "One order with its certificate, buyer, Finik webhooks and manual resolutions",
     description:
-      "**Roles:** `admin` only. `webhooks[].amount` is what Finik sent — for `needs_review`, compare it with `amount`. `certificate.status` is effective; `usedAt` only for `used`.",
+      "**Roles:** `admin` only. `webhooks[].amount` is what Finik sent - for `needs_review`, compare it with `amount`. `certificate.status` is effective; `usedAt` only for `used`.",
   })
   @ApiOkResponse({
     schema: {

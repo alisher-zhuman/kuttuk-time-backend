@@ -12,7 +12,7 @@ const { privateKey, publicKey } = generateKeyPairSync("rsa", {
 });
 
 // Graphemes keep strings well-formed (no lone surrogates); '%' fragments are mixed in on purpose,
-// so malformed escapes are exercised too — then both implementations must throw.
+// so malformed escapes are exercised too - then both implementations must throw.
 const text = fc.oneof(
   { weight: 4, arbitrary: fc.string({ unit: "grapheme", maxLength: 12 }) },
   {

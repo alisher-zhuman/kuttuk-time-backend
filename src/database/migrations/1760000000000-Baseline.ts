@@ -21,7 +21,7 @@ export class Baseline1760000000000 implements MigrationInterface {
 
     if (existing > 0) {
       throw new Error(
-        `Baseline: only ${existing}/${TABLES.length} of ${TABLES.join(", ")} exist — refusing to guess`,
+        `Baseline: only ${existing}/${TABLES.length} of ${TABLES.join(", ")} exist - refusing to guess`,
       );
     }
 

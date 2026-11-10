@@ -7,7 +7,7 @@ import { generateCertificateCode } from "@/certificates/certificate-code";
 import { addMonths } from "@/common/utils/add-months";
 
 // Shared by the Finik webhook and the manual needs_review resolution (scripts/), so a
-// certificate is always issued the same way. Plain functions on an EntityManager — the caller
+// certificate is always issued the same way. Plain functions on an EntityManager - the caller
 // owns the transaction; no Nest DI needed.
 
 export const CERTIFICATE_CODE_ATTEMPTS = 5;

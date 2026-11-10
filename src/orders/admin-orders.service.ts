@@ -12,7 +12,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES = Object.values(OrderStatus) as string[];
 
 // Status-dependent keys are present only when set (the frontend parses a discriminated union):
-// paidAt — paid / needs_review / refunded; certificateCode — once a certificate exists (paid).
+// paidAt - paid / needs_review / refunded; certificateCode - once a certificate exists (paid).
 export interface AdminOrder {
   id: string;
   amount: number;
@@ -36,7 +36,7 @@ export interface AdminOrderDetail extends AdminOrder {
     validUntil: Date;
     usedAt?: Date;
   };
-  // What Finik actually sent — for needs_review, compare `amount` with the order's.
+  // What Finik actually sent - for needs_review, compare `amount` with the order's.
   webhooks: Array<{ receivedAt: Date; result: string | null; amount: unknown }>;
   // Manual decisions (orders:resolve-review), oldest first.
   resolutions: Array<{

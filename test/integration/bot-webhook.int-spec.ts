@@ -122,7 +122,7 @@ describe("POST /api/telegram/webhook (integration)", () => {
 
     expect(t.bot.sent[0]).toEqual({
       chatId: CHAT,
-      html: "Всё делается в приложении 👇\n\nВопросы — @alisher_zh",
+      html: "Всё делается в приложении 👇\n\nВопросы - @alisher_zh",
       button: { text: "Открыть KuttukTime", url: APP },
     });
     expect(t.bot.calls).toHaveLength(0);

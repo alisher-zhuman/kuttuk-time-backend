@@ -22,7 +22,7 @@ export interface PreparedGift {
 }
 
 // "Подарить": the backend stores a ready card with Telegram (savePreparedInlineMessage) and the
-// Mini App opens Telegram's chat picker with it (shareMessage) — the buyer sends it to a friend
+// Mini App opens Telegram's chat picker with it (shareMessage) - the buyer sends it to a friend
 // as themselves. A new card per tap: Telegram expires them. Only the owner's active certificates
 // (the code in the card is what the friend redeems; ownership isn't transferred).
 @Injectable()
@@ -77,7 +77,7 @@ export class GiftShareService {
         user_id: ownerTelegramId,
         // A photo of the code's QR with the text as its caption: the friend doesn't see the
         // certificate in the app (it stays the buyer's), so this message is what they show at
-        // the counter — the cashier scans it. Telegram takes an inline photo only as a JPEG URL.
+        // the counter - the cashier scans it. Telegram takes an inline photo only as a JPEG URL.
         result: {
           type: "photo",
           id: certificateId,

@@ -62,7 +62,7 @@ export class CertificatesController {
   @ApiOperation({
     summary: "Prepare a gift card to send to a friend (Telegram shareMessage)",
     description:
-      '**Roles:** any — the certificate\'s owner. The server stores a ready card with Telegram (`savePreparedInlineMessage`: venue, amount, code, an "Open <venue>" button and a "Copy code" button, in the `Accept-Language` language) and returns its id; the Mini App calls `shareMessage(preparedMessageId)` and the user picks a chat. Ask for a new one per tap — it expires. Only an active certificate.',
+      '**Roles:** any - the certificate\'s owner. The server stores a ready card with Telegram (`savePreparedInlineMessage`: venue, amount, code, an "Open <venue>" button and a "Copy code" button, in the `Accept-Language` language) and returns its id; the Mini App calls `shareMessage(preparedMessageId)` and the user picks a chat. Ask for a new one per tap - it expires. Only an active certificate.',
   })
   @ApiOkResponse({
     schema: { example: { preparedMessageId: "aBcD123", expiresAt: "2026-10-22T12:00:00.000Z" } },
