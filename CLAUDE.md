@@ -201,7 +201,7 @@ A three-way review (security, money/correctness, code quality) with each finding
 ## API (already built)
 
 **Public (no JWT):**
-- `GET /api/health` → `{ status: "ok" }` (DB answers `SELECT 1`), else **503** - for an external uptime monitor (since 2026-11-10). Default rate limit by IP
+- `GET /api/health` → `{ status: "ok" }` (DB answers `SELECT 1`), else **503** - for an external uptime monitor (since 2026-11-10; UptimeRobot checks it every 5 min - the user's account). Default rate limit by IP
 - `POST /api/auth/log-in` - login via Telegram initData → JWT (returns 200)
 - `GET /:slug` - venue redirect into the TMA (redirects to `t.me/kuttuk_time_bot/app?startapp=:slug`)
 - `GET /api/payments/return/:orderId` - where Finik sends the buyer after paying; **302** to the Mini App on that order (see **Payment RedirectUrl**). No JWT, default rate limit by IP, hidden from Swagger
