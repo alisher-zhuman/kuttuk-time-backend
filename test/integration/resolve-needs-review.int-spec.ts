@@ -126,7 +126,7 @@ describe("resolveNeedsReview (integration)", () => {
         });
 
       await run();
-      await expect(run()).rejects.toThrow(/is "paid", not "needs_review"/);
+      await expect(run()).rejects.toThrow(/is "paid" - only needs_review, expired or pending/);
 
       expect(await certificates().count()).toBe(1);
       expect(await resolutions().count()).toBe(1);
@@ -159,26 +159,84 @@ describe("resolveNeedsReview (integration)", () => {
     });
   });
 
-  describe("refuses anything but needs_review - nothing changes", () => {
+  describe("a lost webhook: expired / pending with the money found in Finik's cabinet", () => {
+    it.each([OrderStatus.Expired, OrderStatus.Pending])(
+      "%s + issue with a note → paid + certificate, paidAt = now, the Finik transaction stored",
+      async (status) => {
+        const { order } = await setup(status, null);
+        const before = Date.now();
+
+        const result = await resolveNeedsReview(ds, {
+          orderId: order.id,
+          action: OrderResolutionAction.Issue,
+          note: "Finik cabinet: 1000 KGS",
+          finikTransactionId: "txn-from-cabinet",
+          resolvedBy: "alisher",
+        });
+
+        expect(result).toMatchObject({ from: status, to: OrderStatus.Paid });
+        expect(result.certificate?.code).toMatch(CODE);
+        expect(result.paidAt!.getTime()).toBeGreaterThanOrEqual(before);
+        expect(await reload(order.id)).toMatchObject({
+          status: OrderStatus.Paid,
+          finikTransactionId: "txn-from-cabinet",
+        });
+        expect(await resolutions().findOneByOrFail({ orderId: order.id })).toMatchObject({
+          fromStatus: status,
+          toStatus: OrderStatus.Paid,
+          note: "Finik cabinet: 1000 KGS",
+        });
+      },
+    );
+
+    it("expired + refunded with a note → refunded", async () => {
+      const { order } = await setup(OrderStatus.Expired, null);
+
+      await resolveNeedsReview(ds, {
+        orderId: order.id,
+        action: OrderResolutionAction.Refunded,
+        note: "returned by bank transfer",
+        resolvedBy: "alisher",
+      });
+
+      expect((await reload(order.id)).status).toBe(OrderStatus.Refunded);
+      expect(await certificates().count()).toBe(0);
+    });
+
+    it.each([undefined, "   "])("without a note (%p) → refused, nothing changes", async (note) => {
+      const { order } = await setup(OrderStatus.Expired, null);
+
+      await expect(
+        resolveNeedsReview(ds, {
+          orderId: order.id,
+          action: OrderResolutionAction.Issue,
+          note,
+          resolvedBy: "alisher",
+        }),
+      ).rejects.toThrow(/add --note with the Finik transaction/);
+      expect((await reload(order.id)).status).toBe(OrderStatus.Expired);
+      expect(await certificates().count()).toBe(0);
+    });
+  });
+
+  describe("refuses paid and refunded - nothing changes", () => {
     it.each([
       [OrderStatus.Paid, OrderResolutionAction.Issue],
       [OrderStatus.Paid, OrderResolutionAction.Refunded],
-      [OrderStatus.Pending, OrderResolutionAction.Issue],
-      [OrderStatus.Pending, OrderResolutionAction.Refunded],
-      [OrderStatus.Expired, OrderResolutionAction.Issue],
-      [OrderStatus.Expired, OrderResolutionAction.Refunded],
       [OrderStatus.Refunded, OrderResolutionAction.Issue],
+      [OrderStatus.Refunded, OrderResolutionAction.Refunded],
     ])("%s + %s", async (status, action) => {
       const { order } = await setup(status, status === OrderStatus.Paid ? PAID_AT : null);
 
       const error = await resolveNeedsReview(ds, {
         orderId: order.id,
         action,
+        note: "a note does not help",
         resolvedBy: "alisher",
       }).catch((e: unknown) => e);
 
       expect(error).toBeInstanceOf(ResolveNeedsReviewError);
-      expect((error as Error).message).toContain(`is "${status}", not "needs_review"`);
+      expect((error as Error).message).toContain(`is "${status}" - only needs_review`);
       expect((await reload(order.id)).status).toBe(status);
       expect(await certificates().count()).toBe(0);
       expect(await resolutions().count()).toBe(0);

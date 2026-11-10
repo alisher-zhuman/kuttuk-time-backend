@@ -13,6 +13,7 @@ import { Certificate } from "@/certificates/entities/certificate.entity";
 import { Venue } from "@/venues/entities/venue.entity";
 import type { Merchant } from "@/merchants/entities/merchant.entity";
 import { FinikService } from "@/finik/finik.service";
+import { AdminAlertsService } from "@/telegram/admin-alerts.service";
 import { finikConfig } from "@/finik/finik.config";
 import { FinikApiError, FinikNetworkError, FinikTimeoutError } from "@/finik/finik.errors";
 
@@ -44,6 +45,7 @@ describe("OrdersService", () => {
   const certificateRepo = { query: jest.fn() };
   const venueRepo = { findOne: jest.fn() };
   const finikService = { createPayment: jest.fn() };
+  const alerts = { alert: jest.fn(async () => 1) };
 
   beforeAll(() => {
     Logger.overrideLogger(false);
@@ -60,6 +62,7 @@ describe("OrdersService", () => {
         { provide: getRepositoryToken(Certificate), useValue: certificateRepo },
         { provide: getRepositoryToken(Venue), useValue: venueRepo },
         { provide: FinikService, useValue: finikService },
+        { provide: AdminAlertsService, useValue: alerts },
         {
           provide: finikConfig.KEY,
           useValue: {

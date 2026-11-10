@@ -15,6 +15,7 @@ import { CertificatesModule } from "./certificates/certificates.module";
 import { JwtGuard } from "./auth/jwt.guard";
 import { UserThrottlerGuard } from "./auth/user-throttler.guard";
 import { buildTypeOrmOptions } from "./database/typeorm.options";
+import { HealthController } from "./health.controller";
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { buildTypeOrmOptions } from "./database/typeorm.options";
     CertificatesModule,
     PayoutsModule,
   ],
+  controllers: [HealthController],
   providers: [
     // Order matters: global guards run in registration order, and the throttler keys on
     // req.user, which JwtGuard sets. Covered by test/integration/rate-limit.int-spec.ts.

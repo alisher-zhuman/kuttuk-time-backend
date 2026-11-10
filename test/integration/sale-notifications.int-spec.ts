@@ -109,15 +109,33 @@ describe("bot notifications on a sale (integration)", () => {
     expect(t.bot.sent).toHaveLength(2);
   });
 
-  it("needs_review (amount mismatch) and a non-success status send nothing", async () => {
+  it("a non-success status sends nothing", async () => {
     const { order } = await setup();
-    const other = await setup();
 
-    await pay(order, { amount: 999 });
-    await pay(other.order, { status: "failed" });
+    await pay(order, { status: "failed" });
     await new Promise((resolve) => setTimeout(resolve, 200));
 
     expect(t.bot.sent).toHaveLength(0);
+  });
+
+  it("needs_review (amount mismatch): the buyer hears it's being checked (no code), not the owner", async () => {
+    const { buyer, merchant, order } = await setup({ buyerLanguage: "ru" });
+
+    await pay(order, { amount: 999 });
+    await waitFor(() => t.bot.sent.length === 1);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(t.bot.sent).toEqual([
+      {
+        chatId: buyer.telegramId,
+        html: "💳 Мы получили вашу оплату сертификата в <b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b>, но сумма отличается от заказа.\n\nПроверим платёж вручную и напишем вам здесь.",
+        button: {
+          text: "Открыть заказ",
+          url: `https://t.me/kuttuk_time_bot/app?startapp=order_${order.id}`,
+        },
+      },
+    ]);
+    expect(t.bot.sent.some((m) => m.chatId === merchant.telegramId)).toBe(false);
   });
 
   it("the webhook answers 200 and the order is paid even if Telegram refuses (403)", async () => {

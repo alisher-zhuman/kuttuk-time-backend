@@ -24,6 +24,7 @@ import { FinikService } from "@/finik/finik.service";
 import { finikConfig } from "@/finik/finik.config";
 import { paymentReturnUrl } from "./payment-redirect-url";
 import { FinikApiError, FinikNetworkError, FinikTimeoutError } from "@/finik/finik.errors";
+import { AdminAlertsService } from "@/telegram/admin-alerts.service";
 
 export const ORDER_TTL_MS = 30 * 60 * 1000;
 
@@ -62,6 +63,7 @@ export class OrdersService {
     @InjectRepository(Venue) private readonly venueRepo: Repository<Venue>,
     private readonly finikService: FinikService,
     @Inject(finikConfig.KEY) private readonly finik: ConfigType<typeof finikConfig>,
+    private readonly alerts: AdminAlertsService,
   ) {}
 
   // language: the app's language at purchase - the bot sends the certificate code in it.
@@ -128,6 +130,12 @@ export class OrdersService {
         error instanceof FinikTimeoutError
       ) {
         this.logger.warn(`Order ${order.id} expired: payment creation failed (${error.name})`);
+        // Nobody can buy while this lasts - one message an hour.
+        void this.alerts.alert({
+          kind: "finik_create_failed",
+          throttle: true,
+          html: `🚨 <b>Финик не создал платёж</b> (${error.name}) - покупатель видит «сервис оплаты недоступен».\nЗаказ <code>${order.id}</code>\n\nЕсли повторяется - проверить Финик и ключи.`,
+        });
 
         throw new BadGatewayException(
           "Payment service is temporarily unavailable, please try again later",

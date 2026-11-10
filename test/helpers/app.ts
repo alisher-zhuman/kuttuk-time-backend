@@ -11,6 +11,7 @@ import { FinikService } from "../../src/finik/finik.service";
 import type { CreatePaymentInput } from "../../src/finik/finik.service";
 import { TelegramBotService, type BotMessage } from "../../src/telegram/telegram-bot.service";
 import { CloudinaryService } from "../../src/cloudinary/cloudinary.service";
+import { AdminAlertsService } from "../../src/telegram/admin-alerts.service";
 import type { User } from "../../src/users/entities/user.entity";
 import { assertTestDatabase, truncateAll } from "./db";
 
@@ -170,6 +171,8 @@ export const createTestApp = async (): Promise<TestApp> => {
       finik.reset();
       bot.reset();
       cloudinary.reset();
+      // Throttled admin alerts are remembered in memory - each test starts fresh.
+      app.get(AdminAlertsService).resetThrottle();
       // TRUNCATE … RESTART IDENTITY hands out user id 1 again, so per-user rate-limit
       // counters (user:1) would otherwise carry over from the previous test.
       const throttlerStorage = app.get<ThrottlerStorageService>(getStorageToken());

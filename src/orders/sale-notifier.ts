@@ -3,11 +3,13 @@ import type { ConfigType } from "@nestjs/config";
 import { InjectDataSource } from "@nestjs/typeorm";
 import type { DataSource } from "typeorm";
 
-import { buyerMessage, ownerMessage } from "./sale-messages";
+import { buyerMessage, ownerMessage, refundedMessage, reviewMessage } from "./sale-messages";
 import { paymentRedirectUrl } from "./payment-redirect-url";
 import type { Language } from "@/common/translations";
 import { finikConfig } from "@/finik/finik.config";
-import { TelegramBotService } from "@/telegram/telegram-bot.service";
+import { AdminAlertsService } from "@/telegram/admin-alerts.service";
+import { SUPPORT_URL } from "@/telegram/links";
+import { escapeHtml, TelegramBotService } from "@/telegram/telegram-bot.service";
 
 interface Sale {
   orderId: string;
@@ -32,6 +34,7 @@ export class SaleNotifier {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly bot: TelegramBotService,
     @Inject(finikConfig.KEY) private readonly finik: ConfigType<typeof finikConfig>,
+    private readonly alerts: AdminAlertsService,
   ) {}
 
   async notifyPaid(orderId: string): Promise<void> {
@@ -84,5 +87,80 @@ export class SaleNotifier {
 
       this.logger.error(`Sale notification for order ${orderId} failed: ${reason}`);
     }
+  }
+
+  // The paid amount didn't match (needs_review): money taken, no certificate. The buyer hears at
+  // once that it's being checked (with the way back to the order); the admins get an alert to
+  // resolve it - before this, only a log line and the next Monday reminder knew.
+  async notifyNeedsReview(orderId: string, paidAmount: unknown): Promise<void> {
+    try {
+      const order = await this.orderForMessage(orderId);
+
+      if (!order) {
+        return;
+      }
+
+      const toBuyer = reviewMessage(order.buyerLanguage ?? "kg", order);
+
+      await this.bot.send({
+        chatId: Number(order.buyerTelegramId),
+        html: toBuyer.html,
+        button: { text: toBuyer.button, url: paymentRedirectUrl(this.finik.redirectUrl, orderId) },
+      });
+      await this.alerts.alert({
+        kind: "needs_review",
+        html: `⚠️ <b>Сумма не совпала</b> - деньги списаны, сертификат не выдан.\n\n${escapeHtml(order.venue)}: заказ ${order.amount} сом, оплачено ${escapeHtml(JSON.stringify(paidAmount))}.\nЗаказ <code>${orderId}</code>\n\nПроверить в кабинете Финика и разобрать: <code>npm run orders:resolve-review -- --order ${orderId} --issue | --refunded --note "…"</code>`,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+
+      this.logger.error(`Needs-review notification for order ${orderId} failed: ${reason}`);
+    }
+  }
+
+  // After the money was returned by hand (orders:resolve-review --refunded).
+  async notifyRefunded(orderId: string): Promise<void> {
+    try {
+      const order = await this.orderForMessage(orderId);
+
+      if (!order) {
+        return;
+      }
+
+      const message = refundedMessage(order.buyerLanguage ?? "kg", order);
+
+      await this.bot.send({
+        chatId: Number(order.buyerTelegramId),
+        html: message.html,
+        button: { text: message.button, url: SUPPORT_URL },
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+
+      this.logger.error(`Refund notification for order ${orderId} failed: ${reason}`);
+    }
+  }
+
+  private async orderForMessage(orderId: string): Promise<{
+    amount: number;
+    venue: string;
+    buyerTelegramId: string;
+    buyerLanguage: Language | null;
+  } | null> {
+    const [order] = await this.dataSource.query(
+      `SELECT o."amount", v."name" AS "venue",
+              b."telegramId"::text AS "buyerTelegramId", b."language" AS "buyerLanguage"
+         FROM "orders" o
+         JOIN "venues" v ON v."id" = o."venueId"
+         JOIN "users" b ON b."id" = o."userId"
+        WHERE o."id" = $1`,
+      [orderId],
+    );
+
+    if (!order) {
+      this.logger.error(`Bot message for order ${orderId}: order not found`);
+    }
+
+    return order ?? null;
   }
 }

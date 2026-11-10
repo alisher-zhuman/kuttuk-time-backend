@@ -62,11 +62,20 @@ export class PayoutReminderService {
     }
 
     const report = await buildPayoutReport(this.dataSource, period);
-    const { progress, older } = await readOnly(this.dataSource, async (em) => ({
+    const { progress, older, needsReviewCount } = await readOnly(this.dataSource, async (em) => ({
       progress: await payoutProgress(em, period),
       // Paid orders of earlier weeks still not paid out (a late webhook, a resolved
       // needs_review landing in a week already marked) - otherwise nobody would ever be told.
       older: await unpaidBefore(em, period.from),
+      // Every unresolved needs_review, whatever its week - one left over from an earlier week
+      // must keep coming up until someone resolves it.
+      needsReviewCount: Number(
+        (
+          await em.query(
+            `SELECT count(*)::int AS "n" FROM "orders" WHERE "status" = 'needs_review'`,
+          )
+        )[0].n,
+      ),
     }));
     const due = report.rows
       .map((row) => ({
@@ -74,7 +83,7 @@ export class PayoutReminderService {
         due: progress.get(row.merchantId)?.due ?? row.payout,
       }))
       .filter((row) => row.due > 0);
-    const nothing = due.length === 0 && older.length === 0 && report.needsReview.length === 0;
+    const nothing = due.length === 0 && older.length === 0 && needsReviewCount === 0;
 
     // Claimed right before sending - not before the report (a failing query would lose the week).
     const [claimed]: Array<{ id: number }> = await this.dataSource.query(
@@ -104,7 +113,7 @@ export class PayoutReminderService {
         ...period,
         due,
         older,
-        needsReviewCount: report.needsReview.length,
+        needsReviewCount,
       });
 
       const sent = await this.bot.send({

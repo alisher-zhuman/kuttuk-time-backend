@@ -10,6 +10,8 @@ export interface ResolveNeedsReviewInput {
   action: OrderResolutionAction;
   note?: string;
   resolvedBy: string;
+  // The Finik transaction checked in Finik's cabinet - for an order the webhook never reached.
+  finikTransactionId?: string;
 }
 
 export interface ResolveNeedsReviewResult {
@@ -23,11 +25,16 @@ export interface ResolveNeedsReviewResult {
 
 export class ResolveNeedsReviewError extends Error {}
 
-// Manual decision on a needs_review order (a webhook came, but the paid amount didn't match):
+// Manual decision on an order the money came for, but the system didn't settle:
+//  - needs_review: a webhook came, but the paid amount didn't match;
+//  - expired / pending: Finik took the money, but its webhook never reached us (an outage, a
+//    bad signature, Finik gave up after a day) - found in Finik's cabinet. A note naming the
+//    checked transaction is required here: nothing in our data proves the payment.
+// Actions:
 //  - issue:    honour it - paid + the certificate, through the same code as the webhook;
 //  - refunded: the money was returned outside the system (Finik has no refund API).
 // One transaction with the order row locked, so it can't race a late webhook retry.
-// Anything but needs_review → error, nothing changes.
+// paid / refunded → error, nothing changes.
 export const resolveNeedsReview = (
   ds: DataSource,
   input: ResolveNeedsReviewInput,
@@ -39,9 +46,18 @@ export const resolveNeedsReview = (
       throw new ResolveNeedsReviewError(`Order ${input.orderId} not found`);
     }
 
-    if (order.status !== OrderStatus.NeedsReview) {
+    const lostWebhook =
+      order.status === OrderStatus.Expired || order.status === OrderStatus.Pending;
+
+    if (order.status !== OrderStatus.NeedsReview && !lostWebhook) {
       throw new ResolveNeedsReviewError(
-        `Order ${order.id} is "${order.status}", not "needs_review" - nothing changed`,
+        `Order ${order.id} is "${order.status}" - only needs_review, expired or pending can be resolved; nothing changed`,
+      );
+    }
+
+    if (lostWebhook && !input.note?.trim()) {
+      throw new ResolveNeedsReviewError(
+        `Order ${order.id} is "${order.status}": add --note with the Finik transaction you checked in Finik's cabinet`,
       );
     }
 
@@ -50,9 +66,13 @@ export const resolveNeedsReview = (
     let to: OrderStatus;
 
     if (input.action === OrderResolutionAction.Issue) {
-      // The payment already happened: keep its paidAt (older needs_review rows may lack it).
+      // The payment already happened: keep its paidAt (older needs_review rows and a lost webhook
+      // have none - then now, which also starts the certificate's validity from today).
       paidAt = order.paidAt ?? new Date();
-      certificate = await payAndIssueCertificate(em, order, { paidAt });
+      certificate = await payAndIssueCertificate(em, order, {
+        paidAt,
+        ...(input.finikTransactionId ? { finikTransactionId: input.finikTransactionId } : {}),
+      });
       to = OrderStatus.Paid;
     } else {
       await em.update(Order, order.id, { status: OrderStatus.Refunded });
