@@ -4,6 +4,9 @@ export const ORDER_START_PARAM_PREFIX = "order_";
 // The same file on the frontend: startapp=my_certificates opens «Мои сертификаты» (for a
 // certificate whose owner isn't the buyer - they can't open the order screen).
 export const MY_CERTIFICATES_START_PARAM = "my_certificates";
+// startapp=admin_payouts opens the admin «Выплаты» (the Monday reminder's button). Admins only;
+// for anyone else the frontend opens its usual home.
+export const ADMIN_PAYOUTS_START_PARAM = "admin_payouts";
 
 // The Mini App link (FINIK_REDIRECT_URL = t.me/<bot>/app) opened on a start param: a venue
 // slug, or order_<uuid>. The one place that builds it - with URL/searchParams, so an existing

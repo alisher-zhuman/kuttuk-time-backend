@@ -1,23 +1,27 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 
 import { Merchant } from "./entities/merchant.entity";
+import { User } from "@/users/entities/user.entity";
 import { CreateMerchantDto } from "./dto/create-merchant.dto";
 import { AdminUpdateMerchantDto } from "./dto/admin-update-merchant.dto";
 import { UpdateVenueDto } from "@/venues/dto/update-venue.dto";
 import { definedFields } from "@/common/utils/defined-fields";
 import { VenuesService, type VenueDetail } from "@/venues/venues.service";
 
-type MerchantAccount = Pick<Merchant, "id" | "name" | "telegramId" | "isActive" | "createdAt">;
+// owner: is the owner connected - lastSeenAt (last log-in to the Mini App, null = never) and
+// botReachable (did the last bot message reach them; null = unknown / never opened the app).
+type MerchantAccount = Pick<
+  Merchant,
+  "id" | "name" | "telegramId" | "isActive" | "payoutDetails" | "contact" | "createdAt"
+> & { owner: { lastSeenAt: Date | null; botReachable: boolean | null } };
 
-const toAccount = ({ id, name, telegramId, isActive, createdAt }: Merchant): MerchantAccount => ({
-  id,
-  name,
-  telegramId,
-  isActive,
-  createdAt,
-});
+const NO_OWNER = { lastSeenAt: null, botReachable: null };
+
+// Empty text clears an admin note.
+const blankToNull = (value: string | null | undefined) =>
+  value === undefined ? undefined : value?.trim() ? value.trim() : null;
 
 @Injectable()
 export class MerchantsService {
@@ -25,6 +29,7 @@ export class MerchantsService {
 
   constructor(
     @InjectRepository(Merchant) private readonly merchantRepo: Repository<Merchant>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly venuesService: VenuesService,
   ) {}
 
@@ -67,21 +72,31 @@ export class MerchantsService {
       qb.andWhere("merchant.name ILIKE :search", { search: `%${search}%` });
     }
 
-    return (await qb.getMany()).map(toAccount);
+    return this.toAccounts(await qb.getMany());
   }
 
   async findOneAdmin(id: number): Promise<MerchantAccount & { venues: VenueDetail[] }> {
     const merchant = await this.findEntity(id);
 
-    return { ...toAccount(merchant), venues: await this.venuesService.listForMerchant(id) };
+    const [account] = await this.toAccounts([merchant]);
+
+    return { ...account, venues: await this.venuesService.listForMerchant(id) };
   }
 
   async create(dto: CreateMerchantDto): Promise<MerchantAccount> {
-    const saved = await this.merchantRepo.save(this.merchantRepo.create(dto));
+    const saved = await this.merchantRepo.save(
+      this.merchantRepo.create({
+        ...dto,
+        payoutDetails: blankToNull(dto.payoutDetails) ?? null,
+        contact: blankToNull(dto.contact) ?? null,
+      }),
+    );
 
     this.logger.log(`Merchant created: id=${saved.id} name="${saved.name}"`);
 
-    return toAccount(saved);
+    const [account] = await this.toAccounts([saved]);
+
+    return account;
   }
 
   async updateAdmin(id: number, dto: AdminUpdateMerchantDto): Promise<MerchantAccount> {
@@ -89,11 +104,49 @@ export class MerchantsService {
 
     Object.assign(merchant, definedFields(dto));
 
+    for (const key of ["payoutDetails", "contact"] as const) {
+      if (dto[key] !== undefined) {
+        merchant[key] = blankToNull(dto[key]) ?? null;
+      }
+    }
+
     const saved = await this.merchantRepo.save(merchant);
 
     this.logger.log(`Merchant updated: id=${id}`);
 
-    return toAccount(saved);
+    const [account] = await this.toAccounts([saved]);
+
+    return account;
+  }
+
+  // The owners' users rows (by telegramId) in one query.
+  private async toAccounts(merchants: Merchant[]): Promise<MerchantAccount[]> {
+    const users = merchants.length
+      ? await this.userRepo.find({
+          where: { telegramId: In(merchants.map((m) => m.telegramId)) },
+          select: { telegramId: true, lastSeenAt: true, botReachable: true },
+        })
+      : [];
+    const byTelegramId = new Map(users.map((u) => [u.telegramId, u]));
+
+    return merchants.map(
+      ({ id, name, telegramId, isActive, payoutDetails, contact, createdAt }) => {
+        const owner = byTelegramId.get(telegramId);
+
+        return {
+          id,
+          name,
+          telegramId,
+          isActive,
+          payoutDetails,
+          contact,
+          createdAt,
+          owner: owner
+            ? { lastSeenAt: owner.lastSeenAt, botReachable: owner.botReachable }
+            : NO_OWNER,
+        };
+      },
+    );
   }
 
   private async findByTelegramId(telegramId: number): Promise<Merchant> {

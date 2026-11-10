@@ -14,6 +14,7 @@ import { LessThan, Repository } from "typeorm";
 
 import { Order, OrderStatus } from "./entities/order.entity";
 import { CreateOrderDto } from "./dto/create-order.dto";
+import { orderNumber } from "./order-number";
 import { Certificate } from "@/certificates/entities/certificate.entity";
 import { effectiveStatusSql, usedAtField } from "@/certificates/effective-status";
 import type { EffectiveCertificateStatus } from "@/certificates/effective-status";
@@ -36,6 +37,8 @@ export interface CreatedOrder {
 
 export interface OrderView {
   orderId: string;
+  // «Заказ №A1B2C3D4» - what the buyer quotes to support.
+  number: string;
   status: OrderStatus;
   amount: number;
   venueId: number;
@@ -184,6 +187,7 @@ export class OrdersService {
 
     return {
       orderId: order.id,
+      number: orderNumber(order.id),
       status: order.status,
       amount: order.amount,
       venueId: order.venueId,

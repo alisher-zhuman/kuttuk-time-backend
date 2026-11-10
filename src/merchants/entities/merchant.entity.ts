@@ -35,6 +35,14 @@ export class Merchant {
   @Column({ default: true })
   isActive!: boolean;
 
+  // Admin only: where to transfer the payout (card / account, free text), and how to reach the
+  // owner (phone, name). Never shown to the owner or buyers.
+  @Column({ type: "text", nullable: true })
+  payoutDetails!: string | null;
+
+  @Column({ type: "text", nullable: true })
+  contact!: string | null;
+
   @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;
 

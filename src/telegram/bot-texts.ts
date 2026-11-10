@@ -37,6 +37,21 @@ export const fallbackMessage = (lang: Language, support: string): string => {
 };
 
 // The button under a message: "Open KuttukTime", or "Open <venue>" for a /start <slug> link.
+// /id - the person's Telegram ID, in <code> (copied on tap). The admin needs it to connect a
+// merchant's owner (POST /api/admin/merchants { telegramId }); there was nowhere to get it.
+export const idMessage = (lang: Language, telegramId: number): string => {
+  const id = `<code>${telegramId}</code>`;
+
+  switch (lang) {
+    case "ru":
+      return `Ваш Telegram ID: ${id}\n\nНажмите на число, чтобы скопировать.`;
+    case "en":
+      return `Your Telegram ID: ${id}\n\nTap the number to copy it.`;
+    case "kg":
+      return `Сиздин Telegram ID: ${id}\n\nКөчүрүү үчүн санды басыңыз.`;
+  }
+};
+
 export const openButton = (lang: Language, venue?: string): string => {
   const name = venue ?? "KuttukTime";
 

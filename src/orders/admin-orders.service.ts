@@ -3,6 +3,7 @@ import { InjectDataSource } from "@nestjs/typeorm";
 import type { DataSource } from "typeorm";
 
 import { OrderStatus } from "./entities/order.entity";
+import { orderNumber } from "./order-number";
 import { normalizeCertificateCode } from "@/certificates/certificate-code";
 import { effectiveStatusSql, usedAtField } from "@/certificates/effective-status";
 import type { EffectiveCertificateStatus } from "@/certificates/effective-status";
@@ -15,6 +16,8 @@ const STATUSES = Object.values(OrderStatus) as string[];
 // paidAt - paid / needs_review / refunded; certificateCode - once a certificate exists (paid).
 export interface AdminOrder {
   id: string;
+  // «Заказ №A1B2C3D4» - what the buyer sees and quotes.
+  number: string;
   amount: number;
   status: OrderStatus;
   createdAt: Date;
@@ -28,6 +31,9 @@ export interface AdminOrder {
 
 export interface AdminOrderDetail extends AdminOrder {
   expiresAt: Date;
+  // false: Finik never created a payment (it failed at POST /orders) - an `expired` order then
+  // means "Finik failed", not "the buyer didn't pay".
+  paymentCreated: boolean;
   finikTransactionId?: string;
   buyer: { userId: number; telegramId: number };
   certificate?: {
@@ -78,6 +84,7 @@ const SELECT = `SELECT o."id", o."amount", o."status", o."createdAt", o."paidAt"
 
 const toItem = (row: Row): AdminOrder => ({
   id: row.id,
+  number: orderNumber(row.id),
   amount: row.amount,
   status: row.status,
   createdAt: row.createdAt,
@@ -100,6 +107,7 @@ export class AdminOrdersService {
     status?: string;
     venueId?: number;
     merchantId?: number;
+    userId?: number;
     search?: string;
     limit?: number;
     cursor?: string;
@@ -118,7 +126,10 @@ export class AdminOrdersService {
           AND ($2::int IS NULL OR o."venueId" = $2::int)
           AND ($3::int IS NULL OR o."merchantId" = $3::int)
           AND ($4::uuid IS NULL OR o."id" = $4::uuid)
-          AND ($5::text IS NULL OR c."code" = $5::text)
+          AND (($5::text IS NULL AND $9::text IS NULL)
+               OR c."code" = $5::text OR left(o."id"::text, 8) = $9::text)
+          AND ($10::text IS NULL OR o."finikTransactionId" = $10::text)
+          AND ($11::int IS NULL OR o."userId" = $11::int)
           AND ($6::timestamptz IS NULL OR (o."createdAt", o."id") < ($6::timestamptz, $7::uuid))
         ORDER BY o."createdAt" DESC, o."id" DESC
         LIMIT $8`,
@@ -131,6 +142,9 @@ export class AdminOrdersService {
         after?.at ?? null,
         after?.id ?? null,
         limit + 1,
+        search?.numberPrefix ?? null,
+        search?.finikTransactionId ?? null,
+        opts.userId ?? null,
       ],
     );
 
@@ -149,9 +163,11 @@ export class AdminOrdersService {
         certificateStatus: EffectiveCertificateStatus | null;
         validUntil: Date | null;
         usedAt: Date | null;
+        paymentCreated: boolean;
       }
     > = await this.dataSource.query(
       `SELECT q.*, o."expiresAt", o."finikTransactionId", u."id" AS "userId",
+              o."paymentUrl" IS NOT NULL AS "paymentCreated",
               u."telegramId"::text AS "telegramId",
               ${effectiveStatusSql("c")} AS "certificateStatus",
               c."validUntil", c."usedAt"
@@ -180,6 +196,7 @@ export class AdminOrdersService {
     return {
       ...toItem(row),
       expiresAt: row.expiresAt,
+      paymentCreated: row.paymentCreated,
       ...(row.finikTransactionId ? { finikTransactionId: row.finikTransactionId } : {}),
       buyer: { userId: row.userId, telegramId: Number(row.telegramId) },
       ...(row.certificateCode && row.certificateStatus && row.validUntil
@@ -197,9 +214,16 @@ export class AdminOrdersService {
     };
   }
 
-  // A certificate code (normalized as at redemption) or an order id; anything else → 400.
-  private parseSearch(search?: string): { orderId?: string; code?: string } | null {
-    const value = search?.trim();
+  // What support has from the buyer: an order id; the order number (8 hex chars, «№A1B2C3D4» -
+  // "№" / "#" ignored); a certificate code (normalized as at redemption) - 8 digits match both a
+  // code and an order number; a Finik transaction id (from Finik's cabinet, exact). Else → 400.
+  private parseSearch(search?: string): {
+    orderId?: string;
+    code?: string;
+    numberPrefix?: string;
+    finikTransactionId?: string;
+  } | null {
+    const value = search?.trim().replace(/^[№#]\s*/, "");
 
     if (!value) {
       return null;
@@ -209,12 +233,19 @@ export class AdminOrdersService {
       return { orderId: value.toLowerCase() };
     }
 
-    const code = normalizeCertificateCode(value);
+    const numberPrefix = /^[0-9a-f]{8}$/i.test(value) ? value.toLowerCase() : undefined;
+    const code = normalizeCertificateCode(value) ?? undefined;
 
-    if (!code) {
-      throw new BadRequestException("search must be a certificate code or an order id");
+    if (numberPrefix || code) {
+      return { numberPrefix, code };
     }
 
-    return { code };
+    if (/^[A-Za-z0-9_-]{6,200}$/.test(value)) {
+      return { finikTransactionId: value };
+    }
+
+    throw new BadRequestException(
+      "search must be an order id or number, a certificate code or a Finik transaction id",
+    );
   }
 }

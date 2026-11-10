@@ -6,6 +6,7 @@ import type { DataSource } from "typeorm";
 import {
   botLanguage,
   fallbackMessage,
+  idMessage,
   menuButtonText,
   openButton,
   welcomeMessage,
@@ -27,7 +28,7 @@ export interface TelegramUpdate {
   };
 }
 
-// The bot doesn't chat: /start gets a welcome with an "open the app" button (straight into a
+// The bot doesn't chat: /id answers the person's Telegram ID (to connect a merchant); /start gets a welcome with an "open the app" button (straight into a
 // venue for /start <slug>), anything else - the same button and the support contact. Private
 // chats only. Best-effort: never throws (the webhook already answered 200).
 @Injectable()
@@ -70,6 +71,13 @@ export class BotUpdatesService {
           },
         });
         await this.setMenuButton(chatId, lang);
+
+        return;
+      }
+
+      // In a private chat the chat id is the user's Telegram ID.
+      if (command === "/id") {
+        await this.bot.send({ chatId, html: idMessage(lang, chatId) });
 
         return;
       }

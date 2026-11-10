@@ -160,7 +160,7 @@ describe("admin alerts and health (integration)", () => {
     expect(t.bot.sent).toEqual([
       {
         chatId: buyer.telegramId,
-        html: "↩️ Деньги за заказ сертификата в <b>Coffee Shop</b> (500 сом) возвращены.\n\nЕсли остались вопросы - напишите нам.",
+        html: `↩️ Деньги за заказ сертификата в <b>Coffee Shop</b> (500 сом) возвращены.\n\nЕсли остались вопросы - напишите нам.\n\nЗаказ №<code>${order.id.slice(0, 8).toUpperCase()}</code>`,
         button: { text: "Написать в поддержку", url: "https://t.me/alisher_zh" },
       },
     ]);

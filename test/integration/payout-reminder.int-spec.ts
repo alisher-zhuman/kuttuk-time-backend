@@ -64,7 +64,7 @@ describe("Monday payout reminder to the admin (integration)", () => {
     );
     expect(toAdmin.button).toEqual({
       text: "Открыть приложение",
-      url: "https://t.me/kuttuk_time_bot/app",
+      url: "https://t.me/kuttuk_time_bot/app?startapp=admin_payouts",
     });
     // Unknown language → kg.
     expect(t.bot.sent.find((m) => m.chatId === second.telegramId)!.html).toContain(

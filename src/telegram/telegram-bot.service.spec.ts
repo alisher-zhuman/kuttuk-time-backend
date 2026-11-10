@@ -121,4 +121,53 @@ describe("TelegramBotService", () => {
   it("escapeHtml escapes &, <, >", () => {
     expect(escapeHtml(`Tom & <Jerry>`)).toBe("Tom &amp; &lt;Jerry&gt;");
   });
+
+  describe("records whether the person can be reached (users.botReachable)", () => {
+    const query = jest.fn();
+    const recording = new TelegramBotService({ query } as never);
+
+    beforeEach(() => query.mockReset().mockResolvedValue([]));
+
+    it.each([
+      ["delivered", new Response(JSON.stringify({ ok: true }), { status: 200 }), true],
+      [
+        "blocked (403)",
+        new Response(JSON.stringify({ description: "Forbidden" }), { status: 403 }),
+        false,
+      ],
+      [
+        "chat not found (400)",
+        new Response(JSON.stringify({ description: "Bad Request: chat not found" }), {
+          status: 400,
+        }),
+        false,
+      ],
+    ])("%s → %s", async (_, response, reachable) => {
+      fetchMock.mockResolvedValue(response);
+
+      await recording.send({ chatId: 42, html: "x" });
+
+      expect(query).toHaveBeenCalledWith(expect.stringContaining(`"botReachable" = $2`), [
+        42,
+        reachable,
+      ]);
+    });
+
+    it("a Telegram 5xx or a network failure changes nothing", async () => {
+      fetchMock.mockResolvedValueOnce(new Response("{}", { status: 502 }));
+      await recording.send({ chatId: 42, html: "x" });
+      fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
+      await recording.send({ chatId: 42, html: "x" });
+
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it("other methods (savePreparedInlineMessage, …) don't record anything", async () => {
+      fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+      await recording.call("setChatMenuButton", {});
+
+      expect(query).not.toHaveBeenCalled();
+    });
+  });
 });

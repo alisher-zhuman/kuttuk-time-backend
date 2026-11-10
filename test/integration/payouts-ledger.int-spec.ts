@@ -68,6 +68,7 @@ describe("marking payouts (integration)", () => {
       note: "Mbank 27.10",
       paidBy: admin.id,
       createdAt: expect.any(String),
+      ownerNotified: true,
     });
 
     const linked = await t.ds.query(`SELECT "payoutId" FROM orders WHERE id = ANY($1::uuid[])`, [

@@ -1,4 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { InjectDataSource } from "@nestjs/typeorm";
+import type { DataSource } from "typeorm";
 
 import { botToken } from "./bot-token";
 
@@ -34,10 +36,14 @@ export const escapeHtml = (text: string): string =>
 export class TelegramBotService {
   private readonly logger = new Logger(TelegramBotService.name);
 
-  send({ chatId, html, button, buttons = [] }: BotMessage): Promise<boolean> {
-    const all = [...(button ? [button] : []), ...buttons];
+  // Optional: scripts build this service by hand, without a database - then nothing is recorded.
+  constructor(@Optional() @InjectDataSource() private readonly dataSource?: DataSource) {}
 
-    return this.call(
+  // Also records on users.botReachable whether the person can be reached (the admin sees it):
+  // delivered → true, refused by Telegram → false, a network / Telegram failure → unchanged.
+  async send({ chatId, html, button, buttons = [] }: BotMessage): Promise<boolean> {
+    const all = [...(button ? [button] : []), ...buttons];
+    const { result, refused } = await this.attempt(
       "sendMessage",
       {
         chat_id: chatId,
@@ -48,6 +54,13 @@ export class TelegramBotService {
       },
       `Bot message to ${chatId}`,
     );
+    const delivered = result !== null;
+
+    if (delivered || refused) {
+      await this.recordReachable(chatId, delivered);
+    }
+
+    return delivered;
   }
 
   // Any Bot API method (setChatMenuButton, setWebhook, …). `label` names it in the logs.
@@ -61,12 +74,22 @@ export class TelegramBotService {
     payload: object,
     label = `Bot ${method}`,
   ): Promise<T | null> {
+    return (await this.attempt<T>(method, payload, label)).result;
+  }
+
+  // refused: Telegram won't deliver to this chat (403 - blocked / never started the bot, or
+  // 400 "chat not found"), as opposed to a failure that may pass on a retry.
+  private async attempt<T>(
+    method: string,
+    payload: object,
+    label: string,
+  ): Promise<{ result: T | null; refused: boolean }> {
     const token = botToken();
 
     if (!token) {
       this.logger.error(`${label} skipped: BOT_TOKEN is not set`);
 
-      return null;
+      return { result: null, refused: false };
     }
 
     try {
@@ -80,7 +103,7 @@ export class TelegramBotService {
       if (response.ok) {
         const { result } = (await response.json().catch(() => ({}))) as { result?: T };
 
-        return result ?? (true as T);
+        return { result: result ?? (true as T), refused: false };
       }
 
       const { description } = (await response.json().catch(() => ({}))) as {
@@ -90,14 +113,32 @@ export class TelegramBotService {
 
       this.logger[log](`${label} not sent: ${response.status} ${description ?? ""}`);
 
-      return null;
+      return {
+        result: null,
+        refused:
+          response.status === 403 ||
+          (response.status === 400 && /chat not found/i.test(description ?? "")),
+      };
     } catch (error) {
       // Only the error's name/message - never the request URL, it holds the token.
       const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
 
       this.logger.error(`${label} failed: ${reason}`);
 
-      return null;
+      return { result: null, refused: false };
+    }
+  }
+
+  private async recordReachable(chatId: number, reachable: boolean): Promise<void> {
+    try {
+      await this.dataSource?.query(
+        `UPDATE "users" SET "botReachable" = $2 WHERE "telegramId" = $1 AND "botReachable" IS DISTINCT FROM $2`,
+        [chatId, reachable],
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+
+      this.logger.error(`Recording bot reachability for ${chatId} failed: ${reason}`);
     }
   }
 }

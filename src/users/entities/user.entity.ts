@@ -32,6 +32,15 @@ export class User {
   @Column({ type: "text", nullable: true })
   language!: Language | null;
 
+  // Last log-in to the Mini App (admin: "is the owner connected").
+  @Column({ type: "timestamptz", nullable: true })
+  lastSeenAt!: Date | null;
+
+  // Did the last bot message reach them: true - delivered, false - Telegram refused (blocked
+  // the bot / never allowed it), null - nothing sent yet. Set by TelegramBotService.send.
+  @Column({ type: "boolean", nullable: true })
+  botReachable!: boolean | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 }

@@ -51,24 +51,24 @@ export class AuthService implements OnModuleInit {
 
     if (!user) {
       const role = merchant ? "merchant" : "user";
-      user = this.userRepository.create({ telegramId, role, language });
+      user = this.userRepository.create({ telegramId, role, language, lastSeenAt: new Date() });
       user = await this.userRepository.save(user);
     } else {
       const promote = merchant !== null && user.role === "user";
       const demote = owned === null && user.role === "merchant";
       const relang = language !== null && language !== user.language;
 
-      if (promote || demote || relang) {
-        const role = promote ? ("merchant" as const) : demote ? ("user" as const) : undefined;
+      const role = promote ? ("merchant" as const) : demote ? ("user" as const) : undefined;
 
-        await this.userRepository.update(user.id, {
-          ...(role ? { role } : {}),
-          ...(relang ? { language } : {}),
-        });
+      // lastSeenAt on every log-in - the admin sees whether an owner ever opened the app.
+      await this.userRepository.update(user.id, {
+        lastSeenAt: new Date(),
+        ...(role ? { role } : {}),
+        ...(relang ? { language } : {}),
+      });
 
-        if (role) {
-          user.role = role;
-        }
+      if (role) {
+        user.role = role;
       }
     }
 

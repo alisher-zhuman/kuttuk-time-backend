@@ -114,6 +114,64 @@ export const unpaidBefore = async (
     .filter((row) => row.due > 0);
 };
 
+export interface MerchantDebt {
+  merchantId: number;
+  merchantName: string;
+  // Sum of `weeks[].due`.
+  due: number;
+  // Oldest first; only weeks with something due.
+  weeks: Array<{ from: string; to: string; ordersCount: number; due: number }>;
+}
+
+// Everything still owed, across all weeks: per merchant and week (Mon-Sun, Bishkek), the share of
+// paid orders no payout covers - each week floored on its own, the same as marking it paid out.
+// The admin «все долги» list: no paging through weeks to find an old debt.
+export const allDue = async (em: EntityManager): Promise<MerchantDebt[]> => {
+  const rows: Array<{
+    merchantId: number;
+    merchantName: string;
+    from: string;
+    to: string;
+    ordersCount: number;
+    unpaid: string;
+  }> = await em.query(
+    `SELECT o."merchantId", m."name" AS "merchantName",
+            to_char(w.monday, 'YYYY-MM-DD') AS "from",
+            to_char(w.monday + interval '6 days', 'YYYY-MM-DD') AS "to",
+            count(*)::int AS "ordersCount", sum(o."amount")::bigint AS "unpaid"
+       FROM "orders" o
+       JOIN "merchants" m ON m."id" = o."merchantId"
+       CROSS JOIN LATERAL (
+         SELECT date_trunc('week', (o."paidAt" AT TIME ZONE 'Asia/Bishkek')::date)::date AS monday
+       ) w
+      WHERE o."status" = 'paid' AND o."payoutId" IS NULL
+      GROUP BY o."merchantId", m."name", w.monday
+      ORDER BY o."merchantId", w.monday`,
+  );
+  const debts = new Map<number, MerchantDebt>();
+
+  for (const row of rows) {
+    const due = splitGross(Number(row.unpaid)).payout;
+
+    if (due <= 0) {
+      continue;
+    }
+
+    const debt = debts.get(row.merchantId) ?? {
+      merchantId: row.merchantId,
+      merchantName: row.merchantName,
+      due: 0,
+      weeks: [],
+    };
+
+    debt.due += due;
+    debt.weeks.push({ from: row.from, to: row.to, ordersCount: row.ordersCount, due });
+    debts.set(row.merchantId, debt);
+  }
+
+  return [...debts.values()];
+};
+
 // Record that the merchant was paid for its not-yet-paid-out orders of the week. The amount is
 // computed here from those orders - never taken from the client. The orders are locked, so two
 // simultaneous marks can't both cover them: the second finds nothing left → NothingToPayOutError.

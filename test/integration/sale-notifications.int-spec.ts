@@ -128,7 +128,7 @@ describe("bot notifications on a sale (integration)", () => {
     expect(t.bot.sent).toEqual([
       {
         chatId: buyer.telegramId,
-        html: "💳 Мы получили вашу оплату сертификата в <b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b>, но сумма отличается от заказа.\n\nПроверим платёж вручную и напишем вам здесь.",
+        html: `💳 Мы получили вашу оплату сертификата в <b>Coffee &lt;b&gt;&amp;&lt;/b&gt; Co</b>, но сумма отличается от заказа.\n\nПроверим платёж вручную и напишем вам здесь.\n\nЗаказ №<code>${order.id.slice(0, 8).toUpperCase()}</code>`,
         button: {
           text: "Открыть заказ",
           url: `https://t.me/kuttuk_time_bot/app?startapp=order_${order.id}`,

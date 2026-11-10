@@ -78,11 +78,40 @@ export class AdminPayoutsController {
     return this.payouts.week(week);
   }
 
+  @Get("due")
+  @ApiOperation({
+    summary: "Everything still owed to merchants, across all weeks",
+    description:
+      "**Roles:** `admin` only. Per merchant: `due` and the weeks it comes from (Mon-Sun, Bishkek, oldest first) - the share of paid orders no payout covers, each week floored on its own like a mark. Only merchants and weeks with something due. Pay a week with `POST /admin/payouts { merchantId, week: from }`.",
+  })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        merchants: [
+          {
+            merchantId: 10,
+            merchantName: "Coffeeroom",
+            due: 1800,
+            weeks: [
+              { from: "2026-10-19", to: "2026-10-25", ordersCount: 1, due: 900 },
+              { from: "2026-11-02", to: "2026-11-08", ordersCount: 1, due: 900 },
+            ],
+          },
+        ],
+        total: 1800,
+      },
+    },
+  })
+  @ApiForbiddenResponse({ description: "Requires admin role" })
+  due() {
+    return this.payouts.due();
+  }
+
   @Post()
   @ApiOperation({
     summary: "Mark a merchant's week as paid out",
     description:
-      "**Roles:** `admin` only. Call after transferring the money by hand. Covers the merchant's paid orders of that week not paid out yet; the amount is computed on the server; send `expectedPayout` (the amount shown and transferred) - if the server's differs → 409 `amount_changed`, nothing recorded (reload the report and confirm the new amount). The owner gets a bot message. Nothing left to pay → 409 `nothing_to_pay_out` (a double click can't pay twice). No undo.",
+      "**Roles:** `admin` only. Call after transferring the money by hand. Covers the merchant's paid orders of that week not paid out yet; the amount is computed on the server; send `expectedPayout` (the amount shown and transferred) - if the server's differs → 409 `amount_changed`, nothing recorded (reload the report and confirm the new amount). The owner gets a bot message - `ownerNotified: false` = it didn't reach them (never opened the bot / blocked it), tell them by hand. Nothing left to pay → 409 `nothing_to_pay_out` (a double click can't pay twice). No undo.",
   })
   @ApiCreatedResponse({
     schema: {
@@ -98,6 +127,7 @@ export class AdminPayoutsController {
         note: "Mbank transfer 27.10",
         paidBy: 4,
         createdAt: "2026-10-27T04:00:00.000Z",
+        ownerNotified: true,
       },
     },
   })

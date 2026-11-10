@@ -5,11 +5,13 @@ import type { DataSource } from "typeorm";
 
 import type { MarkPaidOutDto } from "./dto/mark-paid-out.dto";
 import {
+  allDue,
   markPaidOut,
   NothingToPayOutError,
   PayoutAmountChangedError,
   payoutProgress,
   weekPayouts,
+  type MerchantDebt,
   type RecordedPayoutItem,
 } from "./payout-ledger";
 import { payoutMessage } from "./payout-messages";
@@ -92,9 +94,20 @@ export class AdminPayoutsService {
     };
   }
 
+  // Every merchant's debt across all weeks, oldest week first; total = sum of the merchants'.
+  async due(): Promise<{ merchants: MerchantDebt[]; total: number }> {
+    const merchants = await readOnly(this.dataSource, (em) => allDue(em));
+
+    return { merchants, total: merchants.reduce((sum, m) => sum + m.due, 0) };
+  }
+
   // After the admin paid the merchant by hand: record it for the merchant's not-yet-paid-out
-  // orders of that week, then tell the owner in the bot (best-effort, not awaited).
-  async markPaidOut(dto: MarkPaidOutDto, adminUserId: number): Promise<RecordedPayout> {
+  // orders of that week, then tell the owner in the bot. Awaited (a few seconds at most): the
+  // admin sees `ownerNotified` - false = write to the owner by hand. The mark is already saved.
+  async markPaidOut(
+    dto: MarkPaidOutDto,
+    adminUserId: number,
+  ): Promise<RecordedPayout & { ownerNotified: boolean }> {
     const period = await this.period(dto.week);
     const [merchant]: Array<{ id: number }> = await this.dataSource.query(
       `SELECT "id" FROM "merchants" WHERE "id" = $1`,
@@ -118,9 +131,10 @@ export class AdminPayoutsService {
         `Payout ${payout.id}: merchant ${payout.merchantId} ${payout.periodFrom}-${payout.periodTo} ${payout.payout} KGS (${payout.ordersCount} orders) by user ${adminUserId}`,
       );
 
-      void this.notifyOwner(payout.id);
+      const ownerNotified = await this.notifyOwner(payout.id);
 
       return {
+        ownerNotified,
         id: payout.id,
         merchantId: payout.merchantId,
         from: payout.periodFrom,
@@ -154,7 +168,7 @@ export class AdminPayoutsService {
     }
   }
 
-  private async notifyOwner(payoutId: string): Promise<void> {
+  private async notifyOwner(payoutId: string): Promise<boolean> {
     try {
       const [row]: Array<{
         telegramId: string;
@@ -178,12 +192,12 @@ export class AdminPayoutsService {
       );
 
       if (!row) {
-        return;
+        return false;
       }
 
       const message = payoutMessage(row.language ?? "kg", row);
 
-      await this.bot.send({
+      return await this.bot.send({
         chatId: Number(row.telegramId),
         html: message.html,
         button: { text: message.button, url: this.finik.redirectUrl },
@@ -192,6 +206,8 @@ export class AdminPayoutsService {
       const reason = error instanceof Error ? error.message : String(error);
 
       this.logger.error(`Payout notification ${payoutId} failed: ${reason}`);
+
+      return false;
     }
   }
 }

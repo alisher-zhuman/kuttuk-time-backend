@@ -3,6 +3,7 @@ import type { ConfigType } from "@nestjs/config";
 import { InjectDataSource } from "@nestjs/typeorm";
 import type { DataSource } from "typeorm";
 
+import { orderNumberLine } from "./order-number";
 import { buyerMessage, ownerMessage, refundedMessage, reviewMessage } from "./sale-messages";
 import { paymentRedirectUrl } from "./payment-redirect-url";
 import type { Language } from "@/common/translations";
@@ -68,7 +69,8 @@ export class SaleNotifier {
       await Promise.all([
         this.bot.send({
           chatId: Number(sale.buyerTelegramId),
-          html: toBuyer.html,
+          // The number - what the buyer quotes to support (the admin «Заказы» search finds it).
+          html: `${toBuyer.html}\n\n${orderNumberLine(sale.buyerLanguage ?? "kg", orderId)}`,
           button: {
             text: toBuyer.button,
             url: paymentRedirectUrl(this.finik.redirectUrl, orderId),
@@ -104,7 +106,7 @@ export class SaleNotifier {
 
       await this.bot.send({
         chatId: Number(order.buyerTelegramId),
-        html: toBuyer.html,
+        html: `${toBuyer.html}\n\n${orderNumberLine(order.buyerLanguage ?? "kg", orderId)}`,
         button: { text: toBuyer.button, url: paymentRedirectUrl(this.finik.redirectUrl, orderId) },
       });
       await this.alerts.alert({
@@ -131,7 +133,7 @@ export class SaleNotifier {
 
       await this.bot.send({
         chatId: Number(order.buyerTelegramId),
-        html: message.html,
+        html: `${message.html}\n\n${orderNumberLine(order.buyerLanguage ?? "kg", orderId)}`,
         button: { text: message.button, url: SUPPORT_URL },
       });
     } catch (error) {

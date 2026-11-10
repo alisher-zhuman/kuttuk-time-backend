@@ -9,6 +9,7 @@ import { payoutReminderMessage } from "./payout-reminder-messages";
 import { buildPayoutReport, readOnly, weekOf } from "./payouts-report";
 import type { Language } from "@/common/translations";
 import { finikConfig } from "@/finik/finik.config";
+import { ADMIN_PAYOUTS_START_PARAM, miniAppLink } from "@/orders/payment-redirect-url";
 import { TelegramBotService } from "@/telegram/telegram-bot.service";
 
 const KIND = "admin_payouts";
@@ -119,7 +120,10 @@ export class PayoutReminderService {
       const sent = await this.bot.send({
         chatId: Number(admin.telegramId),
         html: message.html,
-        button: { text: message.button, url: this.finik.redirectUrl },
+        button: {
+          text: message.button,
+          url: miniAppLink(this.finik.redirectUrl, ADMIN_PAYOUTS_START_PARAM),
+        },
       });
 
       delivered += sent ? 1 : 0;

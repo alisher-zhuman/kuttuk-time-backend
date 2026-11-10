@@ -49,11 +49,12 @@ export class AdminOrdersController {
   @ApiOperation({
     summary: "Orders, newest first",
     description:
-      "**Roles:** `admin` only. Keyset pagination: pass `nextCursor` back as `cursor`, `null` = last page. `search` = a certificate code (any case/spacing, like redemption) or an order id. `merchant` = the owner at the moment of the sale. `paidAt` / `certificateCode` only when set.",
+      "**Roles:** `admin` only. Keyset pagination: pass `nextCursor` back as `cursor`, `null` = last page. `search` = an order id, an order number (`A1B2C3D4`, the 8 characters the buyer sees as «Заказ №…»), a certificate code (any spacing, like redemption; 8 digits match a code or a number) or a Finik transaction id. `userId` = the buyer (the «ID» in their profile). `merchant` = the owner at the moment of the sale. `paidAt` / `certificateCode` only when set.",
   })
   @ApiQuery({ name: "status", required: false, enum: Object.values(OrderStatus) })
   @ApiQuery({ name: "venueId", required: false, example: 10 })
   @ApiQuery({ name: "merchantId", required: false, example: 10 })
+  @ApiQuery({ name: "userId", required: false, example: 12 })
   @ApiQuery({ name: "search", required: false, example: "52930186" })
   @ApiQuery({ name: "limit", required: false, example: 50 })
   @ApiQuery({ name: "cursor", required: false })
@@ -64,11 +65,12 @@ export class AdminOrdersController {
     @Query("status") status?: string,
     @Query("venueId", new ParseIdPipe({ optional: true })) venueId?: number,
     @Query("merchantId", new ParseIdPipe({ optional: true })) merchantId?: number,
+    @Query("userId", new ParseIdPipe({ optional: true })) userId?: number,
     @Query("search") search?: string,
     @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
     @Query("cursor") cursor?: string,
   ) {
-    return this.orders.list({ status, venueId, merchantId, search, limit, cursor });
+    return this.orders.list({ status, venueId, merchantId, userId, search, limit, cursor });
   }
 
   @Get(":id")

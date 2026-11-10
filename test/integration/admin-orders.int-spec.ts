@@ -81,6 +81,7 @@ describe("admin orders (integration)", () => {
       expect(res.body.nextCursor).toBeNull();
       expect(res.body.items[0]).toEqual({
         id: pending.id,
+        number: pending.id.slice(0, 8).toUpperCase(),
         amount: 1000,
         status: "pending",
         createdAt: expect.any(String),
@@ -136,6 +137,56 @@ describe("admin orders (integration)", () => {
         ids(await get(`/api/admin/orders?search=${pending.id.toUpperCase()}`).expect(200)),
       ).toEqual([pending.id]);
       expect(ids(await get("/api/admin/orders?search=99999999").expect(200))).toEqual([]);
+    });
+
+    it("search: the order number the buyer sees (any case, with № / #), a Finik transaction id", async () => {
+      const pending = await order(0);
+      const other = await order(1);
+      const number = pending.id.slice(0, 8);
+
+      for (const query of [
+        number.toUpperCase(),
+        number,
+        `№${number.toUpperCase()}`,
+        `#${number}`,
+      ]) {
+        expect(
+          ids(await get(`/api/admin/orders?search=${encodeURIComponent(query)}`).expect(200)),
+        ).toEqual([pending.id]);
+      }
+
+      await t.ds.query(`UPDATE orders SET "finikTransactionId" = 'fin_txn-42' WHERE id = $1`, [
+        other.id,
+      ]);
+      expect(ids(await get("/api/admin/orders?search=fin_txn-42").expect(200))).toEqual([other.id]);
+    });
+
+    it("8 digits match a certificate code or an order number", async () => {
+      const paid = await order(1, OrderStatus.Paid); // code 11111111
+      const numbered = await order(0);
+      const digits = "12345678";
+
+      await t.ds.query(`UPDATE orders SET id = $1 WHERE id = $2`, [
+        `${digits}-0000-4000-8000-000000000000`,
+        numbered.id,
+      ]);
+
+      expect(ids(await get("/api/admin/orders?search=11111111").expect(200))).toEqual([paid.id]);
+      expect(ids(await get(`/api/admin/orders?search=${digits}`).expect(200))).toEqual([
+        `${digits}-0000-4000-8000-000000000000`,
+      ]);
+    });
+
+    it("userId: every order of one buyer (the «ID» in their profile)", async () => {
+      const mine = await order(0);
+      const someoneElse = await createOrder(t.ds, {
+        userId: (await createUser(t.ds)).id,
+        venueId: venue.id,
+      });
+
+      expect(ids(await get(`/api/admin/orders?userId=${buyer.id}`).expect(200))).toEqual([mine.id]);
+      expect(ids(await get("/api/admin/orders").expect(200))).toContain(someoneElse.id);
+      await get("/api/admin/orders?userId=abc").expect(400);
     });
 
     it("keyset pagination: every order once, a new one between pages doesn't shift them", async () => {
@@ -205,6 +256,7 @@ describe("admin orders (integration)", () => {
         certificate: { code: expect.any(String), status: "expired" },
         webhooks: [{ result: "paid", amount: 1000 }],
         resolutions: [],
+        number: created.id.slice(0, 8).toUpperCase(),
       });
       expect(res.body.certificate).not.toHaveProperty("usedAt");
       expect(res.body.certificateCode).toBe(res.body.certificate.code);
@@ -244,6 +296,28 @@ describe("admin orders (integration)", () => {
       });
       expect(res.body).not.toHaveProperty("certificate");
       expect(res.body.resolutions[0]).not.toHaveProperty("certificateCode");
+    });
+
+    it("paymentCreated: false when Finik never created the payment (an expired order's reason)", async () => {
+      const failed = await createOrder(t.ds, {
+        userId: buyer.id,
+        venueId: venue.id,
+        status: OrderStatus.Expired,
+        paymentUrl: null,
+      });
+      const unpaid = await createOrder(t.ds, {
+        userId: buyer.id,
+        venueId: venue.id,
+        status: OrderStatus.Expired,
+        paymentUrl: "https://qr.finik.kg/x",
+      });
+
+      expect((await get(`/api/admin/orders/${failed.id}`).expect(200)).body.paymentCreated).toBe(
+        false,
+      );
+      expect((await get(`/api/admin/orders/${unpaid.id}`).expect(200)).body.paymentCreated).toBe(
+        true,
+      );
     });
 
     it("a used certificate carries usedAt", async () => {
