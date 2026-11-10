@@ -120,7 +120,13 @@ export class GiftShareService {
       );
 
       if (!locked) {
-        return false;
+        const [now]: Array<{ status: string }> = await em.query(
+          `SELECT ${effectiveStatusSql("c")} AS "status" FROM "certificates" c
+            WHERE c."id" = $1 AND c."ownerUserId" = $2`,
+          [certificateId, ownerUserId],
+        );
+
+        return !now ? "gone" : now.status === "used" ? "already_used" : "expired";
       }
 
       await em.delete(CertificateGift, { certificateId, claimedAt: IsNull() });
@@ -133,11 +139,16 @@ export class GiftShareService {
         claimedByUserId: null,
       });
 
-      return true;
+      return true as const;
     });
 
-    if (!saved) {
-      throw new ConflictException({ message: "Certificate is no longer active", error: "changed" });
+    // Claimed by someone meanwhile → not theirs any more (404); used / expired → the usual 409.
+    if (saved !== true) {
+      if (saved === "gone") {
+        throw new NotFoundException("Certificate not found");
+      }
+
+      throw new ConflictException({ message: `Certificate is ${saved}`, error: saved });
     }
 
     return {
