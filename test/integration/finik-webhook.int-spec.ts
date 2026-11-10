@@ -2,7 +2,7 @@ import request from "supertest";
 
 import * as certificateCode from "../../src/certificates/certificate-code";
 import { Certificate } from "../../src/certificates/entities/certificate.entity";
-import { addMonths } from "../../src/common/utils/add-months";
+import { certificateValidUntil } from "../../src/common/utils/valid-until";
 import { FinikWebhookEvent } from "../../src/finik/entities/finik-webhook-event.entity";
 import { FinikWebhookVerifier } from "../../src/finik/finik-webhook.verifier";
 import { Order, OrderStatus } from "../../src/orders/entities/order.entity";
@@ -85,9 +85,10 @@ describe("POST /api/finik/webhook (integration)", () => {
         usedAt: null,
       });
       expect(certs[0].code).toMatch(CODE);
-      // paidAt + 6 months (month-end clamping is covered by add-months.spec.ts).
-      expect(certs[0].validUntil.toISOString()).toBe("2027-04-20T12:00:00.000Z");
-      expect(certs[0].validUntil).toEqual(addMonths(paidAt, venue.validityMonths));
+      // 6 months after the purchase day, to 23:59:59.999 Bishkek (month-end clamping and the
+      // Bishkek calendar are covered by valid-until.spec.ts).
+      expect(certs[0].validUntil.toISOString()).toBe("2027-04-20T17:59:59.999Z");
+      expect(certs[0].validUntil).toEqual(certificateValidUntil(paidAt, venue.validityMonths));
 
       const [event] = await events().find();
 

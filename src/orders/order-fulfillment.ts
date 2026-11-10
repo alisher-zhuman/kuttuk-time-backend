@@ -4,7 +4,7 @@ import type { EntityManager } from "typeorm";
 import { Order, OrderStatus } from "./entities/order.entity";
 import { Venue } from "@/venues/entities/venue.entity";
 import { generateCertificateCode } from "@/certificates/certificate-code";
-import { addMonths } from "@/common/utils/add-months";
+import { certificateValidUntil } from "@/common/utils/valid-until";
 
 // Shared by the Finik webhook and the manual needs_review resolution (scripts/), so a
 // certificate is always issued the same way. Plain functions on an EntityManager - the caller
@@ -40,7 +40,7 @@ export const payAndIssueCertificate = async (
   });
 
   const venue = await em.findOneByOrFail(Venue, { id: order.venueId });
-  const validUntil = addMonths(paidAt, venue.validityMonths);
+  const validUntil = certificateValidUntil(paidAt, venue.validityMonths);
 
   // ON CONFLICT instead of catching the unique violation: an error would abort the transaction.
   for (let attempt = 1; attempt <= CERTIFICATE_CODE_ATTEMPTS; attempt++) {

@@ -19,6 +19,7 @@ const MIGRATIONS = [
   "BotDigests1792584683240",
   "HotQueryIndexes1792645138592",
   "CertificateGifts1794309344224",
+  "CertificateValidToEndOfDay1794320000000",
 ];
 
 // Revert migrations from the newest down to (and including) `name`.
@@ -222,6 +223,55 @@ describe("Migrations (integration)", () => {
       await expect(
         ds.query(`UPDATE certificates SET code = 'KT-AAAA-BBBB' WHERE code = '04718263'`),
       ).rejects.toMatchObject({ constraint: "certificates_code_format" });
+
+      await ds.query(`TRUNCATE certificates, orders, venues, merchants, users CASCADE`);
+    });
+
+    it("CertificateValidToEndOfDay: validUntil moves to 23:59:59.999 Bishkek of the day it shows", async () => {
+      await undoDownTo(ds, "CertificateValidToEndOfDay1794320000000");
+
+      await ds.query(`INSERT INTO users (id, "telegramId", role) VALUES (1, 7000000001, 'user')`);
+      await ds.query(`INSERT INTO merchants (id, name, "telegramId") VALUES (1, 'M', 1)`);
+      await ds.query(`
+        INSERT INTO venues (id, "merchantId", name, description, categories, nominals, logo, slug)
+        VALUES (1, 1, 'V', '{"ru":"r","kg":"k","en":"e"}', '{}', '{500}', 'x', 'v')`);
+
+      const cases = [
+        ["2027-11-10T08:23:00.000Z", "2027-11-10T17:59:59.999Z"], // 14:23 Bishkek, 10.11
+        ["2027-11-10T19:30:00.000Z", "2027-11-11T17:59:59.999Z"], // 01:30 on 11.11 in Bishkek
+        ["2027-11-10T17:59:59.999Z", "2027-11-10T17:59:59.999Z"], // already the end of the day
+      ];
+
+      for (const [i, [validUntil]] of cases.entries()) {
+        const orderId = `00000000-0000-4000-8000-00000000000${i}`;
+
+        await ds.query(
+          `INSERT INTO orders (id, "userId", "venueId", "merchantId", amount, status, "expiresAt", "paidAt")
+           VALUES ($1, 1, 1, 1, 500, 'paid', now(), now())`,
+          [orderId],
+        );
+        await ds.query(
+          `INSERT INTO certificates (id, code, "orderId", "venueId", "ownerUserId", amount, "validUntil")
+           VALUES (gen_random_uuid(), $1, $2, 1, 1, 500, $3)`,
+          [`0000000${i}`, orderId, validUntil],
+        );
+      }
+
+      await ds.runMigrations();
+
+      const rows: Array<{ validUntil: Date }> = await ds.query(
+        `SELECT "validUntil" FROM certificates ORDER BY code`,
+      );
+
+      expect(rows.map((r) => r.validUntil.toISOString())).toEqual(cases.map(([, end]) => end));
+      // down() is a no-op: reverting keeps the values, and applying again changes nothing.
+      await ds.undoLastMigration();
+      await ds.runMigrations();
+      expect(
+        (await ds.query(`SELECT "validUntil" FROM certificates ORDER BY code`)).map(
+          (r: { validUntil: Date }) => r.validUntil.toISOString(),
+        ),
+      ).toEqual(cases.map(([, end]) => end));
 
       await ds.query(`TRUNCATE certificates, orders, venues, merchants, users CASCADE`);
     });

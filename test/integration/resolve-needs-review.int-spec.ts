@@ -1,7 +1,7 @@
 import type { DataSource } from "typeorm";
 
 import { Certificate, CertificateStatus } from "../../src/certificates/entities/certificate.entity";
-import { addMonths } from "../../src/common/utils/add-months";
+import { certificateValidUntil } from "../../src/common/utils/valid-until";
 import { Order, OrderStatus } from "../../src/orders/entities/order.entity";
 import {
   OrderResolution,
@@ -86,7 +86,7 @@ describe("resolveNeedsReview (integration)", () => {
         code: result.certificate!.code,
       });
       // Same rule as the webhook: paidAt + venue.validityMonths.
-      expect(certs[0].validUntil).toEqual(addMonths(PAID_AT, 6));
+      expect(certs[0].validUntil).toEqual(certificateValidUntil(PAID_AT, 6));
 
       expect(await resolutions().find()).toEqual([
         expect.objectContaining({
