@@ -444,6 +444,8 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 ## Working with Claude - rules
 
+- **Always the newest stable - never legacy** (Alisher, 2026-11-11, also in the global `~/.claude/CLAUDE.md`): before building on any library / SDK / external API / auth flow, check its **current official docs** - deprecated, archived or «legacy» is never chosen when a stable successor exists; new dependencies at their latest stable major. Found 2026-11-11: the website's Telegram login used the **archived** Login Widget instead of the current **Log In With Telegram (OIDC)** - being migrated; the dependency audit and its plan are in `docs/workflow.md`
+
 - **Alisher = frontend dev (React/TS)** - explain backend in simple terms
 - One module at a time - next step only after an explicit "go"
 - Explanation first (in Russian), then code
