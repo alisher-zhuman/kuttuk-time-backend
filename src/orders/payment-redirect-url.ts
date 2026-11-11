@@ -35,5 +35,18 @@ export const paymentRedirectUrl = (base: string, orderId: string): string =>
 export const qrImageUrl = (webhookUrl: string, code: string): string =>
   `${new URL(webhookUrl).origin}/api/qr/${encodeURIComponent(code)}.jpg`;
 
-export const paymentReturnUrl = (webhookUrl: string, orderId: string): string =>
-  `${new URL(webhookUrl).origin}/api/payments/return/${encodeURIComponent(orderId)}`;
+// web: the order was placed on the website - the return goes back there, not into Telegram.
+// A path segment, not a query: Finik appends "?…" to whatever URL it's given.
+export const paymentReturnUrl = (webhookUrl: string, orderId: string, web = false): string =>
+  `${new URL(webhookUrl).origin}/api/payments/return/${encodeURIComponent(orderId)}${web ? "/web" : ""}`;
+
+// Website routes (docs/web-version.md) - must match the frontend's router: the order page after
+// paying, and the gift page a shared link opens.
+export const WEB_ORDER_PATH = "/orders/";
+export const WEB_GIFT_PATH = "/gift/";
+
+export const webOrderUrl = (site: string, orderId: string): string =>
+  `${site}${WEB_ORDER_PATH}${encodeURIComponent(orderId)}`;
+
+export const webGiftUrl = (site: string, token: string): string =>
+  `${site}${WEB_GIFT_PATH}${encodeURIComponent(token)}`;

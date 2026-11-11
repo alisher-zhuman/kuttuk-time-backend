@@ -100,4 +100,18 @@ export class CertificatesController {
       toLanguage(acceptLanguage) ?? "kg",
     );
   }
+
+  @Post(":id/gift-link")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "A gift link for the website's «Подарить» (shared via the phone's share menu)",
+    description:
+      "**Roles:** any - the certificate's owner, a website guest too. Returns `{ url }` - `<website>/gift/<token>`; the friend opens it, sees the gift and can claim it (`/gifts/:token`). A new link replaces the previous unclaimed one (Telegram card included). Only an active certificate.",
+  })
+  @ApiOkResponse({ schema: { example: { url: "https://kuttuk-time.vercel.app/gift/Abc…" } } })
+  @ApiNotFoundResponse({ description: "No such certificate of yours" })
+  @ApiConflictResponse({ description: "error: already_used | expired" })
+  giftLink(@Param("id", new ParseUUIDPipe()) id: string, @GetUser() user: CurrentUser) {
+    return this.giftShare.link(user.userId, id);
+  }
 }

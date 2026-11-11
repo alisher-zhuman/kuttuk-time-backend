@@ -120,7 +120,7 @@ export class OrdersService {
         // Finik's payment page in the app's language (kg is "ky" there); unknown → ru.
         lang: language === "kg" ? "ky" : language === "en" ? "en" : "ru",
         endDate: order.expiresAt.getTime(),
-        redirectUrl: paymentReturnUrl(this.finik.webhookUrl, order.id),
+        redirectUrl: paymentReturnUrl(this.finik.webhookUrl, order.id, dto.channel === "web"),
       }));
     } catch (error) {
       // Kept (not deleted): on a timeout Finik may still have created the payment,

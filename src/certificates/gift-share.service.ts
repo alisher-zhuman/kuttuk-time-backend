@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   ConflictException,
+  ServiceUnavailableException,
   Inject,
   Injectable,
   NotFoundException,
@@ -16,7 +17,8 @@ import { CertificateGift } from "./entities/certificate-gift.entity";
 import { generateGiftToken, GIFT_START_PARAM_PREFIX, giftTokenHash } from "./gift-token";
 import type { Language } from "@/common/translations";
 import { finikConfig } from "@/finik/finik.config";
-import { miniAppLink, qrImageUrl } from "@/orders/payment-redirect-url";
+import { miniAppLink, qrImageUrl, webGiftUrl } from "@/orders/payment-redirect-url";
+import { websiteUrl } from "@/common/website-url";
 import { inlineKeyboard, TelegramBotService } from "@/telegram/telegram-bot.service";
 
 export interface PreparedGift {
@@ -109,8 +111,39 @@ export class GiftShareService {
       throw new BadGatewayException("Telegram is temporarily unavailable, please try again");
     }
 
-    // Only now that the card exists: replace the open link, if the certificate is still theirs
-    // and active (a redemption or a claim could have landed while Telegram answered).
+    // Only now that the card exists: replace the open link.
+    await this.saveGiftLink(ownerUserId, certificateId, token);
+
+    return {
+      preparedMessageId: prepared.id,
+      expiresAt: new Date(prepared.expiration_date * 1000),
+    };
+  }
+
+  // «Подарить» on the website (docs/web-version.md): a plain link to the gift page, shared from
+  // the phone's own share menu (WhatsApp, Instagram, SMS…). The same certificate_gifts row as the
+  // Telegram card - a new link replaces the previous unclaimed one. Works for a guest too.
+  async link(ownerUserId: number, certificateId: string): Promise<{ url: string }> {
+    const site = websiteUrl();
+
+    if (!site) {
+      throw new ServiceUnavailableException("The website address isn't configured");
+    }
+
+    const token = generateGiftToken();
+
+    await this.saveGiftLink(ownerUserId, certificateId, token);
+
+    return { url: webGiftUrl(site, token) };
+  }
+
+  // Replaces the certificate's open gift link with `token`, if it's still the caller's and active
+  // (a redemption or a claim could have landed meanwhile). Not theirs → 404; used / expired → 409.
+  private async saveGiftLink(
+    ownerUserId: number,
+    certificateId: string,
+    token: string,
+  ): Promise<void> {
     const saved = await this.dataSource.transaction(async (em) => {
       const [locked]: Array<{ id: string }> = await em.query(
         `SELECT c."id" FROM "certificates" c
@@ -150,10 +183,5 @@ export class GiftShareService {
 
       throw new ConflictException({ message: `Certificate is ${saved}`, error: saved });
     }
-
-    return {
-      preparedMessageId: prepared.id,
-      expiresAt: new Date(prepared.expiration_date * 1000),
-    };
   }
 }

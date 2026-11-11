@@ -4,7 +4,8 @@ import { ApiExcludeController } from "@nestjs/swagger";
 import { isUUID } from "class-validator";
 import type { Request } from "express";
 
-import { paymentRedirectUrl } from "./payment-redirect-url";
+import { paymentRedirectUrl, webOrderUrl } from "./payment-redirect-url";
+import { websiteUrl } from "@/common/website-url";
 import { Public } from "@/auth/public.decorator";
 import { finikConfig } from "@/finik/finik.config";
 
@@ -30,5 +31,21 @@ export class PaymentReturnController {
         ? paymentRedirectUrl(this.finik.redirectUrl, orderId)
         : this.finik.redirectUrl,
     };
+  }
+
+  // An order placed on the website: back to its page there. Without a configured website the
+  // Mini App link is the fallback.
+  @Get("return/:orderId/web")
+  @Redirect(undefined, 302)
+  returnToWebsite(@Param("orderId") orderId: string, @Req() req: Request): { url: string } {
+    this.logger.log(`Payment return (web): ${req.originalUrl}`);
+
+    const site = websiteUrl();
+
+    if (!site) {
+      return this.return(orderId, req);
+    }
+
+    return { url: isUUID(orderId) ? webOrderUrl(site, orderId) : site };
   }
 }
