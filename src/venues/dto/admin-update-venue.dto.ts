@@ -11,8 +11,6 @@ import {
   Matches,
   IsNotIn,
   MaxLength,
-  IsOptional,
-  ValidateIf,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
@@ -103,26 +101,24 @@ export class AdminUpdateVenueDto {
 
   @ApiProperty({
     example: "ул. Киевская 95, 2 этаж",
-    description: `Optional, one text for every language, ≤ ${VENUE_ADDRESS_MAX} chars. null or blank clears it`,
+    description: `May be omitted, never cleared: one text for every language, ≤ ${VENUE_ADDRESS_MAX} chars, not blank`,
     required: false,
-    nullable: true,
   })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString()
+  @Matches(/\S/, { message: "address must not be blank" })
   @MaxLength(VENUE_ADDRESS_MAX)
-  address?: string | null;
+  address?: string;
 
   @ApiProperty({
     example: "https://2gis.kg/bishkek/firm/70000001234567",
     description:
-      "Optional link to the venue on a map: https, 2GIS / Google Maps / Yandex Maps only. null or blank clears it",
+      "May be omitted, never cleared: the venue on a map - https, 2GIS / Google Maps / Yandex Maps only",
     required: false,
-    nullable: true,
   })
-  @IsOptional()
-  @ValidateIf((_, value) => typeof value === "string" && value.trim() !== "")
+  @IsOptionalNotNull()
   @IsString()
   @MaxLength(MAP_URL_MAX)
   @Matches(MAP_URL, { message: "mapUrl must be a 2GIS, Google Maps or Yandex Maps https link" })
-  mapUrl?: string | null;
+  mapUrl?: string;
 }

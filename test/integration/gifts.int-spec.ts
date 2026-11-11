@@ -89,8 +89,8 @@ describe("gifts - claim a gifted certificate (integration)", () => {
         name: "Coffee Shop",
         slug: "coffee-shop",
         logo: venue.logo,
-        address: null,
-        mapUrl: null,
+        address: venue.address,
+        mapUrl: venue.mapUrl,
       },
     });
 

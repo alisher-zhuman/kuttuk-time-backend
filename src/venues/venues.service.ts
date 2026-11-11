@@ -10,7 +10,6 @@ import { Merchant } from "@/merchants/entities/merchant.entity";
 import { CloudinaryService } from "@/cloudinary/cloudinary.service";
 import { resolveTranslation } from "@/common/utils/resolve-translation";
 import { isDbId } from "@/common/pipes/parse-id.pipe";
-import { blankToNull } from "@/common/utils/blank-to-null";
 import { definedFields } from "@/common/utils/defined-fields";
 
 // The storefront as its owner / the admin edit it (raw translations).
@@ -45,11 +44,11 @@ const DETAIL_COLUMNS = [
   "createdAt",
 ] as const;
 
-// address / mapUrl: blank clears; trimmed.
-const withPlace = <T extends { address?: string | null; mapUrl?: string | null }>(dto: T): T => ({
+// address / mapUrl are stored trimmed (the DTOs already refuse blank ones).
+const withPlace = <T extends { address?: string; mapUrl?: string }>(dto: T): T => ({
   ...dto,
-  address: blankToNull(dto.address),
-  mapUrl: blankToNull(dto.mapUrl),
+  address: dto.address?.trim(),
+  mapUrl: dto.mapUrl?.trim(),
 });
 
 const toDetail = (venue: Venue): VenueDetail =>
@@ -120,8 +119,8 @@ export class VenuesService {
     logo: string;
     nominals: number[];
     validityMonths: number;
-    address: string | null;
-    mapUrl: string | null;
+    address: string;
+    mapUrl: string;
   }> {
     const qb = this.visible();
 
@@ -213,8 +212,8 @@ export class VenuesService {
     const saved = await this.venueRepo.save(
       this.venueRepo.create({
         ...dto,
-        address: blankToNull(dto.address) ?? null,
-        mapUrl: blankToNull(dto.mapUrl) ?? null,
+        address: dto.address.trim(),
+        mapUrl: dto.mapUrl.trim(),
       }),
     );
 

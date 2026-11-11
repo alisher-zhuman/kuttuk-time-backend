@@ -95,8 +95,8 @@ describe("GET /api/certificates/my (integration)", () => {
         name: venue.name,
         slug: venue.slug,
         logo: venue.logo,
-        address: null,
-        mapUrl: null,
+        address: venue.address,
+        mapUrl: venue.mapUrl,
       },
     });
     expect(item).not.toHaveProperty("usedAt");

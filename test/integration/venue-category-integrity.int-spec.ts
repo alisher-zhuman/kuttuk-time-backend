@@ -27,6 +27,8 @@ describe("venues/categories integrity - DB constraints (integration)", () => {
       merchantId: String(merchantId),
       logo: "'x'",
       slug: `'raw-${Math.random().toString(36).slice(2)}'`,
+      address: "'addr'",
+      mapUrl: "'https://2gis.kg/raw'",
       ...overrides,
     };
     const columns = Object.keys(values).map((c) => `"${c}"`);
@@ -126,6 +128,8 @@ describe("venues/categories integrity - DTO validation (integration)", () => {
     logo: "https://res.cloudinary.com/test/image/upload/v1/kuttuk-time/x.webp",
     merchantId: (await createMerchant(t.ds)).id,
     slug: `sierra-${Math.random().toString(36).slice(2, 8)}`,
+    address: "ул. Киевская 95",
+    mapUrl: "https://2gis.kg/bishkek/firm/1",
     ...overrides,
   });
 

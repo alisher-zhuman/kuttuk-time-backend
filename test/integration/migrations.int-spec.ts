@@ -22,6 +22,7 @@ const MIGRATIONS = [
   "CertificateValidToEndOfDay1794320000000",
   "AdminSupportFields1794330000000",
   "VenuePlaceAndUserName1794340000000",
+  "VenuePlaceRequired1794350000000",
 ];
 
 // Revert migrations from the newest down to (and including) `name`.
@@ -176,9 +177,9 @@ describe("Migrations (integration)", () => {
     it("SplitMerchantsAndVenues can't be reverted once a merchant owns several venues", async () => {
       await ds.query(`INSERT INTO merchants (id, name, "telegramId") VALUES (1, 'Chain', 1)`);
       await ds.query(`
-        INSERT INTO venues ("merchantId", name, description, categories, nominals, logo, slug)
-        VALUES (1, 'A', '{"ru":"r","kg":"k","en":"e"}', '{}', '{500}', 'x', 'a'),
-               (1, 'B', '{"ru":"r","kg":"k","en":"e"}', '{}', '{500}', 'x', 'b')`);
+        INSERT INTO venues ("merchantId", name, description, categories, nominals, logo, slug, address, "mapUrl")
+        VALUES (1, 'A', '{"ru":"r","kg":"k","en":"e"}', '{}', '{500}', 'x', 'a', 'addr', 'https://2gis.kg/a'),
+               (1, 'B', '{"ru":"r","kg":"k","en":"e"}', '{}', '{500}', 'x', 'b', 'addr', 'https://2gis.kg/b')`);
 
       await expect(undoDownTo(ds, "SplitMerchantsAndVenues1792500000000")).rejects.toThrow(
         /owns several venues/,

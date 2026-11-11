@@ -28,8 +28,8 @@ export interface GiftPreview {
     name: string;
     slug: string;
     logo: string;
-    address: string | null;
-    mapUrl: string | null;
+    address: string;
+    mapUrl: string;
   };
 }
 
@@ -46,8 +46,8 @@ interface GiftRow {
   venueName: string;
   venueSlug: string;
   venueLogo: string;
-  venueAddress: string | null;
-  venueMapUrl: string | null;
+  venueAddress: string;
+  venueMapUrl: string;
   giverName: string | null;
 }
 

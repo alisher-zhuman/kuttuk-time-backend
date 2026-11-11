@@ -71,8 +71,8 @@ describe("venues & merchants API (integration)", () => {
         logo: venue.logo,
         nominals: venue.nominals,
         validityMonths: venue.validityMonths,
-        address: null,
-        mapUrl: null,
+        address: venue.address,
+        mapUrl: venue.mapUrl,
       });
     });
   });
@@ -128,8 +128,8 @@ describe("venues & merchants API (integration)", () => {
         validityMonths: venue.validityMonths,
         logo: venue.logo,
         slug: venue.slug,
-        address: null,
-        mapUrl: null,
+        address: venue.address,
+        mapUrl: venue.mapUrl,
         isActive: true,
         createdAt: expect.any(String),
       });
@@ -243,6 +243,8 @@ describe("venues & merchants API (integration)", () => {
         validityMonths: 12,
         logo: "https://res.cloudinary.com/test/image/upload/v1/kuttuk-time/x.webp",
         slug: "second-shop",
+        address: "ул. Киевская 95",
+        mapUrl: "https://2gis.kg/bishkek/firm/1",
       };
 
       await as(admin, http().post("/api/admin/venues"))

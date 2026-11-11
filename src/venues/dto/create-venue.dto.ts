@@ -10,8 +10,6 @@ import {
   Matches,
   IsNotIn,
   MaxLength,
-  IsOptional,
-  ValidateIf,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
@@ -88,26 +86,21 @@ export class CreateVenueDto {
 
   @ApiProperty({
     example: "ул. Киевская 95, 2 этаж",
-    description: `Optional, one text for every language, ≤ ${VENUE_ADDRESS_MAX} chars. null or blank clears it`,
-    required: false,
-    nullable: true,
+    description: `Required: one text for every language, ≤ ${VENUE_ADDRESS_MAX} chars, not blank`,
+    required: true,
   })
-  @IsOptional()
   @IsString()
+  @Matches(/\S/, { message: "address must not be blank" })
   @MaxLength(VENUE_ADDRESS_MAX)
-  address?: string | null;
+  address!: string;
 
   @ApiProperty({
     example: "https://2gis.kg/bishkek/firm/70000001234567",
-    description:
-      "Optional link to the venue on a map: https, 2GIS / Google Maps / Yandex Maps only. null or blank clears it",
-    required: false,
-    nullable: true,
+    description: "Required: the venue on a map - https, 2GIS / Google Maps / Yandex Maps only",
+    required: true,
   })
-  @IsOptional()
-  @ValidateIf((_, value) => typeof value === "string" && value.trim() !== "")
   @IsString()
   @MaxLength(MAP_URL_MAX)
   @Matches(MAP_URL, { message: "mapUrl must be a 2GIS, Google Maps or Yandex Maps https link" })
-  mapUrl?: string | null;
+  mapUrl!: string;
 }

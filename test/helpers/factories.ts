@@ -45,6 +45,8 @@ export const createVenue = async (
     validityMonths: 12,
     logo: "https://res.cloudinary.com/test/image/upload/v1/kuttuk-time/test.webp",
     slug: `test-venue-${n}`,
+    address: "г. Бишкек, ул. Тестовая 1",
+    mapUrl: "https://2gis.kg/bishkek/search/test",
     isActive: true,
     ...overrides,
     merchantId,

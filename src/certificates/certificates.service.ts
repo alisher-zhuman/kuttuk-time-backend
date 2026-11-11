@@ -20,14 +20,14 @@ export interface MyCertificate {
   // friend's now, the caller sees it as «Подарен» (no QR, no code shown, no «Подарить»).
   giftedAt?: Date;
   createdAt: Date;
-  // address / mapUrl - where to use it (null when the owner didn't fill them in).
+  // address / mapUrl - where to use it.
   venue: {
     id: number;
     name: string;
     slug: string;
     logo: string;
-    address: string | null;
-    mapUrl: string | null;
+    address: string;
+    mapUrl: string;
   };
 }
 
@@ -44,8 +44,8 @@ interface Row {
   venueName: string;
   venueSlug: string;
   venueLogo: string;
-  venueAddress: string | null;
-  venueMapUrl: string | null;
+  venueAddress: string;
+  venueMapUrl: string;
 }
 
 const EFFECTIVE_STATUS = effectiveStatusSql("c");

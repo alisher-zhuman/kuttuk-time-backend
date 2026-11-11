@@ -49,7 +49,7 @@ describe("venue place, giver name, flow fixes (integration)", () => {
       });
     });
 
-    it("the owner sets them (trimmed); buyers see them; blank clears", async () => {
+    it("the owner sets them (trimmed); buyers see them; required - blank or null → 400", async () => {
       await patch({
         address: "  ул. Киевская 95, 2 этаж ",
         mapUrl: "https://2gis.kg/bishkek/firm/70000001234567",
@@ -62,10 +62,14 @@ describe("venue place, giver name, flow fixes (integration)", () => {
         mapUrl: "https://2gis.kg/bishkek/firm/70000001234567",
       });
 
-      expect((await patch({ address: " ", mapUrl: "" }).expect(200)).body).toMatchObject({
-        address: null,
-        mapUrl: null,
-      });
+      for (const body of [{ address: " " }, { address: null }, { mapUrl: "" }, { mapUrl: null }]) {
+        await patch(body).expect(400);
+      }
+
+      // Omitted (a partial PATCH) keeps them.
+      expect((await patch({ validityMonths: 6 }).expect(200)).body.address).toBe(
+        "ул. Киевская 95, 2 этаж",
+      );
     });
 
     it.each([

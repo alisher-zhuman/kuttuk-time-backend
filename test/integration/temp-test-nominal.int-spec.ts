@@ -39,6 +39,8 @@ describe("TEMP 10 KGS test nominal (integration)", () => {
         logo: "https://res.cloudinary.com/test/image/upload/v1/kuttuk-time/x.webp",
         merchantId: (await createMerchant(t.ds)).id,
         slug: "test-coffee",
+        address: "ул. Киевская 95",
+        mapUrl: "https://2gis.kg/bishkek/firm/1",
       })
       .expect(201);
 

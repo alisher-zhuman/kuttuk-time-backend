@@ -24,6 +24,8 @@ import { Merchant } from "@/merchants/entities/merchant.entity";
 // Declared here so schema diffs stay clean; TypeORM matches CHECKs by name.
 @Check("venues_description_langs", `"description" ?& ARRAY['ru', 'kg', 'en']`)
 @Check("venues_nominals_not_empty", `cardinality("nominals") > 0`)
+@Check("venues_address_not_blank", `btrim("address") <> ''`)
+@Check("venues_map_url_not_blank", `btrim("mapUrl") <> ''`)
 export class Venue {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -56,13 +58,13 @@ export class Venue {
   @Column({ type: "text", unique: true })
   slug!: string;
 
-  // Where it is (optional, the owner fills it in): one text for every language, and a map link
+  // Where it is (required since 2026-11-11): one text for every language, and a map link
   // (https, 2GIS / Google / Yandex only - MAP_URL in venue.constants.ts).
-  @Column({ type: "text", nullable: true })
-  address!: string | null;
+  @Column({ type: "text" })
+  address!: string;
 
-  @Column({ type: "text", nullable: true })
-  mapUrl!: string | null;
+  @Column({ type: "text" })
+  mapUrl!: string;
 
   // Hides this one venue. merchant.isActive = false hides all of the merchant's venues.
   @Column({ default: true })
