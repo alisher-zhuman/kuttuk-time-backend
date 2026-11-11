@@ -18,10 +18,19 @@ export type GiftState = "available" | "own" | "received" | "claimed";
 
 export interface GiftPreview {
   state: GiftState;
+  // The giver's first name from Telegram (null if unknown) - «Подарок от Айбека».
+  from: string | null;
   status: EffectiveCertificateStatus;
   amount: number;
   validUntil: Date;
-  venue: { id: number; name: string; slug: string; logo: string };
+  venue: {
+    id: number;
+    name: string;
+    slug: string;
+    logo: string;
+    address: string | null;
+    mapUrl: string | null;
+  };
 }
 
 interface GiftRow {
@@ -37,6 +46,9 @@ interface GiftRow {
   venueName: string;
   venueSlug: string;
   venueLogo: string;
+  venueAddress: string | null;
+  venueMapUrl: string | null;
+  giverName: string | null;
 }
 
 const NOT_FOUND = "Gift not found";
@@ -64,10 +76,18 @@ export class GiftsService {
 
     return {
       state: stateFor(row, userId),
+      from: row.giverName,
       status: row.status,
       amount: row.amount,
       validUntil: row.validUntil,
-      venue: { id: row.venueId, name: row.venueName, slug: row.venueSlug, logo: row.venueLogo },
+      venue: {
+        id: row.venueId,
+        name: row.venueName,
+        slug: row.venueSlug,
+        logo: row.venueLogo,
+        address: row.venueAddress,
+        mapUrl: row.venueMapUrl,
+      },
     };
   }
 
@@ -161,10 +181,12 @@ export class GiftsService {
       `SELECT g."id" AS "giftId", g."certificateId", g."fromUserId", g."claimedByUserId",
               c."ownerUserId", ${effectiveStatusSql("c")} AS "status", c."amount", c."validUntil",
               v."id" AS "venueId", v."name" AS "venueName", v."slug" AS "venueSlug",
-              v."logo" AS "venueLogo"
+              v."logo" AS "venueLogo", v."address" AS "venueAddress", v."mapUrl" AS "venueMapUrl",
+              giver."firstName" AS "giverName"
          FROM "certificate_gifts" g
          JOIN "certificates" c ON c."id" = g."certificateId"
          JOIN "venues" v ON v."id" = c."venueId"
+         JOIN "users" giver ON giver."id" = g."fromUserId"
         WHERE g."tokenHash" = $1
         ${lock ? `FOR UPDATE OF g` : ""}`,
       [giftTokenHash(token)],

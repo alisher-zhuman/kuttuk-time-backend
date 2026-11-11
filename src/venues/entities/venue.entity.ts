@@ -56,6 +56,14 @@ export class Venue {
   @Column({ type: "text", unique: true })
   slug!: string;
 
+  // Where it is (optional, the owner fills it in): one text for every language, and a map link
+  // (https, 2GIS / Google / Yandex only - MAP_URL in venue.constants.ts).
+  @Column({ type: "text", nullable: true })
+  address!: string | null;
+
+  @Column({ type: "text", nullable: true })
+  mapUrl!: string | null;
+
   // Hides this one venue. merchant.isActive = false hides all of the merchant's venues.
   @Column({ default: true })
   isActive!: boolean;

@@ -21,6 +21,7 @@ const MIGRATIONS = [
   "CertificateGifts1794309344224",
   "CertificateValidToEndOfDay1794320000000",
   "AdminSupportFields1794330000000",
+  "VenuePlaceAndUserName1794340000000",
 ];
 
 // Revert migrations from the newest down to (and including) `name`.

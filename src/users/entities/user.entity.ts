@@ -32,6 +32,11 @@ export class User {
   @Column({ type: "text", nullable: true })
   language!: Language | null;
 
+  // The first name from Telegram (initData, refreshed at every log-in) - «Подарок от Айбека» on
+  // the gift screen. null if Telegram sent none.
+  @Column({ type: "text", nullable: true })
+  firstName!: string | null;
+
   // Last log-in to the Mini App (admin: "is the owner connected").
   @Column({ type: "timestamptz", nullable: true })
   lastSeenAt!: Date | null;

@@ -19,6 +19,8 @@ export interface BotMessage {
   buttons?: BotButton[];
 }
 
+export type DeliveryResult = "delivered" | "refused" | "failed";
+
 // Bot API InlineKeyboardMarkup, one button per row.
 export const inlineKeyboard = (buttons: BotButton[]) => ({
   inline_keyboard: buttons.map((b) => [
@@ -39,9 +41,14 @@ export class TelegramBotService {
   // Optional: scripts build this service by hand, without a database - then nothing is recorded.
   constructor(@Optional() @InjectDataSource() private readonly dataSource?: DataSource) {}
 
-  // Also records on users.botReachable whether the person can be reached (the admin sees it):
-  // delivered → true, refused by Telegram → false, a network / Telegram failure → unchanged.
-  async send({ chatId, html, button, buttons = [] }: BotMessage): Promise<boolean> {
+  async send(message: BotMessage): Promise<boolean> {
+    return (await this.deliverResult(message)) === "delivered";
+  }
+
+  // Like send(), but tells a refusal (403 / chat not found - retrying is pointless) from a
+  // failure (network, Telegram 5xx - may pass later). Also records on users.botReachable whether
+  // the person can be reached (the admin sees it): delivered → true, refused → false.
+  async deliverResult({ chatId, html, button, buttons = [] }: BotMessage): Promise<DeliveryResult> {
     const all = [...(button ? [button] : []), ...buttons];
     const { result, refused } = await this.attempt(
       "sendMessage",
@@ -60,7 +67,7 @@ export class TelegramBotService {
       await this.recordReachable(chatId, delivered);
     }
 
-    return delivered;
+    return delivered ? "delivered" : refused ? "refused" : "failed";
   }
 
   // Any Bot API method (setChatMenuButton, setWebhook, …). `label` names it in the logs.

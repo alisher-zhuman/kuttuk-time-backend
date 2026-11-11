@@ -180,10 +180,28 @@ describe("POST /api/auth/log-in - Telegram initData (integration)", () => {
       expect((await users().findOneByOrFail({ telegramId: 555 })).role).toBe("merchant");
     });
 
-    it("an inactive merchant's owner logging in for the first time → user", async () => {
+    // Since 2026-11-10: a merchant created deactivated still gives its owner the cabinet and
+    // redemption (the same rule as a deactivated one), its venues stay hidden from buyers.
+    it("an inactive merchant's owner logging in for the first time → merchant", async () => {
       await createMerchant(t.ds, { telegramId: 555, isActive: false });
 
-      expect((await logIn(signed(555)).expect(200)).body.role).toBe("user");
+      expect((await logIn(signed(555)).expect(200)).body.role).toBe("merchant");
+    });
+
+    it("the first name from Telegram is kept for «Подарок от …», refreshed at every log-in", async () => {
+      await logIn(signed(777)).expect(200);
+      expect((await users().findOneByOrFail({ telegramId: 777 })).firstName).toBe("Test");
+
+      await logIn(
+        signInitData(
+          initDataFields(777, { user: telegramUser(777, { first_name: " Айбек " }) }),
+          BOT_TOKEN(),
+        ),
+      ).expect(200);
+      expect(await users().findOneByOrFail({ telegramId: 777 })).toMatchObject({
+        firstName: "Айбек",
+        lastSeenAt: expect.any(Date),
+      });
     });
 
     it("admin stays admin, even if they also own a merchant", async () => {

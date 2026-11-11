@@ -15,6 +15,9 @@ const INIT_DATA_MAX_AGE_SEC = 24 * 60 * 60;
 // Tolerate small clock drift between Telegram and our server.
 const INIT_DATA_MAX_FUTURE_SKEW_SEC = 60;
 
+// Telegram allows 64; kept short - it goes into a gift screen.
+const FIRST_NAME_MAX = 64;
+
 @Injectable()
 export class AuthService implements OnModuleInit {
   private readonly logger = new Logger(AuthService.name);
@@ -40,22 +43,29 @@ export class AuthService implements OnModuleInit {
     initData: string,
     language: Language | null = null,
   ): Promise<{ accessToken: string; role: string }> {
-    const telegramId = this.verifyInitData(initData);
+    const { telegramId, firstName } = this.verifyInitData(initData);
 
     let user = await this.userRepository.findOne({ where: { telegramId } });
 
-    // Any status: a deactivated merchant keeps its role (cabinet, redemption); only an owner
-    // with no merchant at all any more (telegramId changed by the admin) goes back to "user".
-    const owned = await this.merchantRepository.findOne({ where: { telegramId } });
-    const merchant = owned?.isActive ? owned : null;
+    // Any status: a merchant's owner gets / keeps the role whether the merchant is active or not
+    // (a deactivated one keeps the cabinet and redemption - and one created deactivated, before
+    // the owner's first log-in, gets it too, since 2026-11-10); only an owner with no merchant at
+    // all any more (telegramId changed by the admin) goes back to "user".
+    const merchant = await this.merchantRepository.findOne({ where: { telegramId } });
 
     if (!user) {
       const role = merchant ? "merchant" : "user";
-      user = this.userRepository.create({ telegramId, role, language, lastSeenAt: new Date() });
+      user = this.userRepository.create({
+        telegramId,
+        role,
+        language,
+        firstName,
+        lastSeenAt: new Date(),
+      });
       user = await this.userRepository.save(user);
     } else {
       const promote = merchant !== null && user.role === "user";
-      const demote = owned === null && user.role === "merchant";
+      const demote = merchant === null && user.role === "merchant";
       const relang = language !== null && language !== user.language;
 
       const role = promote ? ("merchant" as const) : demote ? ("user" as const) : undefined;
@@ -63,6 +73,7 @@ export class AuthService implements OnModuleInit {
       // lastSeenAt on every log-in - the admin sees whether an owner ever opened the app.
       await this.userRepository.update(user.id, {
         lastSeenAt: new Date(),
+        firstName,
         ...(role ? { role } : {}),
         ...(relang ? { language } : {}),
       });
@@ -85,7 +96,7 @@ export class AuthService implements OnModuleInit {
     return { accessToken, role: user.role };
   }
 
-  private verifyInitData(initData: string): number {
+  private verifyInitData(initData: string): { telegramId: number; firstName: string | null } {
     const token = botToken();
 
     // With an empty BOT_TOKEN the HMAC key would be HMAC("WebAppData", "") - public knowledge, so
@@ -142,8 +153,12 @@ export class AuthService implements OnModuleInit {
     }
 
     let telegramId: unknown;
+    let firstName: unknown;
     try {
-      telegramId = (JSON.parse(userParam) as { id?: unknown }).id;
+      ({ id: telegramId, first_name: firstName } = JSON.parse(userParam) as {
+        id?: unknown;
+        first_name?: unknown;
+      });
     } catch {
       throw new UnauthorizedException("Malformed user in initData");
     }
@@ -152,6 +167,13 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException("Malformed user in initData");
     }
 
-    return telegramId as number;
+    return {
+      telegramId: telegramId as number,
+      // Signed with the rest; the name the person set in Telegram (for «Подарок от …»).
+      firstName:
+        typeof firstName === "string" && firstName.trim()
+          ? firstName.trim().slice(0, FIRST_NAME_MAX)
+          : null,
+    };
   }
 }

@@ -20,7 +20,15 @@ export interface MyCertificate {
   // friend's now, the caller sees it as «Подарен» (no QR, no code shown, no «Подарить»).
   giftedAt?: Date;
   createdAt: Date;
-  venue: { id: number; name: string; slug: string; logo: string };
+  // address / mapUrl - where to use it (null when the owner didn't fill them in).
+  venue: {
+    id: number;
+    name: string;
+    slug: string;
+    logo: string;
+    address: string | null;
+    mapUrl: string | null;
+  };
 }
 
 interface Row {
@@ -36,6 +44,8 @@ interface Row {
   venueName: string;
   venueSlug: string;
   venueLogo: string;
+  venueAddress: string | null;
+  venueMapUrl: string | null;
 }
 
 const EFFECTIVE_STATUS = effectiveStatusSql("c");
@@ -58,7 +68,8 @@ export class CertificatesService {
               c."validUntil", c."usedAt", c."createdAt",
               CASE WHEN c."ownerUserId" = $1 THEN NULL ELSE given."claimedAt" END AS "giftedAt",
               v."id" AS "venueId", v."name" AS "venueName",
-              v."slug" AS "venueSlug", v."logo" AS "venueLogo"
+              v."slug" AS "venueSlug", v."logo" AS "venueLogo",
+              v."address" AS "venueAddress", v."mapUrl" AS "venueMapUrl"
          FROM "certificates" c
          JOIN "venues" v ON v."id" = c."venueId"
          LEFT JOIN LATERAL (
@@ -88,6 +99,8 @@ export class CertificatesService {
         name: row.venueName,
         slug: row.venueSlug,
         logo: row.venueLogo,
+        address: row.venueAddress,
+        mapUrl: row.venueMapUrl,
       },
     }));
   }

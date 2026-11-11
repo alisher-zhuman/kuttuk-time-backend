@@ -14,3 +14,14 @@ export const RESERVED_SLUGS = ["me", "options"];
 // A venue name goes into Telegram texts with hard limits (the redemption confirm popup: 256
 // chars in all), so it stays short.
 export const VENUE_NAME_MAX = 100;
+
+// Where the venue is (2026-11-10): one free-text address (written the same in every language),
+// and a link to it on a map. Optional; set by the owner or the admin.
+export const VENUE_ADDRESS_MAX = 200;
+
+// Buyers open this link, so it's https on a map service only - never an arbitrary site:
+// 2GIS (2gis.kg / .ru / .com, go.2gis.com), Google Maps (google.*/maps, maps.app.goo.gl,
+// goo.gl/maps), Yandex Maps (yandex.*/maps).
+export const MAP_URL =
+  /^https:\/\/(?:(?:www\.)?2gis\.(?:kg|ru|com)\/|go\.2gis\.com\/|maps\.app\.goo\.gl\/|goo\.gl\/maps\/|(?:www\.)?google\.(?:com|kg|ru)\/maps|(?:www\.)?yandex\.(?:ru|kg|com)\/maps)\S*$/;
+export const MAP_URL_MAX = 500;

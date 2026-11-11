@@ -90,7 +90,14 @@ describe("GET /api/certificates/my (integration)", () => {
       status: "active",
       validUntil: cert.validUntil.toISOString(),
       createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
-      venue: { id: venue.id, name: venue.name, slug: venue.slug, logo: venue.logo },
+      venue: {
+        id: venue.id,
+        name: venue.name,
+        slug: venue.slug,
+        logo: venue.logo,
+        address: null,
+        mapUrl: null,
+      },
     });
     expect(item).not.toHaveProperty("usedAt");
   });

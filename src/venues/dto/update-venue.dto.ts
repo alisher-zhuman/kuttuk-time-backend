@@ -8,12 +8,21 @@ import {
   IsIn,
   Matches,
   MaxLength,
+  IsOptional,
+  ValidateIf,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 import type { Translations } from "@/common/translations";
 import { IsOptionalNotNull, IsTranslations } from "@/common/validators";
-import { VALID_NOMINALS, VALID_VALIDITY_MONTHS, VENUE_NAME_MAX } from "../venue.constants";
+import {
+  VALID_NOMINALS,
+  VALID_VALIDITY_MONTHS,
+  VENUE_NAME_MAX,
+  MAP_URL,
+  MAP_URL_MAX,
+  VENUE_ADDRESS_MAX,
+} from "../venue.constants";
 
 export class UpdateVenueDto {
   @ApiProperty({ example: "Sierra Coffee", required: false })
@@ -67,4 +76,29 @@ export class UpdateVenueDto {
   @IsString()
   @Matches(/^https:\/\/res\.cloudinary\.com\//, { message: "logo must be a Cloudinary URL" })
   logo?: string;
+
+  @ApiProperty({
+    example: "ул. Киевская 95, 2 этаж",
+    description: `Optional, one text for every language, ≤ ${VENUE_ADDRESS_MAX} chars. null or blank clears it`,
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(VENUE_ADDRESS_MAX)
+  address?: string | null;
+
+  @ApiProperty({
+    example: "https://2gis.kg/bishkek/firm/70000001234567",
+    description:
+      "Optional link to the venue on a map: https, 2GIS / Google Maps / Yandex Maps only. null or blank clears it",
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => typeof value === "string" && value.trim() !== "")
+  @IsString()
+  @MaxLength(MAP_URL_MAX)
+  @Matches(MAP_URL, { message: "mapUrl must be a 2GIS, Google Maps or Yandex Maps https link" })
+  mapUrl?: string | null;
 }

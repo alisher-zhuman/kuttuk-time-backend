@@ -44,10 +44,19 @@ export class FakeTelegramBot {
   // Other Bot API methods (setChatMenuButton, …).
   calls: Array<{ method: string; payload: Record<string, unknown> }> = [];
 
+  // What deliverResult() answers when `deliver` is false: a refusal (403) by default.
+  undelivered: "refused" | "failed" = "refused";
+
   async send(message: BotMessage): Promise<boolean> {
     this.sent.push(message);
 
     return this.deliver;
+  }
+
+  async deliverResult(message: BotMessage): Promise<"delivered" | "refused" | "failed"> {
+    this.sent.push(message);
+
+    return this.deliver ? "delivered" : this.undelivered;
   }
 
   async call(method: string, payload: Record<string, unknown>): Promise<boolean> {
@@ -69,6 +78,7 @@ export class FakeTelegramBot {
     this.sent = [];
     this.calls = [];
     this.deliver = true;
+    this.undelivered = "refused";
     this.requestResult = { id: "prepared-1", expiration_date: 1_800_000_000 };
   }
 }

@@ -71,6 +71,8 @@ describe("venues & merchants API (integration)", () => {
         logo: venue.logo,
         nominals: venue.nominals,
         validityMonths: venue.validityMonths,
+        address: null,
+        mapUrl: null,
       });
     });
   });
@@ -126,6 +128,8 @@ describe("venues & merchants API (integration)", () => {
         validityMonths: venue.validityMonths,
         logo: venue.logo,
         slug: venue.slug,
+        address: null,
+        mapUrl: null,
         isActive: true,
         createdAt: expect.any(String),
       });

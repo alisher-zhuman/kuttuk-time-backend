@@ -117,7 +117,8 @@ export class OrdersService {
         amount: order.amount,
         nameEn: venue.name,
         description: `${venue.name} - ${order.amount} KGS`,
-        lang: "ru",
+        // Finik's payment page in the app's language (kg is "ky" there); unknown → ru.
+        lang: language === "kg" ? "ky" : language === "en" ? "en" : "ru",
         endDate: order.expiresAt.getTime(),
         redirectUrl: paymentReturnUrl(this.finik.webhookUrl, order.id),
       }));
@@ -163,6 +164,22 @@ export class OrdersService {
 
     if (!order) {
       throw new NotFoundException("Order not found");
+    }
+
+    // The every-minute cron doesn't run while Koyeb sleeps: a pending order past expiresAt is
+    // expired now, so the buyer doesn't get a payment link that Finik no longer honours. The same
+    // guarded UPDATE as the cron - a webhook that already settled it isn't overwritten.
+    if (order.status === OrderStatus.Pending && order.expiresAt.getTime() <= Date.now()) {
+      const { affected } = await this.orderRepo.update(
+        { id: order.id, status: OrderStatus.Pending, expiresAt: LessThan(new Date()) },
+        { status: OrderStatus.Expired },
+      );
+
+      if (affected) {
+        order.status = OrderStatus.Expired;
+      } else {
+        Object.assign(order, await this.orderRepo.findOneByOrFail({ id: order.id }));
+      }
     }
 
     const [certificate]: Array<{

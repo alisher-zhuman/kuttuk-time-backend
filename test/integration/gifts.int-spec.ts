@@ -80,10 +80,18 @@ describe("gifts - claim a gifted certificate (integration)", () => {
 
     expect((await preview(token, friend).expect(200)).body).toEqual({
       state: "available",
+      from: null, // the buyer never logged in through the app here - no name from Telegram
       status: "active",
       amount: 1000,
       validUntil: "2027-10-21T06:00:00.000Z",
-      venue: { id: venue.id, name: "Coffee Shop", slug: "coffee-shop", logo: venue.logo },
+      venue: {
+        id: venue.id,
+        name: "Coffee Shop",
+        slug: "coffee-shop",
+        logo: venue.logo,
+        address: null,
+        mapUrl: null,
+      },
     });
 
     const claimed = (await claim(token, friend).expect(200)).body;

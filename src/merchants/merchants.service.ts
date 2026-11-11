@@ -7,6 +7,7 @@ import { User } from "@/users/entities/user.entity";
 import { CreateMerchantDto } from "./dto/create-merchant.dto";
 import { AdminUpdateMerchantDto } from "./dto/admin-update-merchant.dto";
 import { UpdateVenueDto } from "@/venues/dto/update-venue.dto";
+import { blankToNull } from "@/common/utils/blank-to-null";
 import { definedFields } from "@/common/utils/defined-fields";
 import { VenuesService, type VenueDetail } from "@/venues/venues.service";
 
@@ -18,10 +19,6 @@ type MerchantAccount = Pick<
 > & { owner: { lastSeenAt: Date | null; botReachable: boolean | null } };
 
 const NO_OWNER = { lastSeenAt: null, botReachable: null };
-
-// Empty text clears an admin note.
-const blankToNull = (value: string | null | undefined) =>
-  value === undefined ? undefined : value?.trim() ? value.trim() : null;
 
 @Injectable()
 export class MerchantsService {

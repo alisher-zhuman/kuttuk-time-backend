@@ -23,8 +23,8 @@ const BATCH = 100;
 // "Expires soon" reminders: an active, unredeemed certificate with ≤ 7 days left gets one
 // message to its owner. Hourly rather than daily - Koyeb sleeps, so a fixed daily run could be
 // missed; the window catches up on the next run. Each certificate is claimed (expiryRemindedAt)
-// before sending, so it's reminded at most once even if two runs overlap; a failed send (403 -
-// never started the bot) isn't retried.
+// before sending, so it's reminded at most once even if two runs overlap; a refused send (403 -
+// never started the bot) isn't retried, a network failure is (the claim is released).
 @Injectable()
 export class ExpiryRemindersService {
   private readonly logger = new Logger(ExpiryRemindersService.name);
@@ -49,6 +49,7 @@ export class ExpiryRemindersService {
     }
 
     const claimed: Array<{
+      id: string;
       orderId: string;
       gifted: boolean;
       code: string;
@@ -71,7 +72,7 @@ export class ExpiryRemindersService {
            FROM due WHERE c."id" = due."id" AND c."expiryRemindedAt" IS NULL
          RETURNING c.*
        )
-       SELECT c."orderId", c."ownerUserId" <> o."userId" AS "gifted", c."code", c."amount", c."validUntil", v."name" AS "venue",
+       SELECT c."id", c."orderId", c."ownerUserId" <> o."userId" AS "gifted", c."code", c."amount", c."validUntil", v."name" AS "venue",
               u."telegramId"::text AS "telegramId", u."language"
          FROM claimed c
          JOIN "orders" o ON o."id" = c."orderId"
@@ -83,7 +84,7 @@ export class ExpiryRemindersService {
     for (const certificate of claimed) {
       const message = expiryMessage(certificate.language ?? "kg", certificate);
 
-      await this.bot.send({
+      const result = await this.bot.deliverResult({
         chatId: Number(certificate.telegramId),
         html: message.html,
         button: {
@@ -94,6 +95,15 @@ export class ExpiryRemindersService {
             : paymentRedirectUrl(this.finik.redirectUrl, certificate.orderId),
         },
       });
+
+      // A network / Telegram failure: release the claim, the next hourly run tries again. A
+      // refusal (blocked the bot / never started it) stays claimed - retrying can't help.
+      if (result === "failed") {
+        await this.dataSource.query(
+          `UPDATE "certificates" SET "expiryRemindedAt" = NULL WHERE "id" = $1 AND "expiryRemindedAt" = $2`,
+          [certificate.id, now],
+        );
+      }
     }
 
     if (claimed.length > 0) {

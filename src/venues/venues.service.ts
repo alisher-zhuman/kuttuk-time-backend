@@ -10,6 +10,7 @@ import { Merchant } from "@/merchants/entities/merchant.entity";
 import { CloudinaryService } from "@/cloudinary/cloudinary.service";
 import { resolveTranslation } from "@/common/utils/resolve-translation";
 import { isDbId } from "@/common/pipes/parse-id.pipe";
+import { blankToNull } from "@/common/utils/blank-to-null";
 import { definedFields } from "@/common/utils/defined-fields";
 
 // The storefront as its owner / the admin edit it (raw translations).
@@ -23,6 +24,8 @@ export type VenueDetail = Pick<
   | "validityMonths"
   | "logo"
   | "slug"
+  | "address"
+  | "mapUrl"
   | "isActive"
   | "createdAt"
 >;
@@ -36,9 +39,18 @@ const DETAIL_COLUMNS = [
   "validityMonths",
   "logo",
   "slug",
+  "address",
+  "mapUrl",
   "isActive",
   "createdAt",
 ] as const;
+
+// address / mapUrl: blank clears; trimmed.
+const withPlace = <T extends { address?: string | null; mapUrl?: string | null }>(dto: T): T => ({
+  ...dto,
+  address: blankToNull(dto.address),
+  mapUrl: blankToNull(dto.mapUrl),
+});
 
 const toDetail = (venue: Venue): VenueDetail =>
   Object.fromEntries(DETAIL_COLUMNS.map((key) => [key, venue[key]])) as VenueDetail;
@@ -77,8 +89,14 @@ export class VenuesService {
       qb.andWhere(":category = ANY(venue.categories)", { category });
     }
 
+    // By name or by the description in any language («кофе» finds Coffeeroom) - the values,
+    // never the jsonb keys (searching "ru" must not match every venue).
     if (search) {
-      qb.andWhere("venue.name ILIKE :search", { search: `%${search}%` });
+      qb.andWhere(
+        `(venue.name ILIKE :search OR EXISTS (
+           SELECT 1 FROM jsonb_each_text(venue.description) d WHERE d.value ILIKE :search))`,
+        { search: `%${search}%` },
+      );
     }
 
     const venues = await qb.getMany();
@@ -102,6 +120,8 @@ export class VenuesService {
     logo: string;
     nominals: number[];
     validityMonths: number;
+    address: string | null;
+    mapUrl: string | null;
   }> {
     const qb = this.visible();
 
@@ -126,6 +146,8 @@ export class VenuesService {
       logo: venue.logo,
       nominals: venue.nominals,
       validityMonths: venue.validityMonths,
+      address: venue.address,
+      mapUrl: venue.mapUrl,
     };
   }
 
@@ -188,7 +210,13 @@ export class VenuesService {
     this.assertOwnLogo(dto.logo);
     await this.assertCategoriesExist(dto.categories);
 
-    const saved = await this.venueRepo.save(this.venueRepo.create(dto));
+    const saved = await this.venueRepo.save(
+      this.venueRepo.create({
+        ...dto,
+        address: blankToNull(dto.address) ?? null,
+        mapUrl: blankToNull(dto.mapUrl) ?? null,
+      }),
+    );
 
     this.logger.log(
       `Venue created: id=${saved.id} merchant=${saved.merchantId} name="${saved.name}"`,
@@ -260,7 +288,7 @@ export class VenuesService {
 
     await this.assertCategoriesExist(dto.categories);
 
-    Object.assign(venue, definedFields(dto));
+    Object.assign(venue, definedFields(withPlace(dto)));
 
     const saved = await this.venueRepo.save(venue);
 
