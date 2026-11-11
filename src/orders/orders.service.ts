@@ -15,6 +15,8 @@ import { LessThan, Repository } from "typeorm";
 import { Order, OrderStatus } from "./entities/order.entity";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { orderNumber } from "./order-number";
+import { EXPIRY_REMINDER_HOURS } from "@/certificates/expiry-reminders.service";
+import { bishkekTime } from "@/common/utils/bishkek-format";
 import { Certificate } from "@/certificates/entities/certificate.entity";
 import { effectiveStatusSql, usedAtField } from "@/certificates/effective-status";
 import type { EffectiveCertificateStatus } from "@/certificates/effective-status";
@@ -224,7 +226,19 @@ export class OrdersService {
     };
   }
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  // Hourly, daytime in Bishkek only - every query wakes the database, and the free Postgres
+  // tier counts its awake hours (CLAUDE.md, the 2026-11-11 incident: an every-minute run kept it
+  // awake). Nothing depends on the exact minute: GET /orders/:id expires a stale order on read,
+  // and a late webhook pays an expired order anyway.
+  @Cron(CronExpression.EVERY_HOUR)
+  async hourlyExpireStale(): Promise<void> {
+    const hour = Number(bishkekTime(new Date()).slice(0, 2));
+
+    if (hour >= EXPIRY_REMINDER_HOURS.from && hour < EXPIRY_REMINDER_HOURS.to) {
+      await this.expireStale();
+    }
+  }
+
   async expireStale(): Promise<number> {
     const { affected } = await this.orderRepo.update(
       { status: OrderStatus.Pending, expiresAt: LessThan(new Date()) },

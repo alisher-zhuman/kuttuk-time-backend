@@ -8,7 +8,7 @@
 
 **Core idea:** the user buys a certificate and gifts it in 30 seconds. No sign-up, no phone number - everything runs through Telegram.
 
-**Production:** `https://kuttuk-time.koyeb.app` (Koyeb, Frankfurt, Free tier)
+**Production:** `https://kuttuk-time.koyeb.app` (Koyeb, Frankfurt, Free tier). **The database is on Neon** (free plan, Frankfurt `eu-central-1`, Postgres 18) since 2026-11-11 - Koyeb's free Postgres (5 active hours/month) ran out, see the `/api/health` incident. Neon free: ~100 compute hours/month, sleeps after 5 idle min, **no card - past the limit it stops until next month, never bills**. Nothing periodic may wake the DB more than needed (crons hourly and daytime only)
 **CI/CD:** **push to `dev` → Koyeb redeploys prod** (since 2026-10-22 Koyeb's source branch is `dev`, like Vercel for the frontend; no PRs to `main`). Koyeb does **not** wait for CI - run the tests locally before pushing, and take a `pg_dump` of prod **before pushing** a migration
 
 ---
@@ -489,7 +489,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 
 | Variable | Note |
 |---|---|
-| `DATABASE_HOST` | Koyeb Postgres endpoint |
+| `DATABASE_HOST` | **Neon** endpoint (`ep-…eu-central-1.aws.neon.tech`, the direct one - not `-pooler`); since 2026-11-11, was Koyeb Postgres |
 | `DATABASE_PORT` | `5432` |
 | `DATABASE_USER` | |
 | `DATABASE_PASSWORD` | |
