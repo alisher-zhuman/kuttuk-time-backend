@@ -2,7 +2,7 @@ import { Injectable, Logger, type OnModuleInit, UnauthorizedException } from "@n
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { User } from "../users/entities/user.entity";
 import { Merchant } from "../merchants/entities/merchant.entity";
 import type { Language } from "@/common/translations";
@@ -14,6 +14,10 @@ import { botToken } from "@/telegram/bot-token";
 const INIT_DATA_MAX_AGE_SEC = 24 * 60 * 60;
 // Tolerate small clock drift between Telegram and our server.
 const INIT_DATA_MAX_FUTURE_SKEW_SEC = 60;
+
+// 24 random bytes, base64url.
+const GUEST_TOKEN = /^[A-Za-z0-9_-]{32}$/;
+const hashGuestToken = (token: string): string => createHash("sha256").update(token).digest("hex");
 
 // Telegram allows 64; kept short - it goes into a gift screen.
 const FIRST_NAME_MAX = 64;
@@ -94,6 +98,53 @@ export class AuthService implements OnModuleInit {
     this.logger.log(`Login: telegramId=${telegramId} role=${user.role}`);
 
     return { accessToken, role: user.role };
+  }
+
+  // A website guest (docs/web-version.md): no Telegram, no sign-up - the browser keeps a secret
+  // (guestToken) and trades it for a JWT. A known token → the same guest; none, unknown or
+  // malformed → a new one (a cleared / stale browser storage just starts over - their earlier
+  // purchases stay reachable by the order link, and «Войти через Telegram» keeps them for good).
+  async guestLogIn(
+    guestToken?: string,
+    language: Language | null = null,
+  ): Promise<{ accessToken: string; role: string; guestToken: string }> {
+    const known =
+      guestToken && GUEST_TOKEN.test(guestToken)
+        ? await this.userRepository.findOne({
+            where: { guestTokenHash: hashGuestToken(guestToken) },
+          })
+        : null;
+    let user: User;
+    let token: string;
+
+    if (known) {
+      user = known;
+      token = guestToken!;
+      await this.userRepository.update(user.id, {
+        lastSeenAt: new Date(),
+        ...(language !== null && language !== user.language ? { language } : {}),
+      });
+    } else {
+      token = randomBytes(24).toString("base64url");
+      user = await this.userRepository.save(
+        this.userRepository.create({
+          telegramId: null,
+          guestTokenHash: hashGuestToken(token),
+          role: "user",
+          language,
+          lastSeenAt: new Date(),
+        }),
+      );
+      this.logger.log(`Guest created: user ${user.id}`);
+    }
+
+    const accessToken = this.jwtService.sign({
+      userId: user.id,
+      role: user.role,
+      telegramId: null,
+    });
+
+    return { accessToken, role: user.role, guestToken: token };
   }
 
   private verifyInitData(initData: string): { telegramId: number; firstName: string | null } {

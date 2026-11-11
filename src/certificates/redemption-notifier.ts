@@ -27,7 +27,7 @@ export class RedemptionNotifier {
         amount: number;
         usedAt: Date;
         venue: string;
-        telegramId: string;
+        telegramId: string | null;
         language: Language | null;
         giverTelegramId: string | null;
         giverLanguage: Language | null;
@@ -56,11 +56,14 @@ export class RedemptionNotifier {
 
       const message = redeemedMessage(row.language ?? "kg", row);
 
-      await this.bot.send({
-        chatId: Number(row.telegramId),
-        html: message.html,
-        button: { text: message.button, url: SUPPORT_URL },
-      });
+      // A website guest owner has no Telegram chat.
+      if (row.telegramId) {
+        await this.bot.send({
+          chatId: Number(row.telegramId),
+          html: message.html,
+          button: { text: message.button, url: SUPPORT_URL },
+        });
+      }
 
       if (row.giverTelegramId) {
         await this.bot.send({

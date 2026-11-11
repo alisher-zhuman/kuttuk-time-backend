@@ -61,12 +61,16 @@ export class ExpiryRemindersService {
     }> = await this.dataSource.query(
       `WITH due AS (
          SELECT c."id" FROM "certificates" c
+           JOIN "users" owner ON owner."id" = c."ownerUserId"
           WHERE c."status" = 'active' AND c."expiryRemindedAt" IS NULL
+            -- A website guest has no Telegram chat: not claimed, so the reminder still comes
+            -- once they log in with Telegram (their certificates move to that account).
+            AND owner."telegramId" IS NOT NULL
             AND c."validUntil" > $1::timestamptz
             AND c."validUntil" <= $1::timestamptz + make_interval(days => $2::int)
           ORDER BY c."validUntil"
           LIMIT $3
-          FOR UPDATE SKIP LOCKED
+          FOR UPDATE OF c SKIP LOCKED
        ), claimed AS (
          UPDATE "certificates" c SET "expiryRemindedAt" = $1::timestamptz
            FROM due WHERE c."id" = due."id" AND c."expiryRemindedAt" IS NULL

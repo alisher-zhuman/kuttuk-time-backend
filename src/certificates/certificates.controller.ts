@@ -1,4 +1,13 @@
-import { Controller, Get, Headers, HttpCode, Param, ParseUUIDPipe, Post } from "@nestjs/common";
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+} from "@nestjs/common";
 import {
   ApiBadGatewayResponse,
   ApiBearerAuth,
@@ -75,6 +84,15 @@ export class CertificatesController {
     @GetUser() user: CurrentUser,
     @Headers("accept-language") acceptLanguage?: string,
   ) {
+    // A Telegram card is sent from the giver's Telegram account - a website guest gives a link
+    // instead (docs/web-version.md, stage 2).
+    if (user.telegramId === null) {
+      throw new BadRequestException({
+        message: "Gift cards need Telegram - share a gift link instead",
+        error: "telegram_required",
+      });
+    }
+
     return this.giftShare.prepare(
       user.userId,
       user.telegramId,

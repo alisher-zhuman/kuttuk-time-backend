@@ -49,6 +49,13 @@ export class TelegramBotService {
   // failure (network, Telegram 5xx - may pass later). Also records on users.botReachable whether
   // the person can be reached (the admin sees it): delivered → true, refused → false.
   async deliverResult({ chatId, html, button, buttons = [] }: BotMessage): Promise<DeliveryResult> {
+    // A safety net: callers skip website guests (no Telegram chat); Number(null) would be 0.
+    if (!Number.isSafeInteger(chatId) || chatId <= 0) {
+      this.logger.error(`Bot message skipped: no Telegram chat (${chatId})`);
+
+      return "refused";
+    }
+
     const all = [...(button ? [button] : []), ...buttons];
     const { result, refused } = await this.attempt(
       "sendMessage",

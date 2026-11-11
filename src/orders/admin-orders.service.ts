@@ -35,7 +35,8 @@ export interface AdminOrderDetail extends AdminOrder {
   // means "Finik failed", not "the buyer didn't pay".
   paymentCreated: boolean;
   finikTransactionId?: string;
-  buyer: { userId: number; telegramId: number };
+  // telegramId null = a website guest.
+  buyer: { userId: number; telegramId: number | null };
   certificate?: {
     code: string;
     status: EffectiveCertificateStatus;
@@ -159,7 +160,7 @@ export class AdminOrdersService {
         expiresAt: Date;
         finikTransactionId: string | null;
         userId: number;
-        telegramId: string;
+        telegramId: string | null;
         certificateStatus: EffectiveCertificateStatus | null;
         validUntil: Date | null;
         usedAt: Date | null;
@@ -198,7 +199,10 @@ export class AdminOrdersService {
       expiresAt: row.expiresAt,
       paymentCreated: row.paymentCreated,
       ...(row.finikTransactionId ? { finikTransactionId: row.finikTransactionId } : {}),
-      buyer: { userId: row.userId, telegramId: Number(row.telegramId) },
+      buyer: {
+        userId: row.userId,
+        telegramId: row.telegramId === null ? null : Number(row.telegramId),
+      },
       ...(row.certificateCode && row.certificateStatus && row.validUntil
         ? {
             certificate: {

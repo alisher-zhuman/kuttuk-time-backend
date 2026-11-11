@@ -4,21 +4,33 @@ import type { Language } from "@/common/translations";
 
 @Entity("users")
 @Check("users_language_valid", `"language" IN ('ru', 'kg', 'en')`)
+// A user is either a Telegram account or a website guest (since 2026-11-11), never both or
+// neither; a guest is always a plain buyer.
+@Check("users_telegram_or_guest", `("telegramId" IS NULL) <> ("guestTokenHash" IS NULL)`)
+@Check("users_guest_is_buyer", `"telegramId" IS NOT NULL OR "role" = 'user'`)
 export class User {
   @PrimaryGeneratedColumn()
   id!: number;
 
+  // null = a website guest (docs/web-version.md) - no bot messages until they log in with
+  // Telegram, which moves their purchases to the Telegram account.
   @Column({
     type: "bigint",
     unique: true,
+    nullable: true,
     // Telegram IDs exceed int4 (>2.1B). Stored as bigint; transformer keeps
     // it a JS number (safe - Telegram IDs are well below 2^53).
     transformer: {
-      to: (value: number) => value,
+      to: (value: number | null) => value,
       from: (value: string | null) => (value == null ? value : Number(value)),
     },
   })
-  telegramId!: number;
+  telegramId!: number | null;
+
+  // A website guest: sha256 of the secret the browser keeps (POST /api/auth/guest). Only the
+  // hash is stored - a database read never hands out a working guest login.
+  @Column({ type: "text", unique: true, nullable: true })
+  guestTokenHash!: string | null;
 
   @Column({
     type: "enum",

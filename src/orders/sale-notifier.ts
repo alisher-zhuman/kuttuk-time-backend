@@ -18,7 +18,7 @@ interface Sale {
   venue: string;
   code: string;
   validUntil: Date;
-  buyerTelegramId: string;
+  buyerTelegramId: string | null;
   buyerLanguage: Language | null;
   ownerTelegramId: string;
   ownerLanguage: Language | null;
@@ -66,18 +66,20 @@ export class SaleNotifier {
       const toBuyer = buyerMessage(sale.buyerLanguage ?? "kg", sale);
       const toOwner = ownerMessage(sale.ownerLanguage ?? "kg", sale);
 
+      // A website guest has no Telegram chat - only the owner hears about the sale.
       await Promise.all([
-        this.bot.send({
-          chatId: Number(sale.buyerTelegramId),
-          // The number - what the buyer quotes to support (the admin «Заказы» search finds it).
-          html: `${toBuyer.html}\n\n${orderNumberLine(sale.buyerLanguage ?? "kg", orderId)}`,
-          button: {
-            text: toBuyer.button,
-            url: paymentRedirectUrl(this.finik.redirectUrl, orderId),
-          },
-          // Copies exactly the code (digits, no spaces) - the counter accepts it as is.
-          buttons: [{ text: toBuyer.copy, copyText: sale.code }],
-        }),
+        sale.buyerTelegramId &&
+          this.bot.send({
+            chatId: Number(sale.buyerTelegramId),
+            // The number - what the buyer quotes to support (the admin «Заказы» search finds it).
+            html: `${toBuyer.html}\n\n${orderNumberLine(sale.buyerLanguage ?? "kg", orderId)}`,
+            button: {
+              text: toBuyer.button,
+              url: paymentRedirectUrl(this.finik.redirectUrl, orderId),
+            },
+            // Copies exactly the code (digits, no spaces) - the counter accepts it as is.
+            buttons: [{ text: toBuyer.copy, copyText: sale.code }],
+          }),
         this.bot.send({
           chatId: Number(sale.ownerTelegramId),
           html: toOwner.html,
@@ -104,11 +106,17 @@ export class SaleNotifier {
 
       const toBuyer = reviewMessage(order.buyerLanguage ?? "kg", order);
 
-      await this.bot.send({
-        chatId: Number(order.buyerTelegramId),
-        html: `${toBuyer.html}\n\n${orderNumberLine(order.buyerLanguage ?? "kg", orderId)}`,
-        button: { text: toBuyer.button, url: paymentRedirectUrl(this.finik.redirectUrl, orderId) },
-      });
+      // A website guest sees «на проверке» on the order page; the admins are alerted either way.
+      if (order.buyerTelegramId) {
+        await this.bot.send({
+          chatId: Number(order.buyerTelegramId),
+          html: `${toBuyer.html}\n\n${orderNumberLine(order.buyerLanguage ?? "kg", orderId)}`,
+          button: {
+            text: toBuyer.button,
+            url: paymentRedirectUrl(this.finik.redirectUrl, orderId),
+          },
+        });
+      }
       await this.alerts.alert({
         kind: "needs_review",
         html: `⚠️ <b>Сумма не совпала</b> - деньги списаны, сертификат не выдан.\n\n${escapeHtml(order.venue)}: заказ ${order.amount} сом, оплачено ${escapeHtml(JSON.stringify(paidAmount))}.\nЗаказ <code>${orderId}</code>\n\nПроверить в кабинете Финика и разобрать: <code>npm run orders:resolve-review -- --order ${orderId} --issue | --refunded --note "…"</code>`,
@@ -131,6 +139,12 @@ export class SaleNotifier {
 
       const message = refundedMessage(order.buyerLanguage ?? "kg", order);
 
+      if (!order.buyerTelegramId) {
+        this.logger.warn(`Refund of order ${orderId}: a website guest - tell them by hand`);
+
+        return;
+      }
+
       await this.bot.send({
         chatId: Number(order.buyerTelegramId),
         html: `${message.html}\n\n${orderNumberLine(order.buyerLanguage ?? "kg", orderId)}`,
@@ -146,7 +160,7 @@ export class SaleNotifier {
   private async orderForMessage(orderId: string): Promise<{
     amount: number;
     venue: string;
-    buyerTelegramId: string;
+    buyerTelegramId: string | null;
     buyerLanguage: Language | null;
   } | null> {
     const [order] = await this.dataSource.query(

@@ -11,6 +11,7 @@ import {
 } from "@nestjs/swagger";
 
 import { RedemptionService } from "./redemption.service";
+import { telegramIdOf } from "@/auth/telegram-id-of";
 import { GetUser } from "@/auth/get-user.decorator";
 import { CurrentUser } from "@/auth/interfaces/current-user.interface";
 import { Roles } from "@/auth/roles.decorator";
@@ -45,7 +46,7 @@ export class MerchantCertificatesController {
   @ApiForbiddenResponse({ description: "Not a merchant" })
   @ApiNotFoundResponse({ description: "No such certificate at your venues" })
   lookup(@Param("code") code: string, @GetUser() user: CurrentUser) {
-    return this.redemption.lookup(user.telegramId, code);
+    return this.redemption.lookup(telegramIdOf(user), code);
   }
 
   @Post(":code/redeem")
@@ -63,6 +64,6 @@ export class MerchantCertificatesController {
   @ApiNotFoundResponse({ description: "No such certificate at your venues" })
   @ApiConflictResponse({ description: "error: already_used | expired" })
   redeem(@Param("code") code: string, @GetUser() user: CurrentUser) {
-    return this.redemption.redeem(user.telegramId, code);
+    return this.redemption.redeem(telegramIdOf(user), code);
   }
 }

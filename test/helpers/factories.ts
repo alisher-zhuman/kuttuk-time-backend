@@ -11,19 +11,33 @@ import { Certificate, CertificateStatus } from "../../src/certificates/entities/
 let seq = 0;
 const next = () => ++seq;
 
-export const createUser = (ds: DataSource, overrides: Partial<User> = {}): Promise<User> =>
-  ds.getRepository(User).save({ telegramId: 7_000_000_000 + next(), role: "user", ...overrides });
+// A Telegram user (telegramId always set - the type says so, tests use it as a chat id).
+export const createUser = (
+  ds: DataSource,
+  overrides: Partial<User> = {},
+): Promise<User & { telegramId: number }> =>
+  ds.getRepository(User).save({
+    telegramId: 7_000_000_000 + next(),
+    role: "user",
+    ...overrides,
+  }) as Promise<User & { telegramId: number }>;
 
 // A business account only (no venue).
+// telegramId may be passed as a User's (number | null - tests pass Telegram users only).
 export const createMerchant = (
   ds: DataSource,
-  overrides: Partial<Merchant> = {},
+  {
+    telegramId,
+    ...overrides
+  }: Omit<Partial<Merchant>, "telegramId"> & {
+    telegramId?: number | null;
+  } = {},
 ): Promise<Merchant> => {
   const n = next();
 
   return ds.getRepository(Merchant).save({
     name: `Test Merchant ${n}`,
-    telegramId: 8_000_000_000 + n,
+    telegramId: telegramId ?? 8_000_000_000 + n,
     isActive: true,
     payoutDetails: "Мбанк 0555 000 000",
     contact: "+996 555 000 000",

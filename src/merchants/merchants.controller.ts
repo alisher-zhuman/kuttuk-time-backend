@@ -15,6 +15,7 @@ import { MerchantsService } from "./merchants.service";
 import { UpdateVenueDto } from "@/venues/dto/update-venue.dto";
 import { RolesGuard } from "@/auth/roles.guard";
 import { Roles } from "@/auth/roles.decorator";
+import { telegramIdOf } from "@/auth/telegram-id-of";
 import { GetUser } from "@/auth/get-user.decorator";
 import { CurrentUser } from "@/auth/interfaces/current-user.interface";
 
@@ -59,7 +60,7 @@ export class MerchantsController {
   @ApiForbiddenResponse({ description: "Requires merchant role", schema: { example: FORBIDDEN } })
   @ApiNotFoundResponse({ description: "No merchant for this Telegram account" })
   getOwn(@GetUser() user: CurrentUser) {
-    return this.merchantsService.getOwn(user.telegramId);
+    return this.merchantsService.getOwn(telegramIdOf(user));
   }
 
   @Patch("venues/:venueId")
@@ -80,6 +81,6 @@ export class MerchantsController {
     @Body() dto: UpdateVenueDto,
     @GetUser() user: CurrentUser,
   ) {
-    return this.merchantsService.updateOwnVenue(user.telegramId, venueId, dto);
+    return this.merchantsService.updateOwnVenue(telegramIdOf(user), venueId, dto);
   }
 }

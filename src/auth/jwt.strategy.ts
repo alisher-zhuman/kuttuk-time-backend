@@ -6,7 +6,8 @@ import { ExtractJwt, Strategy } from "passport-jwt";
 interface JwtPayload {
   userId: number;
   role: string;
-  telegramId: number;
+  // null for a website guest (no Telegram account) - always a plain buyer.
+  telegramId: number | null;
 }
 
 @Injectable()

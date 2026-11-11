@@ -197,13 +197,14 @@ export class GiftsService {
 
   private async notifyGiver(giverId: number, certificate: MyCertificate): Promise<void> {
     try {
-      const [giver]: Array<{ telegramId: string; language: Language | null }> =
+      const [giver]: Array<{ telegramId: string | null; language: Language | null }> =
         await this.dataSource.query(
           `SELECT "telegramId"::text AS "telegramId", "language" FROM "users" WHERE "id" = $1`,
           [giverId],
         );
 
-      if (giver) {
+      // A website guest giver has no Telegram chat.
+      if (giver?.telegramId) {
         await this.bot.send({
           chatId: Number(giver.telegramId),
           html: giftClaimedMessage(giver.language ?? "kg", {

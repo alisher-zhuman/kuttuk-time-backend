@@ -24,6 +24,7 @@ const MIGRATIONS = [
   "VenuePlaceAndUserName1794340000000",
   "VenuePlaceRequired1794350000000",
   "MerchantNotesRequired1794360000000",
+  "WebsiteGuests1794370000000",
 ];
 
 // Revert migrations from the newest down to (and including) `name`.

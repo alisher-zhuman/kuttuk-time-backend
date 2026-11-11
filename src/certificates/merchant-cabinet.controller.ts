@@ -13,6 +13,7 @@ import {
 import { ParseIdPipe } from "@/common/pipes/parse-id.pipe";
 
 import { MerchantCabinetService } from "./merchant-cabinet.service";
+import { telegramIdOf } from "@/auth/telegram-id-of";
 import { GetUser } from "@/auth/get-user.decorator";
 import { CurrentUser } from "@/auth/interfaces/current-user.interface";
 import { Roles } from "@/auth/roles.decorator";
@@ -59,7 +60,7 @@ export class MerchantCabinetController {
     @Query("week") week?: string,
     @Query("venueId", new ParseIdPipe({ optional: true })) venueId?: number,
   ) {
-    return this.cabinet.summary(user.telegramId, { week, venueId });
+    return this.cabinet.summary(telegramIdOf(user), { week, venueId });
   }
 
   @Get("certificates")
@@ -99,6 +100,6 @@ export class MerchantCabinetController {
     @Query("cursor") cursor?: string,
     @Query("venueId", new ParseIdPipe({ optional: true })) venueId?: number,
   ) {
-    return this.cabinet.list(user.telegramId, { status, limit, cursor, venueId });
+    return this.cabinet.list(telegramIdOf(user), { status, limit, cursor, venueId });
   }
 }
