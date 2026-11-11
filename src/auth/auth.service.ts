@@ -54,25 +54,9 @@ export class AuthService implements OnModuleInit {
     return this.signIn(telegramId, firstName, language);
   }
 
-  // «Войти через Telegram» on the website (docs/web-version.md, stage 3): the official Telegram
-  // Login Widget's signed data. With the browser's guestToken, the guest's purchases (orders,
-  // certificates, gift links) move to the Telegram account and the guest is removed - one
-  // transaction. A wrong / unknown guestToken just logs in without moving anything.
-  async widgetLogIn(
-    authData: Record<string, unknown>,
-    guestToken?: string,
-    language: Language | null = null,
-  ): Promise<{ accessToken: string; role: string; merged: boolean }> {
-    const { telegramId, firstName } = this.verifyWidgetData(authData);
-    const signed = await this.signIn(telegramId, firstName, language);
-    const merged = guestToken ? await this.mergeGuest(guestToken, telegramId) : false;
-
-    return { ...signed, merged };
-  }
-
   // «Log In With Telegram» (OIDC, the current website login - docs/web-version.md): the id_token
-  // from Telegram.Login, verified against Telegram's keys. Otherwise the same as widgetLogIn:
-  // the same account as in the Mini App, and the guest's purchases move over.
+  // from Telegram.Login, verified against Telegram's keys. The same account as in the Mini App;
+  // with the browser's guestToken, the guest's purchases move over.
   async oidcLogIn(
     idToken: string,
     guestToken?: string,
@@ -234,61 +218,6 @@ export class AuthService implements OnModuleInit {
     });
 
     return { accessToken, role: user.role, guestToken: token };
-  }
-
-  // The Telegram Login Widget (https://core.telegram.org/widgets/login#checking-authorization):
-  // data-check-string = every field but `hash`, "key=value" sorted by key, joined with "\n";
-  // secret = SHA-256(BOT_TOKEN) - not HMAC("WebAppData", …) like the Mini App's initData.
-  private verifyWidgetData(data: Record<string, unknown>): {
-    telegramId: number;
-    firstName: string | null;
-  } {
-    const token = botToken();
-
-    if (!token) {
-      this.logger.error("Log-in refused: BOT_TOKEN is not set");
-
-      throw new UnauthorizedException("Log-in is unavailable");
-    }
-
-    const { hash, ...fields } = data;
-
-    if (typeof hash !== "string" || !/^[0-9a-f]{64}$/.test(hash)) {
-      throw new UnauthorizedException("Missing hash");
-    }
-
-    const dataCheckString = Object.keys(fields)
-      .sort()
-      .map((key) => `${key}=${String(fields[key])}`)
-      .join("\n");
-    const secretKey = createHash("sha256").update(token).digest();
-    const computed = createHmac("sha256", secretKey).update(dataCheckString).digest();
-    const received = Buffer.from(hash, "hex");
-
-    if (received.length !== computed.length || !timingSafeEqual(received, computed)) {
-      throw new UnauthorizedException("Invalid signature");
-    }
-
-    const authDate = Number(fields.auth_date);
-    const ageSec = Math.floor(Date.now() / 1000) - authDate;
-
-    if (
-      !Number.isInteger(authDate) ||
-      ageSec > INIT_DATA_MAX_AGE_SEC ||
-      ageSec < -INIT_DATA_MAX_FUTURE_SKEW_SEC
-    ) {
-      throw new UnauthorizedException("Log-in data expired");
-    }
-
-    const telegramId = Number(fields.id);
-
-    if (!Number.isSafeInteger(telegramId) || telegramId <= 0) {
-      throw new UnauthorizedException("Malformed id");
-    }
-
-    const firstName = typeof fields.first_name === "string" ? fields.first_name.trim() : "";
-
-    return { telegramId, firstName: firstName ? firstName.slice(0, FIRST_NAME_MAX) : null };
   }
 
   private verifyInitData(initData: string): { telegramId: number; firstName: string | null } {

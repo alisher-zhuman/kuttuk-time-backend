@@ -6,7 +6,6 @@ import { AuthService } from "./auth.service";
 import { GuestLogInDto } from "./dtos/guest-log-in.dto";
 import { LogInDto } from "./dtos/log-in.dto";
 import { OidcLogInDto } from "./dtos/oidc-log-in.dto";
-import { WidgetLogInDto } from "./dtos/widget-log-in.dto";
 import { Public } from "./public.decorator";
 import { toLanguage } from "@/common/translations";
 
@@ -66,26 +65,6 @@ export class AuthController {
     @Headers("accept-language") acceptLanguage?: string,
   ): Promise<{ accessToken: string; role: string; guestToken: string }> {
     return this.authService.guestLogIn(dto.guestToken, toLanguage(acceptLanguage));
-  }
-
-  @Public()
-  @Throttle({ default: { limit: 60, ttl: 60_000 } })
-  @Post("telegram-widget")
-  @HttpCode(200)
-  @ApiOperation({
-    summary: "«Войти через Telegram» on the website (Telegram Login Widget)",
-    description:
-      "Send the widget's data as `authData`, unchanged, and the website guest's `guestToken` if there is one. The server checks the widget signature (key = SHA-256 of the bot token) and that it's ≤ 24 h old, logs the Telegram account in (the same user as in the Mini App) and moves the guest's orders, certificates and gift links to it (`merged: true`); the guest is removed. Invalid → 401. The widget's domain is set in BotFather (`/setdomain`).",
-  })
-  @ApiOkResponse({
-    schema: { example: { accessToken: "eyJhbGci...", role: "user", merged: true } },
-  })
-  @ApiUnauthorizedResponse({ description: "Invalid or expired widget data" })
-  widgetLogIn(
-    @Body() dto: WidgetLogInDto,
-    @Headers("accept-language") acceptLanguage?: string,
-  ): Promise<{ accessToken: string; role: string; merged: boolean }> {
-    return this.authService.widgetLogIn(dto.authData, dto.guestToken, toLanguage(acceptLanguage));
   }
 
   @Public()
