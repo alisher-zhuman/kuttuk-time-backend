@@ -5,6 +5,7 @@ import { ApiTags, ApiOperation, ApiOkResponse, ApiUnauthorizedResponse } from "@
 import { AuthService } from "./auth.service";
 import { GuestLogInDto } from "./dtos/guest-log-in.dto";
 import { LogInDto } from "./dtos/log-in.dto";
+import { OidcLogInDto } from "./dtos/oidc-log-in.dto";
 import { WidgetLogInDto } from "./dtos/widget-log-in.dto";
 import { Public } from "./public.decorator";
 import { toLanguage } from "@/common/translations";
@@ -85,5 +86,25 @@ export class AuthController {
     @Headers("accept-language") acceptLanguage?: string,
   ): Promise<{ accessToken: string; role: string; merged: boolean }> {
     return this.authService.widgetLogIn(dto.authData, dto.guestToken, toLanguage(acceptLanguage));
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Post("telegram-oidc")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "«Войти через Telegram» on the website - Log In With Telegram (OIDC)",
+    description:
+      "Telegram's current website login (https://core.telegram.org/bots/telegram-login). Send the `id_token` from Telegram.Login and the website guest's `guestToken` if any. The token is checked against Telegram's keys (JWKS), `iss` = https://oauth.telegram.org, `aud` = our bot id (Client ID), not expired; invalid → 401. The same account as in the Mini App; the guest's purchases move to it (`merged: true`). 60/min by IP.",
+  })
+  @ApiOkResponse({
+    schema: { example: { accessToken: "eyJhbGci...", role: "user", merged: false } },
+  })
+  @ApiUnauthorizedResponse({ description: "Invalid or expired id_token" })
+  oidcLogIn(
+    @Body() dto: OidcLogInDto,
+    @Headers("accept-language") acceptLanguage?: string,
+  ): Promise<{ accessToken: string; role: string; merged: boolean }> {
+    return this.authService.oidcLogIn(dto.idToken, dto.guestToken, toLanguage(acceptLanguage));
   }
 }

@@ -9,6 +9,7 @@ import { AuthService } from "./auth.service";
 import { AuthController } from "./auth.controller";
 import { JwtStrategy } from "./jwt.strategy";
 import { JwtGuard } from "./jwt.guard";
+import { TelegramOidcVerifier } from "./telegram-oidc.verifier";
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { JwtGuard } from "./jwt.guard";
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy, JwtGuard],
+  providers: [AuthService, JwtStrategy, JwtGuard, TelegramOidcVerifier],
   controllers: [AuthController],
   exports: [AuthService, JwtGuard],
 })

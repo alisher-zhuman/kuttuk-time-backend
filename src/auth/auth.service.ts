@@ -7,6 +7,7 @@ import { User } from "../users/entities/user.entity";
 import { Merchant } from "../merchants/entities/merchant.entity";
 import type { Language } from "@/common/translations";
 import { botToken } from "@/telegram/bot-token";
+import { TelegramOidcVerifier } from "./telegram-oidc.verifier";
 
 // Telegram doesn't refresh initData while the Mini App stays open, and the
 // frontend re-logs-in with the same string on 401 - so this must outlast a
@@ -32,6 +33,7 @@ export class AuthService implements OnModuleInit {
     @InjectRepository(Merchant)
     private readonly merchantRepository: Repository<Merchant>,
     private readonly jwtService: JwtService,
+    private readonly telegramOidc: TelegramOidcVerifier,
   ) {}
 
   // Doesn't stop the app (public routes and the Finik webhook keep working) - log-in just
@@ -62,6 +64,21 @@ export class AuthService implements OnModuleInit {
     language: Language | null = null,
   ): Promise<{ accessToken: string; role: string; merged: boolean }> {
     const { telegramId, firstName } = this.verifyWidgetData(authData);
+    const signed = await this.signIn(telegramId, firstName, language);
+    const merged = guestToken ? await this.mergeGuest(guestToken, telegramId) : false;
+
+    return { ...signed, merged };
+  }
+
+  // «Log In With Telegram» (OIDC, the current website login - docs/web-version.md): the id_token
+  // from Telegram.Login, verified against Telegram's keys. Otherwise the same as widgetLogIn:
+  // the same account as in the Mini App, and the guest's purchases move over.
+  async oidcLogIn(
+    idToken: string,
+    guestToken?: string,
+    language: Language | null = null,
+  ): Promise<{ accessToken: string; role: string; merged: boolean }> {
+    const { telegramId, firstName } = await this.telegramOidc.verify(idToken);
     const signed = await this.signIn(telegramId, firstName, language);
     const merged = guestToken ? await this.mergeGuest(guestToken, telegramId) : false;
 
