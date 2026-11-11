@@ -49,6 +49,78 @@ export class AuthService implements OnModuleInit {
   ): Promise<{ accessToken: string; role: string }> {
     const { telegramId, firstName } = this.verifyInitData(initData);
 
+    return this.signIn(telegramId, firstName, language);
+  }
+
+  // «Войти через Telegram» on the website (docs/web-version.md, stage 3): the official Telegram
+  // Login Widget's signed data. With the browser's guestToken, the guest's purchases (orders,
+  // certificates, gift links) move to the Telegram account and the guest is removed - one
+  // transaction. A wrong / unknown guestToken just logs in without moving anything.
+  async widgetLogIn(
+    authData: Record<string, unknown>,
+    guestToken?: string,
+    language: Language | null = null,
+  ): Promise<{ accessToken: string; role: string; merged: boolean }> {
+    const { telegramId, firstName } = this.verifyWidgetData(authData);
+    const signed = await this.signIn(telegramId, firstName, language);
+    const merged = guestToken ? await this.mergeGuest(guestToken, telegramId) : false;
+
+    return { ...signed, merged };
+  }
+
+  // The guest's rows → the Telegram user's. Every FK to users a buyer can have: orders.userId,
+  // certificates.ownerUserId, certificate_gifts.fromUserId / claimedByUserId (payouts.paidBy is
+  // an admin's). The guest row is locked first, so a double call moves things once.
+  private async mergeGuest(guestToken: string, telegramId: number): Promise<boolean> {
+    if (!GUEST_TOKEN.test(guestToken)) {
+      return false;
+    }
+
+    return this.userRepository.manager.transaction(async (em) => {
+      const [guest]: Array<{ id: number }> = await em.query(
+        `SELECT "id" FROM "users" WHERE "guestTokenHash" = $1 FOR UPDATE`,
+        [hashGuestToken(guestToken)],
+      );
+      const [target]: Array<{ id: number }> = await em.query(
+        `SELECT "id" FROM "users" WHERE "telegramId" = $1`,
+        [telegramId],
+      );
+
+      if (!guest || !target) {
+        return false;
+      }
+
+      // Sequential on purpose - one transaction's connection (CLAUDE.md, review rules).
+      await em.query(`UPDATE "orders" SET "userId" = $2 WHERE "userId" = $1`, [
+        guest.id,
+        target.id,
+      ]);
+      await em.query(`UPDATE "certificates" SET "ownerUserId" = $2 WHERE "ownerUserId" = $1`, [
+        guest.id,
+        target.id,
+      ]);
+      await em.query(`UPDATE "certificate_gifts" SET "fromUserId" = $2 WHERE "fromUserId" = $1`, [
+        guest.id,
+        target.id,
+      ]);
+      await em.query(
+        `UPDATE "certificate_gifts" SET "claimedByUserId" = $2 WHERE "claimedByUserId" = $1`,
+        [guest.id, target.id],
+      );
+      await em.query(`DELETE FROM "users" WHERE "id" = $1`, [guest.id]);
+
+      this.logger.log(`Guest ${guest.id} merged into user ${target.id}`);
+
+      return true;
+    });
+  }
+
+  // Find or create the Telegram user, keep the role in step with merchants, issue the JWT.
+  private async signIn(
+    telegramId: number,
+    firstName: string | null,
+    language: Language | null,
+  ): Promise<{ accessToken: string; role: string }> {
     let user = await this.userRepository.findOne({ where: { telegramId } });
 
     // Any status: a merchant's owner gets / keeps the role whether the merchant is active or not
@@ -145,6 +217,61 @@ export class AuthService implements OnModuleInit {
     });
 
     return { accessToken, role: user.role, guestToken: token };
+  }
+
+  // The Telegram Login Widget (https://core.telegram.org/widgets/login#checking-authorization):
+  // data-check-string = every field but `hash`, "key=value" sorted by key, joined with "\n";
+  // secret = SHA-256(BOT_TOKEN) - not HMAC("WebAppData", …) like the Mini App's initData.
+  private verifyWidgetData(data: Record<string, unknown>): {
+    telegramId: number;
+    firstName: string | null;
+  } {
+    const token = botToken();
+
+    if (!token) {
+      this.logger.error("Log-in refused: BOT_TOKEN is not set");
+
+      throw new UnauthorizedException("Log-in is unavailable");
+    }
+
+    const { hash, ...fields } = data;
+
+    if (typeof hash !== "string" || !/^[0-9a-f]{64}$/.test(hash)) {
+      throw new UnauthorizedException("Missing hash");
+    }
+
+    const dataCheckString = Object.keys(fields)
+      .sort()
+      .map((key) => `${key}=${String(fields[key])}`)
+      .join("\n");
+    const secretKey = createHash("sha256").update(token).digest();
+    const computed = createHmac("sha256", secretKey).update(dataCheckString).digest();
+    const received = Buffer.from(hash, "hex");
+
+    if (received.length !== computed.length || !timingSafeEqual(received, computed)) {
+      throw new UnauthorizedException("Invalid signature");
+    }
+
+    const authDate = Number(fields.auth_date);
+    const ageSec = Math.floor(Date.now() / 1000) - authDate;
+
+    if (
+      !Number.isInteger(authDate) ||
+      ageSec > INIT_DATA_MAX_AGE_SEC ||
+      ageSec < -INIT_DATA_MAX_FUTURE_SKEW_SEC
+    ) {
+      throw new UnauthorizedException("Log-in data expired");
+    }
+
+    const telegramId = Number(fields.id);
+
+    if (!Number.isSafeInteger(telegramId) || telegramId <= 0) {
+      throw new UnauthorizedException("Malformed id");
+    }
+
+    const firstName = typeof fields.first_name === "string" ? fields.first_name.trim() : "";
+
+    return { telegramId, firstName: firstName ? firstName.slice(0, FIRST_NAME_MAX) : null };
   }
 
   private verifyInitData(initData: string): { telegramId: number; firstName: string | null } {

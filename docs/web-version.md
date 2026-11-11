@@ -20,7 +20,7 @@
 - Возврат с Финика на сайт: `RedirectUrl` = `/api/payments/return/<id>/web` → 302 на `<сайт>/orders/<id>` (Финик дописывает `?…` к любой ссылке - поэтому признак в пути, а не в query). Какой возврат - по каналу заказа (`orders.channel`: `telegram` / `web`).
 - «Подарить» на сайте: `POST /api/certificates/:id/gift-link` → ссылка `<сайт>/gift/<token>` (та же таблица `certificate_gifts`; новая ссылка заменяет прежнюю незабранную). Фронт открывает меню «Поделиться» телефона (WhatsApp, Instagram, SMS…).
 
-### 3. Бэк: «Войти через Telegram» на сайте
+### 3. Бэк: «Войти через Telegram» на сайте - **сделано 2026-11-11** (`POST /api/auth/telegram-widget`, тесты `telegram-widget-login.int-spec.ts`; пользователю: BotFather → `/setdomain` → адрес сайта на Vercel)
 - `POST /api/auth/telegram-widget` - проверка подписи виджета (ключ = SHA-256 от `BOT_TOKEN`, не как у мини-аппа), `request_access=write` - бот сможет писать.
 - Если запрос пришёл от гостя - его заказы, сертификаты и подарки переезжают к Telegram-аккаунту (одна транзакция), гость удаляется.
 
