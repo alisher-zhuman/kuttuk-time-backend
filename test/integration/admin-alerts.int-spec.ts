@@ -166,7 +166,17 @@ describe("admin alerts and health (integration)", () => {
     ]);
   });
 
-  it("GET /api/health → 200 without a token", async () => {
-    expect((await http().get("/api/health").expect(200)).body).toEqual({ status: "ok" });
+  it("GET /api/health → 200 without a token, never touching the database; /health/db does", async () => {
+    const query = jest.spyOn(t.ds, "query");
+
+    try {
+      expect((await http().get("/api/health").expect(200)).body).toEqual({ status: "ok" });
+      expect(query).not.toHaveBeenCalled();
+
+      expect((await http().get("/api/health/db").expect(200)).body).toEqual({ status: "ok" });
+      expect(query).toHaveBeenCalledWith("SELECT 1");
+    } finally {
+      query.mockRestore();
+    }
   });
 });
