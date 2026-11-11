@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -9,6 +10,8 @@ import {
 // The business account of a venue owner: login role, cabinet, deactivation, payouts.
 // The storefront data (name shown to buyers, logo, nominals, slug…) lives on its venues.
 @Entity("merchants")
+@Check("merchants_payout_details_not_blank", `btrim("payoutDetails") <> ''`)
+@Check("merchants_contact_not_blank", `btrim("contact") <> ''`)
 export class Merchant {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -35,13 +38,13 @@ export class Merchant {
   @Column({ default: true })
   isActive!: boolean;
 
-  // Admin only: where to transfer the payout (card / account, free text), and how to reach the
-  // owner (phone, name). Never shown to the owner or buyers.
-  @Column({ type: "text", nullable: true })
-  payoutDetails!: string | null;
+  // Admin only, required since 2026-11-11: where to transfer the payout (card / account, free
+  // text), and how to reach the owner (phone, name). Never shown to the owner or buyers.
+  @Column({ type: "text" })
+  payoutDetails!: string;
 
-  @Column({ type: "text", nullable: true })
-  contact!: string | null;
+  @Column({ type: "text" })
+  contact!: string;
 
   @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;

@@ -205,7 +205,7 @@ describe("venues & merchants API (integration)", () => {
 
     it("merchants: create, detail with venues, update; telegramId is unique", async () => {
       const created = await as(admin, http().post("/api/admin/merchants"))
-        .send({ name: "Chain", telegramId: 8_300_000_001 })
+        .send({ name: "Chain", telegramId: 8_300_000_001, payoutDetails: "Mbank", contact: "+996" })
         .expect(201);
 
       expect(created.body).toMatchObject({
@@ -215,7 +215,7 @@ describe("venues & merchants API (integration)", () => {
       });
 
       await as(admin, http().post("/api/admin/merchants"))
-        .send({ name: "Dup", telegramId: 8_300_000_001 })
+        .send({ name: "Dup", telegramId: 8_300_000_001, payoutDetails: "Mbank", contact: "+996" })
         .expect(409);
 
       const updated = await as(admin, http().patch(`/api/admin/merchants/${created.body.id}`))

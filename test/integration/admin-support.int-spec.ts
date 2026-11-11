@@ -30,19 +30,26 @@ describe("admin support (integration)", () => {
   });
 
   describe("merchants: payout details, contact, the owner's state", () => {
-    it("a new merchant: notes saved (trimmed), the owner never seen", async () => {
+    it("a new merchant: notes required (trimmed), the owner never seen", async () => {
+      const body = { name: "Coffeeroom", telegramId: 123456 };
+
+      for (const notes of [
+        {},
+        { payoutDetails: "Mbank" },
+        { payoutDetails: "Mbank", contact: " " },
+      ]) {
+        await as(http().post("/api/admin/merchants"))
+          .send({ ...body, ...notes })
+          .expect(400);
+      }
+
       const res = await as(http().post("/api/admin/merchants"))
-        .send({
-          name: "Coffeeroom",
-          telegramId: 123456,
-          payoutDetails: " Mbank 0555 ",
-          contact: "",
-        })
+        .send({ ...body, payoutDetails: " Mbank 0555 ", contact: " +996 555 " })
         .expect(201);
 
       expect(res.body).toMatchObject({
         payoutDetails: "Mbank 0555",
-        contact: null,
+        contact: "+996 555",
         owner: { lastSeenAt: null, botReachable: null },
       });
     });
@@ -64,7 +71,7 @@ describe("admin support (integration)", () => {
       }
     });
 
-    it("PATCH sets and clears the notes; the owner's own cabinet never shows them", async () => {
+    it("PATCH changes the notes, never clears them; the owner's own cabinet never shows them", async () => {
       const owner = await createUser(t.ds, { role: "merchant" });
       const merchant = await createMerchant(t.ds, { telegramId: owner.telegramId });
       const patch = (body: object) =>
@@ -74,11 +81,13 @@ describe("admin support (integration)", () => {
         (await patch({ payoutDetails: "Optima 4169", contact: "+996 555 1" }).expect(200)).body,
       ).toMatchObject({ payoutDetails: "Optima 4169", contact: "+996 555 1" });
       expect((await patch({ name: "Renamed" }).expect(200)).body.payoutDetails).toBe("Optima 4169");
-      expect((await patch({ payoutDetails: null, contact: " " }).expect(200)).body).toMatchObject({
-        payoutDetails: null,
-        contact: null,
-      });
-      await patch({ contact: "x".repeat(501) }).expect(400);
+      for (const body of [
+        { payoutDetails: null },
+        { contact: " " },
+        { contact: "x".repeat(501) },
+      ]) {
+        await patch(body).expect(400);
+      }
 
       await patch({ payoutDetails: "Optima 4169" }).expect(200);
       const own = (await as(http().get("/api/merchants/me"), owner).expect(200)).body;

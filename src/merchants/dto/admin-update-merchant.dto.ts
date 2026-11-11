@@ -1,5 +1,5 @@
 import {
-  IsOptional,
+  Matches,
   MaxLength,
   IsBoolean,
   IsInt,
@@ -36,23 +36,25 @@ export class AdminUpdateMerchantDto {
 
   @ApiProperty({
     example: "Мбанк 0555 123 456, Айбек Т.",
-    description: "Admin only: where to transfer the payout. null or empty clears it",
+    description:
+      "Admin only, may be omitted, never cleared: where to transfer the payout, ≤ 500 chars, not blank",
     required: false,
-    nullable: true,
   })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString()
+  @Matches(/\S/, { message: "payoutDetails must not be blank" })
   @MaxLength(500)
-  payoutDetails?: string | null;
+  payoutDetails?: string;
 
   @ApiProperty({
     example: "+996 555 123 456, Айбек",
-    description: "Admin only: how to reach the owner. null or empty clears it",
+    description:
+      "Admin only, may be omitted, never cleared: how to reach the owner, ≤ 500 chars, not blank",
     required: false,
-    nullable: true,
   })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsString()
+  @Matches(/\S/, { message: "contact must not be blank" })
   @MaxLength(500)
-  contact?: string | null;
+  contact?: string;
 }

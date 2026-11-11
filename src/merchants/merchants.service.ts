@@ -7,7 +7,6 @@ import { User } from "@/users/entities/user.entity";
 import { CreateMerchantDto } from "./dto/create-merchant.dto";
 import { AdminUpdateMerchantDto } from "./dto/admin-update-merchant.dto";
 import { UpdateVenueDto } from "@/venues/dto/update-venue.dto";
-import { blankToNull } from "@/common/utils/blank-to-null";
 import { definedFields } from "@/common/utils/defined-fields";
 import { VenuesService, type VenueDetail } from "@/venues/venues.service";
 
@@ -84,8 +83,8 @@ export class MerchantsService {
     const saved = await this.merchantRepo.save(
       this.merchantRepo.create({
         ...dto,
-        payoutDetails: blankToNull(dto.payoutDetails) ?? null,
-        contact: blankToNull(dto.contact) ?? null,
+        payoutDetails: dto.payoutDetails.trim(),
+        contact: dto.contact.trim(),
       }),
     );
 
@@ -101,9 +100,10 @@ export class MerchantsService {
 
     Object.assign(merchant, definedFields(dto));
 
+    // Stored trimmed (the DTO already refuses blank ones).
     for (const key of ["payoutDetails", "contact"] as const) {
       if (dto[key] !== undefined) {
-        merchant[key] = blankToNull(dto[key]) ?? null;
+        merchant[key] = dto[key].trim();
       }
     }
 

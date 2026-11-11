@@ -50,7 +50,7 @@ describe("venues/categories integrity - DB constraints (integration)", () => {
   beforeEach(async () => {
     await truncateAll(ds);
     [{ id: merchantId }] = await ds.query(
-      `INSERT INTO merchants (name, "telegramId") VALUES ('Raw', 9000000001) RETURNING id`,
+      `INSERT INTO merchants (name, "telegramId", "payoutDetails", contact) VALUES ('Raw', 9000000001, 'Mbank', '+996') RETURNING id`,
     );
   });
 

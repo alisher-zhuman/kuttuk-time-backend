@@ -25,6 +25,8 @@ export const createMerchant = (
     name: `Test Merchant ${n}`,
     telegramId: 8_000_000_000 + n,
     isActive: true,
+    payoutDetails: "Мбанк 0555 000 000",
+    contact: "+996 555 000 000",
     ...overrides,
   });
 };

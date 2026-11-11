@@ -1,4 +1,4 @@
-import { IsOptional, MaxLength, IsInt, IsNotEmpty, IsPositive, IsString } from "class-validator";
+import { MaxLength, Matches, IsInt, IsNotEmpty, IsPositive, IsString } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 export class CreateMerchantDto {
@@ -17,23 +17,21 @@ export class CreateMerchantDto {
 
   @ApiProperty({
     example: "Мбанк 0555 123 456, Айбек Т.",
-    description: "Admin only: where to transfer the payout. null or empty clears it",
-    required: false,
-    nullable: true,
+    description: "Admin only, required: where to transfer the payout, ≤ 500 chars, not blank",
+    required: true,
   })
-  @IsOptional()
   @IsString()
+  @Matches(/\S/, { message: "payoutDetails must not be blank" })
   @MaxLength(500)
-  payoutDetails?: string | null;
+  payoutDetails!: string;
 
   @ApiProperty({
     example: "+996 555 123 456, Айбек",
-    description: "Admin only: how to reach the owner. null or empty clears it",
-    required: false,
-    nullable: true,
+    description: "Admin only, required: how to reach the owner, ≤ 500 chars, not blank",
+    required: true,
   })
-  @IsOptional()
   @IsString()
+  @Matches(/\S/, { message: "contact must not be blank" })
   @MaxLength(500)
-  contact?: string | null;
+  contact!: string;
 }
