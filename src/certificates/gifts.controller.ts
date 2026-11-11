@@ -2,6 +2,7 @@ import { Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiConflictResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -10,6 +11,7 @@ import {
 
 import { GiftsService } from "./gifts.service";
 import { GetUser } from "@/auth/get-user.decorator";
+import { requireTelegram } from "@/auth/require-telegram";
 import { CurrentUser } from "@/auth/interfaces/current-user.interface";
 
 // The token is the part after gift_ in startapp; a malformed one is just "not found".
@@ -50,7 +52,12 @@ export class GiftsController {
   })
   @ApiNotFoundResponse({ description: "Unknown link, or replaced by a newer card" })
   @ApiConflictResponse({ description: "error: own | already_claimed | already_used | expired" })
+  @ApiForbiddenResponse({
+    description: "A website guest - error: telegram_required (log in first)",
+  })
   claim(@Param("token") token: string, @GetUser() user: CurrentUser) {
+    requireTelegram(user);
+
     return this.gifts.claim(user.userId, token);
   }
 }

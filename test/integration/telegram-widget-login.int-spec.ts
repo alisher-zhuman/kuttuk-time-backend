@@ -5,7 +5,7 @@ import { Certificate } from "../../src/certificates/entities/certificate.entity"
 import { Order } from "../../src/orders/entities/order.entity";
 import { User } from "../../src/users/entities/user.entity";
 import { createTestApp, type TestApp } from "../helpers/app";
-import { createMerchant, createVenue } from "../helpers/factories";
+import { createMerchant, createOrder, createVenue } from "../helpers/factories";
 import { finikWebhookBody, signWebhook, WEBHOOK_PATH } from "../helpers/finik-webhook";
 
 // An independent signer for the Telegram Login Widget
@@ -85,15 +85,17 @@ describe("POST /api/auth/telegram-widget (integration)", () => {
   });
 
   it("with the guest's token: their order, certificate and gift link move over; the guest is gone", async () => {
+    // A guest's purchase from before 11.11 (guests can't buy any more) - made in the DB.
     const guest = (await http().post("/api/auth/guest").send({}).expect(200)).body;
+    const [{ id: guestId }] = await t.ds.query(
+      `SELECT "id" FROM "users" WHERE "telegramId" IS NULL ORDER BY "id" DESC LIMIT 1`,
+    );
     const venue = await createVenue(t.ds, { nominals: [1000] });
-    const { orderId } = (
-      await http()
-        .post("/api/orders")
-        .auth(guest.accessToken, { type: "bearer" })
-        .send({ venueId: venue.id, nominal: 1000, channel: "web" })
-        .expect(201)
-    ).body;
+    const { id: orderId } = await createOrder(t.ds, {
+      userId: guestId,
+      venueId: venue.id,
+      amount: 1000,
+    });
     const body = finikWebhookBody({ id: orderId, amount: 1000 });
 
     await http().post(WEBHOOK_PATH).set(signWebhook(body)).send(body).expect(200);

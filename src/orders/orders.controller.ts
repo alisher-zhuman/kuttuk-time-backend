@@ -4,6 +4,7 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -15,6 +16,7 @@ import { Throttle } from "@nestjs/throttler";
 import { OrdersService } from "./orders.service";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { GetUser } from "@/auth/get-user.decorator";
+import { requireTelegram } from "@/auth/require-telegram";
 import { CurrentUser } from "@/auth/interfaces/current-user.interface";
 import { toLanguage } from "@/common/translations";
 
@@ -42,6 +44,9 @@ export class OrdersController {
     },
   })
   @ApiBadRequestResponse({ description: "Venue unavailable or nominal not offered" })
+  @ApiForbiddenResponse({
+    description: "A website guest - error: telegram_required (log in first)",
+  })
   @ApiBadGatewayResponse({ description: "Payment provider failed; the order is expired" })
   @ApiTooManyRequestsResponse({ description: "Too many order attempts" })
   create(
@@ -49,6 +54,8 @@ export class OrdersController {
     @GetUser() user: CurrentUser,
     @Headers("accept-language") acceptLanguage?: string,
   ) {
+    requireTelegram(user);
+
     return this.ordersService.create(user.userId, dto, toLanguage(acceptLanguage));
   }
 

@@ -1,7 +1,7 @@
 import request from "supertest";
 
 import { Certificate } from "../../src/certificates/entities/certificate.entity";
-import { createTestApp, type TestApp } from "../helpers/app";
+import { createTestApp, waitFor, type TestApp } from "../helpers/app";
 import { createUser, createVenue } from "../helpers/factories";
 import { finikWebhookBody, signWebhook, WEBHOOK_PATH } from "../helpers/finik-webhook";
 
@@ -30,8 +30,10 @@ describe("website: payment return and gift links (integration)", () => {
   });
 
   // A guest buys on the website; the certificate is issued by the webhook.
+  // Since 11.11 buying on the website needs «Войти через Telegram» - a Telegram user buys.
   const buyOnWebsite = async () => {
-    const { accessToken } = await asGuest();
+    const buyer = await createUser(t.ds, { language: "ru" });
+    const accessToken = t.tokenFor(buyer);
     const venue = await createVenue(t.ds, { nominals: [1000] });
     const { orderId } = (
       await http()
@@ -44,7 +46,7 @@ describe("website: payment return and gift links (integration)", () => {
 
     await http().post(WEBHOOK_PATH).set(signWebhook(body)).send(body).expect(200);
 
-    return { accessToken, orderId };
+    return { accessToken, orderId, buyer };
   };
 
   describe("after paying", () => {
@@ -94,8 +96,8 @@ describe("website: payment return and gift links (integration)", () => {
   });
 
   describe("POST /api/certificates/:id/gift-link", () => {
-    it("a guest shares a link; a friend opens it on the website and claims the gift", async () => {
-      const { accessToken } = await buyOnWebsite();
+    it("the buyer shares a link; a guest friend sees the gift, claims it after logging in", async () => {
+      const { accessToken, buyer } = await buyOnWebsite();
       const [cert] = await t.ds.getRepository(Certificate).find();
 
       const { url } = (
@@ -108,7 +110,19 @@ describe("website: payment return and gift links (integration)", () => {
       expect(url).toMatch(new RegExp(`^${SITE}/gift/[A-Za-z0-9_-]{22}$`));
 
       const token = url.split("/gift/")[1];
-      const friend = await asGuest();
+      const visitor = await asGuest();
+
+      // Not logged in yet: sees the gift, can't claim it.
+      await http()
+        .get(`/api/gifts/${token}`)
+        .auth(visitor.accessToken, { type: "bearer" })
+        .expect(200);
+      await http()
+        .post(`/api/gifts/${token}/claim`)
+        .auth(visitor.accessToken, { type: "bearer" })
+        .expect(403);
+
+      const friend = { accessToken: t.tokenFor(await createUser(t.ds)) };
 
       expect(
         (
@@ -131,8 +145,10 @@ describe("website: payment return and gift links (integration)", () => {
       ).body;
 
       expect(friendsList.map((c: { id: string }) => c.id)).toEqual([cert.id]);
-      // The giver is a guest - no Telegram chat, so no «подарок забрали» message.
-      expect(t.bot.sent.some((m) => m.html.includes("подарок забрали"))).toBe(false);
+      await waitFor(() => t.bot.sent.some((m) => m.html.includes("подарок забрали")));
+      expect(t.bot.sent.find((m) => m.html.includes("подарок забрали"))?.chatId).toBe(
+        buyer.telegramId,
+      );
     });
 
     it("a new link replaces the previous unclaimed one", async () => {

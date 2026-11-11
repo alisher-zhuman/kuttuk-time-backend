@@ -6,7 +6,7 @@ import { RedemptionNotifier } from "../../src/certificates/redemption-notifier";
 import { CertificateStatus } from "../../src/certificates/entities/certificate.entity";
 import { User } from "../../src/users/entities/user.entity";
 import { createTestApp, waitFor, type TestApp } from "../helpers/app";
-import { createMerchant, createUser, createVenue } from "../helpers/factories";
+import { createMerchant, createOrder, createUser, createVenue } from "../helpers/factories";
 import { finikWebhookBody, signWebhook, WEBHOOK_PATH } from "../helpers/finik-webhook";
 
 // Website guests (docs/web-version.md, stage 1): a buyer without Telegram, logged in by a secret
@@ -74,22 +74,48 @@ describe("website guests (integration)", () => {
     });
   });
 
-  describe("a guest buys", () => {
+  it("since 11.11 a guest only browses: buying and claiming a gift → 403 telegram_required", async () => {
+    const { accessToken } = (await guest().expect(200)).body;
+    const venue = await createVenue(t.ds, { nominals: [1000] });
+
+    await http().get("/api/venues").auth(accessToken, { type: "bearer" }).expect(200);
+    expect(
+      (
+        await http()
+          .post("/api/orders")
+          .auth(accessToken, { type: "bearer" })
+          .send({ venueId: venue.id, nominal: 1000, channel: "web" })
+          .expect(403)
+      ).body,
+    ).toMatchObject({ error: "telegram_required" });
+    expect(
+      (
+        await http()
+          .post(`/api/gifts/${"A".repeat(22)}/claim`)
+          .auth(accessToken, { type: "bearer" })
+          .expect(403)
+      ).body,
+    ).toMatchObject({ error: "telegram_required" });
+  });
+
+  // Guests could buy until 11.11 - their certificates still work the same way.
+  describe("a guest's earlier purchase", () => {
     const buy = async () => {
       const { accessToken } = (await guest().expect(200)).body;
+      const [{ id: guestId }] = await t.ds.query(
+        `SELECT "id" FROM "users" WHERE "telegramId" IS NULL ORDER BY "id" DESC LIMIT 1`,
+      );
       const owner = await createUser(t.ds, { role: "merchant" });
       const venue = await createVenue(t.ds, {
         name: "Coffee Shop",
         nominals: [1000],
         merchantId: (await createMerchant(t.ds, { telegramId: owner.telegramId })).id,
       });
-      const { orderId } = (
-        await http()
-          .post("/api/orders")
-          .auth(accessToken, { type: "bearer" })
-          .send({ venueId: venue.id, nominal: 1000 })
-          .expect(201)
-      ).body;
+      const { id: orderId } = await createOrder(t.ds, {
+        userId: guestId,
+        venueId: venue.id,
+        amount: 1000,
+      });
       const body = finikWebhookBody({ id: orderId, amount: 1000 });
 
       await http().post(WEBHOOK_PATH).set(signWebhook(body)).send(body).expect(200);
