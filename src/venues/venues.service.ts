@@ -7,6 +7,7 @@ import { CreateVenueDto } from "./dto/create-venue.dto";
 import { UpdateVenueDto } from "./dto/update-venue.dto";
 import { AdminUpdateVenueDto } from "./dto/admin-update-venue.dto";
 import { Merchant } from "@/merchants/entities/merchant.entity";
+import { Category } from "@/categories/entities/category.entity";
 import { CloudinaryService } from "@/cloudinary/cloudinary.service";
 import { resolveTranslation } from "@/common/utils/resolve-translation";
 import { isDbId } from "@/common/pipes/parse-id.pipe";
@@ -43,6 +44,24 @@ const DETAIL_COLUMNS = [
   "isActive",
   "createdAt",
 ] as const;
+
+export type PublicCatalog = {
+  venues: Pick<
+    Venue,
+    | "id"
+    | "slug"
+    | "name"
+    | "description"
+    | "logo"
+    | "categories"
+    | "nominals"
+    | "validityMonths"
+    | "address"
+    | "mapUrl"
+    | "updatedAt"
+  >[];
+  categories: Pick<Category, "id" | "name" | "order">[];
+};
 
 // address / mapUrl are stored trimmed (the DTOs already refuse blank ones).
 const withPlace = <T extends { address?: string; mapUrl?: string }>(dto: T): T => ({
@@ -147,6 +166,31 @@ export class VenuesService {
       validityMonths: venue.validityMonths,
       address: venue.address,
       mapUrl: venue.mapUrl,
+    };
+  }
+
+  // GET /api/public/catalog - every visible venue and every category, all languages.
+  async publicCatalog(): Promise<PublicCatalog> {
+    const venues = await this.visible().orderBy("venue.id", "ASC").getMany();
+    const categories = await this.venueRepo.manager
+      .getRepository(Category)
+      .find({ order: { order: "ASC", id: "ASC" } });
+
+    return {
+      venues: venues.map((v) => ({
+        id: v.id,
+        slug: v.slug,
+        name: v.name,
+        description: v.description,
+        logo: v.logo,
+        categories: v.categories,
+        nominals: [...v.nominals].sort((a, b) => a - b),
+        validityMonths: v.validityMonths,
+        address: v.address,
+        mapUrl: v.mapUrl,
+        updatedAt: v.updatedAt,
+      })),
+      categories: categories.map(({ id, name, order }) => ({ id, name, order })),
     };
   }
 
