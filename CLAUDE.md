@@ -104,7 +104,7 @@ Our net revenue:        +80 KGS (~8% net)
 
 - `npm run start:dev` - dev server with watch (`:3000`, Swagger at `/api`)
 - `npm run build` / `npm run start:prod` - what the Dockerfile runs
-- `npm run typecheck` · `npm run lint` (with `--fix`) · `npm run lint:check` (no fix, used by CI) · `npm run format` - lefthook runs typecheck + lint on **pre-push**
+- `npm run typecheck` · `npm run lint` (with `--fix`) · `npm run lint:check` (no fix, used by CI) · `npm run format` - lefthook runs typecheck + lint on **pre-push**. **ESLint 10, flat config** `eslint.config.mjs` (since 2026-11-12; `.eslintrc` is gone in ESLint 10): `defineConfig` + `@eslint/js` recommended + `typescript-eslint` recommended, as typescript-eslint's getting-started page shows, plus `no-explicit-any`, `no-unused-vars` (`_` args), `curly: all`
 - `npm test` · `npm run test:int` (needs Docker) · `npm run test:all` - see **Testing**
 - `npm run migration:generate | migration:run | migration:revert | migration:show` - TypeORM CLI (see **Migrations**)
 - `npm run finik:smoke` - manual: creates a real 1 KGS Finik payment from `.env` and prints the URL. Not for CI

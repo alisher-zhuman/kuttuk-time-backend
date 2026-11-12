@@ -134,7 +134,7 @@ QR живёт 30 минут - это наше решение (`endDate`), не F
 5. Фронт: шаг 1 - мелкие обновления + Playwright 1.65 + CI на `ubuntu-latest` («го» дан 11.11, ждём отчёт).
 6. **Node 26** (Active LTS) - бэк и фронт вместе: Docker, CI, `.nvmrc`, локально.
 7. **TypeORM 0.3 → 1.1 - на проде 12.11** (`f452fc0`, бэкап `prod-20261112-0950-before-typeorm-1.dump`): кодмод - одна правка (`select`), схема без изменений, тесты 181 / 478, запуск как на проде на `kuttuktime_prodshape`, `report:payouts`, `npm audit` прода - 0.
-8. Бэк: ESLint 10 (flat config), supertest 7, class-validator 0.15, reflect-metadata 0.2. Фронт: vitest 5 + jsdom 31 + msw 3, react-router 8, i18next 27 / react-i18next 18, мелкие мажоры.
+8. Бэк - **сделано 12.11:** ESLint 10 (flat config `eslint.config.mjs`), supertest 7, class-validator 0.15, reflect-metadata 0.2, `@types/passport-jwt` 4 (нашёл: `JWT_SECRET` мог быть пустым - теперь `getOrThrow`, без него приложение не стартует). Фронт: vitest 5 + jsdom 31 + msw 3, react-router 8, i18next 27 / react-i18next 18, мелкие мажоры.
 9. Ждут: **TypeScript 7** (до 7.1 и поддержки typescript-eslint), **tma.js SDK v4** (пока RC).
 
 **P3 - рост**
