@@ -16,6 +16,7 @@ import { JwtGuard } from "./auth/jwt.guard";
 import { UserThrottlerGuard } from "./auth/user-throttler.guard";
 import { buildTypeOrmOptions } from "./database/typeorm.options";
 import { HealthController } from "./health.controller";
+import { SiteModule } from "./site/site.module";
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { HealthController } from "./health.controller";
       useFactory: (config: ConfigService) => buildTypeOrmOptions((key) => config.get<string>(key)),
       inject: [ConfigService],
     }),
+    SiteModule,
     AuthModule,
     MerchantsModule,
     VenuesModule,

@@ -7,6 +7,7 @@ import { Venue } from "@/venues/entities/venue.entity";
 import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { ReorderCategoriesDto } from "./dto/reorder-categories.dto";
+import { SiteRebuildService } from "@/site/site-rebuild.service";
 import { resolveTranslation } from "@/common/utils/resolve-translation";
 
 @Injectable()
@@ -18,6 +19,7 @@ export class CategoriesService {
     private readonly categoryRepo: Repository<Category>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    private readonly siteRebuild: SiteRebuildService,
   ) {}
 
   async findAll(lang: string): Promise<{ id: number; name: string; order: number }[]> {
@@ -39,6 +41,7 @@ export class CategoriesService {
     const category = this.categoryRepo.create({ ...dto, order });
     const saved = await this.categoryRepo.save(category);
     this.logger.log(`Category created: id=${saved.id}`);
+    this.siteRebuild.request("categories");
     return saved;
   }
 
@@ -47,6 +50,7 @@ export class CategoriesService {
     category.name = dto.name;
     const saved = await this.categoryRepo.save(category);
     this.logger.log(`Category renamed: id=${id}`);
+    this.siteRebuild.request("categories");
     return saved;
   }
 
@@ -66,6 +70,7 @@ export class CategoriesService {
     });
 
     this.logger.log(`Categories reordered: ${dto.ids.join(",")}`);
+    this.siteRebuild.request("categories");
   }
 
   async remove(id: number): Promise<void> {
@@ -85,6 +90,7 @@ export class CategoriesService {
     });
 
     this.logger.log(`Category deleted: id=${id}, removed from ${affected} venue(s)`);
+    this.siteRebuild.request("categories");
   }
 
   private async nextOrder(): Promise<number> {

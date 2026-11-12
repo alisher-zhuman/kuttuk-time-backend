@@ -8,6 +8,7 @@ import { UpdateVenueDto } from "./dto/update-venue.dto";
 import { AdminUpdateVenueDto } from "./dto/admin-update-venue.dto";
 import { Merchant } from "@/merchants/entities/merchant.entity";
 import { Category } from "@/categories/entities/category.entity";
+import { SiteRebuildService } from "@/site/site-rebuild.service";
 import { CloudinaryService } from "@/cloudinary/cloudinary.service";
 import { resolveTranslation } from "@/common/utils/resolve-translation";
 import { isDbId } from "@/common/pipes/parse-id.pipe";
@@ -81,6 +82,7 @@ export class VenuesService {
     @InjectRepository(Venue) private readonly venueRepo: Repository<Venue>,
     @InjectRepository(Merchant) private readonly merchantRepo: Repository<Merchant>,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly siteRebuild: SiteRebuildService,
   ) {}
 
   // Buyers see a venue only while both it and its merchant are active.
@@ -226,7 +228,11 @@ export class VenuesService {
       throw new NotFoundException("Venue not found");
     }
 
-    return toDetail(await this.applyUpdate(venue, dto));
+    const saved = await this.applyUpdate(venue, dto);
+
+    this.siteRebuild.request(`venue ${venueId}`);
+
+    return toDetail(saved);
   }
 
   async findAllAdmin(filters: {
@@ -282,6 +288,8 @@ export class VenuesService {
       `Venue created: id=${saved.id} merchant=${saved.merchantId} name="${saved.name}"`,
     );
 
+    this.siteRebuild.request(`venue ${saved.id}`);
+
     return { ...toDetail(saved), merchantId: saved.merchantId };
   }
 
@@ -296,6 +304,8 @@ export class VenuesService {
     }
 
     const saved = await this.applyUpdate(venue, dto);
+
+    this.siteRebuild.request(`venue ${id}`);
 
     return { ...toDetail(saved), merchantId: saved.merchantId };
   }

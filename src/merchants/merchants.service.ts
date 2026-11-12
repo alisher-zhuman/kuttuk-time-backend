@@ -18,6 +18,7 @@ type MerchantAccount = Pick<
 > & { owner: { lastSeenAt: Date | null; botReachable: boolean | null } };
 
 const NO_OWNER = { lastSeenAt: null, botReachable: null };
+import { SiteRebuildService } from "@/site/site-rebuild.service";
 
 @Injectable()
 export class MerchantsService {
@@ -27,6 +28,7 @@ export class MerchantsService {
     @InjectRepository(Merchant) private readonly merchantRepo: Repository<Merchant>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly venuesService: VenuesService,
+    private readonly siteRebuild: SiteRebuildService,
   ) {}
 
   async getOwn(
@@ -110,6 +112,11 @@ export class MerchantsService {
     const saved = await this.merchantRepo.save(merchant);
 
     this.logger.log(`Merchant updated: id=${id}`);
+
+    // Hides / shows all of its venues on the website.
+    if (dto.isActive !== undefined) {
+      this.siteRebuild.request(`merchant ${id}`);
+    }
 
     const [account] = await this.toAccounts([saved]);
 

@@ -488,6 +488,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `MINI_APP_URL` | `https://kuttuk-time.vercel.app` | the Mini App's https URL - for the bot's `web_app` menu button (set per chat at `/start`, and by `bot:setup`). Optional for the app (without it the per-chat menu button is skipped); required by `bot:setup` |
 | `WEBSITE_URL` | `https://kuttuktime.kg` | **optional** - the website for buyers (`docs/web-version.md`): the web payment return and gift links (`<site>/orders/<id>`, `<site>/gift/<token>`). Unset → `MINI_APP_URL` (the same app on Vercel); neither → those features are off (503 / the Mini App link). Set it when the own domain is bought |
 | `TELEGRAM_LOGIN_CLIENT_ID` | `8215578063` | **optional** - the Client ID of «Log In With Telegram» (BotFather → Login Widget) = the bot's id; unset → taken from `BOT_TOKEN` (the part before `:`) |
+| `VERCEL_DEPLOY_HOOK_URL` | `https://api.vercel.com/v1/integrations/deploy/prj_…/…` | **optional, a secret** (whoever has it can start builds; never logged) - the website's Vercel Deploy Hook (2026-11-12). The SEO pages are built from `/api/public/catalog`, so a change buyers would see - a venue created / edited (admin or owner), a merchant's `isActive`, a category created / renamed / reordered / deleted - asks for a rebuild: `SiteRebuildService` (`src/site/`) waits **2 min** after the last change (one build per burst; Vercel Hobby: 100 deployments a day), a pending one is sent at shutdown. Best-effort, no retries. Unset → nothing (local, tests). Prod value: `~/.kuttuk/vercel-deploy-hook.env` |
 | `FINIK_REDIRECT_URL` | `https://t.me/kuttuk_time_bot/app` | the Mini App link our return endpoint 302s to, with `?startapp=order_<uuid>` added (see **Payment RedirectUrl**). Not sent to Finik any more |
 
 ### Prod (Koyeb) - current list
@@ -512,6 +513,7 @@ yourapp.com/m/coffeehouse?ref=insta_ali
 | `ALLOWED_ORIGINS` | `http://localhost:5173,https://kuttuk-time.vercel.app` |
 | `FINIK_*` (7 vars) | set - the app doesn't start without them; payments run on prod |
 | `MINI_APP_URL` | **to add** - `https://kuttuk-time.vercel.app` (bot menu button) |
+| `VERCEL_DEPLOY_HOOK_URL` | **to add** (12.11) - from `~/.kuttuk/vercel-deploy-hook.env`; the website rebuild on catalog changes |
 
 > `TG_BOT_USERNAME` and `TG_APP_NAME` were removed - the URL is hardcoded in the slug-redirect middleware in `src/main.ts`
 
