@@ -38,6 +38,7 @@ export class VenuesController {
       example: [
         {
           id: 9,
+          slug: "sierra-coffee",
           name: "Sierra Coffee",
           description: "Лучший кофе в городе",
           logo: "https://res.cloudinary.com/dnx8vxdyf/image/upload/v1/kuttuk-time/abc.webp",

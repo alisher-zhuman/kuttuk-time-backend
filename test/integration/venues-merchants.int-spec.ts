@@ -58,6 +58,7 @@ describe("venues & merchants API (integration)", () => {
       const list = await as(buyer, http().get("/api/venues")).expect(200);
 
       expect(list.body.map((v: { id: number }) => v.id)).toEqual([venue.id]);
+      expect(list.body[0].slug).toBe(venue.slug);
 
       for (const hidden of [hiddenVenue, ofHiddenMerchant]) {
         await as(buyer, http().get(`/api/venues/${hidden.id}`)).expect(404);
@@ -66,6 +67,7 @@ describe("venues & merchants API (integration)", () => {
 
       expect((await as(buyer, http().get(`/api/venues/${venue.slug}`)).expect(200)).body).toEqual({
         id: venue.id,
+        slug: venue.slug,
         name: "Coffee Shop",
         description: "Тест",
         logo: venue.logo,

@@ -97,10 +97,24 @@ export class VenuesService {
     search?: string,
     category?: number,
   ): Promise<
-    { id: number; name: string; description: string; logo: string; minNominal: number }[]
+    {
+      id: number;
+      slug: string;
+      name: string;
+      description: string;
+      logo: string;
+      minNominal: number;
+    }[]
   > {
     const qb = this.visible()
-      .select(["venue.id", "venue.name", "venue.description", "venue.logo", "venue.nominals"])
+      .select([
+        "venue.id",
+        "venue.slug",
+        "venue.name",
+        "venue.description",
+        "venue.logo",
+        "venue.nominals",
+      ])
       .orderBy("venue.id", "ASC");
 
     if (category) {
@@ -119,8 +133,9 @@ export class VenuesService {
 
     const venues = await qb.getMany();
 
-    return venues.map(({ id, name, description, logo, nominals }) => ({
+    return venues.map(({ id, slug, name, description, logo, nominals }) => ({
       id,
+      slug,
       name,
       description: resolveTranslation(description, lang),
       logo,
@@ -133,6 +148,7 @@ export class VenuesService {
     lang: string,
   ): Promise<{
     id: number;
+    slug: string;
     name: string;
     description: string;
     logo: string;
@@ -159,6 +175,7 @@ export class VenuesService {
 
     return {
       id: venue.id,
+      slug: venue.slug,
       name: venue.name,
       description: resolveTranslation(venue.description, lang),
       logo: venue.logo,
