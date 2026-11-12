@@ -51,7 +51,7 @@ export class CategoriesService {
   }
 
   async reorder(dto: ReorderCategoriesDto): Promise<void> {
-    const existing = await this.categoryRepo.find({ select: ["id"] });
+    const existing = await this.categoryRepo.find({ select: { id: true } });
     const existingIds = new Set(existing.map((c) => c.id));
 
     if (dto.ids.length !== existingIds.size || !dto.ids.every((id) => existingIds.has(id))) {

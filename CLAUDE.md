@@ -94,7 +94,7 @@ Our net revenue:        +80 KGS (~8% net)
   - Express 5: the default query parser is `simple` (no nested `a[b]=1`) - fine for us: the Finik webhook's query is flat (signatures verify on prod)
   - `@nestjs/throttler` 6.7 keeps hit counts in a second private map - the test reset clears it too (`test/helpers/app.ts`)
   - `npm audit --omit=dev` → 0 vulnerabilities after the upgrade (was 12: 4 high)
-- **PostgreSQL** via TypeORM 0.3
+- **PostgreSQL** via **TypeORM 1.1** (since 2026-11-12, from 0.3 - the official guide https://typeorm.io/docs/releases/1.0/upgrading-from-0.3/; the codemod `npx @typeorm/codemod v1` changed one string-array `select`; the schema diff stayed «No changes», no migration). **Rule from 1.0:** a `null` / `undefined` value in a find / update / delete **where object** now **throws** (`invalidWhereValuesBehavior`) - use `IsNull()` and never pass a possibly-undefined variable; `.where()` / `.andWhere()` strings are unaffected. String-array `select` / `relations` are gone - object syntax only. `@nestjs/typeorm` 12 supports it. `npm audit --omit=dev` → 0 (the `glob` / `minimatch` advisories were inside TypeORM 0.3)
 - **Passport JWT** - authentication via Telegram initData (HMAC-SHA256)
 - **Cloudinary** - image storage (auto-converts to WebP)
 - **Swagger** - auto-docs at `/api`, **outside production only** (since 2026-10-22)
