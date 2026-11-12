@@ -88,7 +88,7 @@ Our net revenue:        +80 KGS (~8% net)
 
 ## Stack
 
-- **NestJS 12** (since 2026-10-22, from 10) + **TypeScript 6** + **Express 5**, **Node 24** everywhere (Docker `node:24-alpine`, CI, local). Notes from the upgrade:
+- **NestJS 12** (since 2026-10-22, from 10) + **TypeScript 6** + **Express 5**, **Node 26** (Active LTS) everywhere since 2026-11-12 - Docker `node:26-alpine`, CI (`actions/setup-node@v7`, `checkout@v7`), `.nvmrc` = 26; locally via nvm (`nvm use` in the repo; the machine's default stays 24 for other projects). Notes from the upgrade:
   - every `@nestjs/*` v12 package is **ESM-only**; our CJS build loads them via Node's `require(esm)` (needs Node ≥ 20.19 / 22.12 to run). **Jest 30 needs Node ≥ 24.9 and `--experimental-vm-modules`** to `require()` them - the `test*` scripts set `NODE_OPTIONS=--experimental-vm-modules` (hence the "VM Modules is an experimental feature" warning in test output)
   - TypeScript 6 changed defaults: `strict` is on by default - we kept it on (`"strict": true` since the 2026-10-22 review; it cost one test-mock fix); `types` no longer auto-includes every `@types/*` (`"types": ["node", "jest"]`); `baseUrl` is deprecated (paths are `"@/*": ["./src/*"]`); `esModuleInterop` is always on (`import request from "supertest"`, not `import * as`)
   - Express 5: the default query parser is `simple` (no nested `a[b]=1`) - fine for us: the Finik webhook's query is flat (signatures verify on prod)
