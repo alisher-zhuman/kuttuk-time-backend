@@ -130,10 +130,10 @@ QR живёт 30 минут - это наше решение (`endDate`), не F
 3. **Юридическое** (не код, `docs/legal/README.md`): юрист - оферта и политика; вид деятельности ИП (ОКЭД) и налог - бухгалтер / налоговая; договор с заведением; перевод оферты на кыргызский.
 
 **P2 - «только новое стабильное» (по шагам, «го» на каждый)**
-4. Бэк: мелкие обновления - **сделано 12.11** (только `package-lock.json`; тесты 181 / 478, сборка, линт - зелёные; не запушено - уйдёт пачкой с Node 26). `npm audit` прода: 3 moderate в `glob` / `minimatch` внутри TypeORM 0.3 - уходят с TypeORM 1.1 (CI блокирует только critical).
+4. Бэк: мелкие обновления - **на проде 12.11** (`811f5a1`). `npm audit` прода: 3 moderate в `glob` / `minimatch` внутри TypeORM 0.3 - уходят с TypeORM 1.1 (CI блокирует только critical).
 5. Фронт: шаг 1 - мелкие обновления + Playwright 1.65 + CI на `ubuntu-latest` («го» дан 11.11, ждём отчёт).
 6. **Node 26** (Active LTS) - бэк и фронт вместе: Docker, CI, `.nvmrc`, локально.
-7. **TypeORM 0.3 → 1.1 - сделано 12.11** (не запушено, пачкой с мелкими обновлениями): кодмод - одна правка (`select`), схема без изменений, тесты 181 / 478, запуск как на проде на `kuttuktime_prodshape`, `report:payouts`, `npm audit` прода - 0.
+7. **TypeORM 0.3 → 1.1 - на проде 12.11** (`f452fc0`, бэкап `prod-20261112-0950-before-typeorm-1.dump`): кодмод - одна правка (`select`), схема без изменений, тесты 181 / 478, запуск как на проде на `kuttuktime_prodshape`, `report:payouts`, `npm audit` прода - 0.
 8. Бэк: ESLint 10 (flat config), supertest 7, class-validator 0.15, reflect-metadata 0.2. Фронт: vitest 5 + jsdom 31 + msw 3, react-router 8, i18next 27 / react-i18next 18, мелкие мажоры.
 9. Ждут: **TypeScript 7** (до 7.1 и поддержки typescript-eslint), **tma.js SDK v4** (пока RC).
 
