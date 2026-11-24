@@ -12,3 +12,6 @@ node_modules/
 
 # Payout reports (CSV with merchant money) - never commit
 reports/
+
+# Codex reads AGENTS.md; locally it is a symlink to CLAUDE.md, the one source of project rules
+AGENTS.md
